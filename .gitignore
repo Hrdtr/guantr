@@ -1,0 +1,8 @@
+node_modules
+coverage
+dist
+.husky
+.DS_Store
+.eslintcache
+*.log*
+*.env*
