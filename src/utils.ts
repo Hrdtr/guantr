@@ -450,12 +450,18 @@ const matchConditionExpression = ({
       if (
         value !== null &&
         typeof value !== 'undefined' &&
-        (!Array.isArray(value) || value.some(i => i === null || i instanceof Date || typeof i !== 'object'))
+        // Ensure value is array of non-null plain object
+        (!Array.isArray(value) || value.some(i => i === null || typeof i !== 'object' || Array.isArray(i)))
       ) {
         throw new TypeError(`Unexpected resource value type while evaluating condition with some operator. (received: ${typeof value})`)
       }
       // possible operand types: Record<string, ConditionExpression>
-      if (operand === null || operand instanceof Date || typeof operand !== 'object' || Object.values(operand).some(i => !Array.isArray(i) || i.length < 2)) {
+      if (
+        operand === null ||
+        typeof operand !== 'object' ||
+        // Ensure the operand is valid condition
+        Object.values(operand).some(i => !Array.isArray(i) || i.length < 2 || typeof i[0] !== 'string')
+      ) {
         throw new TypeError(`The operand for condition with some operator must be one of the following types: Record<string, ConditionExpression>. (received: ${typeof operand})`)
       }
 
@@ -482,12 +488,18 @@ const matchConditionExpression = ({
       if (
         value !== null &&
         typeof value !== 'undefined' &&
-        (!Array.isArray(value) || value.some(i => i === null || i instanceof Date || typeof i !== 'object'))
+        // Ensure value is array of non-null plain object
+        (!Array.isArray(value) || value.some(i => i === null || typeof i !== 'object' || Array.isArray(i)))
       ) {
         throw new TypeError(`Unexpected resource value type while evaluating condition with every operator. (received: ${typeof value})`)
       }
       // possible operand types: Record<string, ConditionExpression>
-      if (operand === null || operand instanceof Date || typeof operand !== 'object' || Object.values(operand).some(i => !Array.isArray(i) || i.length < 2)) {
+      if (
+        operand === null ||
+        typeof operand !== 'object' ||
+        // Ensure the operand is valid condition
+        Object.values(operand).some(i => !Array.isArray(i) || i.length < 2 || typeof i[0] !== 'string')
+      ) {
         throw new TypeError(`The operand for condition with every operator must be one of the following types: Record<string, ConditionExpression>. (received: ${typeof operand})`)
       }
 
