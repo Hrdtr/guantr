@@ -81,9 +81,9 @@ type DateConditionExpression<
 type PlainArrayConditionExpression<
   T extends (string | number | symbol)[] = (string | number | symbol)[],
   Context extends Record<string, unknown> = Record<string, unknown>
-> = [operator: 'has', operand: T[number] | ContextField<Context, T[number]>, options?: T extends string[] ? { caseInsensitive?: boolean } : never]
-  | [operator: 'hasSome', operand: T | ContextField<Context, T>, options?: T extends string[] ? { caseInsensitive?: boolean } : never]
-  | [operator: 'hasEvery', operand: T | ContextField<Context, T>, options?: T extends string[] ? { caseInsensitive?: boolean } : never]
+> = [operator: 'has', operand: T[number] | ContextField<Context, T[number]>, options?: string extends T[number] ? { caseInsensitive?: boolean } : never]
+  | [operator: 'hasSome', operand: T | ContextField<Context, T>, options?: string extends T[number] ? { caseInsensitive?: boolean } : never]
+  | [operator: 'hasEvery', operand: T | ContextField<Context, T>, options?: string extends T[number] ? { caseInsensitive?: boolean } : never]
 
 type ObjectArrayConditionExpression<
   T extends Record<string, unknown>[] = Record<string, unknown>[],
