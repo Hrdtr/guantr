@@ -51,7 +51,7 @@ type StringConditionExpression<
   // https://github.com/microsoft/TypeScript/issues/29729
 > = [operator: 'equals', operand: string & NonNullable<unknown> | ContextField<Context, string>, options?: { caseInsensitive?: boolean }]
   // TODO: fix ContextField<Context, string[]> still shown in autocomplete event not using in operator
-  | [operator: 'in', operand: string & NonNullable<unknown>[] | ContextField<Context, string[]>, options?: { caseInsensitive?: boolean }]
+  | [operator: 'in', operand: (string & NonNullable<unknown>)[] | ContextField<Context, string[]>, options?: { caseInsensitive?: boolean }]
   | [operator: 'contains', operand: string & NonNullable<unknown> | ContextField<Context, string>, options?: { caseInsensitive?: boolean }]
   | [operator: 'startsWith', operand: string & NonNullable<unknown> | ContextField<Context, string>, options?: { caseInsensitive?: boolean }]
   | [operator: 'endsWith', operand: string & NonNullable<unknown> | ContextField<Context, string>, options?: { caseInsensitive?: boolean }]
@@ -67,19 +67,13 @@ type BooleanConditionExpression<
   Context extends Record<string, unknown> = Record<string, unknown>
 > = [operator: 'equals', operand: boolean | ContextField<Context, boolean>]
 
-type SymbolConditionExpression<
-  Context extends Record<string, unknown> = Record<string, unknown>
-> = [operator: 'equals', operand: symbol | ContextField<Context, symbol>]
-  | [operator: 'in', operand: symbol[] | ContextField<Context, symbol[]>]
-
 type DateConditionExpression<
   Context extends Record<string, unknown> = Record<string, unknown>
-> = [operator: 'equals', operand: Date | string | number | ContextField<Context, Date>]
-  | [operator: 'gt', operand: Date | string | number | ContextField<Context, Date>]
+> = [operator: 'gt', operand: Date | string | number | ContextField<Context, Date>]
   | [operator: 'gte', operand: Date | string | number | ContextField<Context, Date>]
 
 type PlainArrayConditionExpression<
-  T extends (string | number | symbol)[] = (string | number | symbol)[],
+  T extends (string | number)[] = (string | number)[],
   Context extends Record<string, unknown> = Record<string, unknown>
 > = [operator: 'has', operand: T[number] | ContextField<Context, T[number]>, options?: string extends T[number] ? { caseInsensitive?: boolean } : never]
   | [operator: 'hasSome', operand: T | ContextField<Context, T>, options?: string extends T[number] ? { caseInsensitive?: boolean } : never]
@@ -97,7 +91,7 @@ type ObjectArrayConditionExpression<
           | StringConditionExpression
           | NumberConditionExpression
           | BooleanConditionExpression
-          | SymbolConditionExpression
+          | DateConditionExpression
           | PlainArrayConditionExpression
           | ObjectArrayConditionExpression<any[], any, true>>
         : GuantrCondition<T[number], Context>
@@ -109,7 +103,7 @@ type ObjectArrayConditionExpression<
           | StringConditionExpression
           | NumberConditionExpression
           | BooleanConditionExpression
-          | SymbolConditionExpression
+          | DateConditionExpression
           | PlainArrayConditionExpression
           | ObjectArrayConditionExpression<any[], any, true>>
         : GuantrCondition<T[number], Context>
@@ -118,7 +112,7 @@ type ObjectArrayConditionExpression<
 type ArrayConditionExpression<
   T extends unknown[] = unknown[],
   Context extends Record<string, unknown> = Record<string, unknown>
-> = T extends (string | number | symbol)[]
+> = T extends (string | number)[]
   ? PlainArrayConditionExpression<T, Context>
   : T extends Record<string, unknown>[]
     ? ObjectArrayConditionExpression<T, Context>
@@ -135,11 +129,9 @@ type ConditionExpression<T, Context extends Record<string, unknown> = Record<str
         ? NumberConditionExpression<Context>
         : T extends boolean
           ? BooleanConditionExpression<Context>
-          : T extends symbol
-            ? SymbolConditionExpression<Context>
-            : T extends Date
-              ? DateConditionExpression<Context>
-              : never
+          : T extends Date
+            ? DateConditionExpression<Context>
+            : never
 
 export type GuantrCondition<
   Resource extends Record<string, unknown>,
@@ -163,7 +155,7 @@ export type GuantrAnyPermission = {
     | StringConditionExpression
     | NumberConditionExpression
     | BooleanConditionExpression
-    | SymbolConditionExpression
+    | DateConditionExpression
     | PlainArrayConditionExpression
     | ObjectArrayConditionExpression<any[], any, true>
   > | null;

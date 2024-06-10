@@ -6,13 +6,12 @@ export const matchPermissionCondition = <
   >(
   resource: Resource,
   permission: GuantrAnyPermission & { condition: NonNullable<GuantrAnyPermission['condition']> },
-  context?: Context
-  ) => {
+  context?: Context,
+) => {
   return Object.entries(permission.condition).every(([path, expression]) => matchConditionExpression({
     value: getResourceValue(resource, path),
     expression,
-    inverted: permission.inverted,
-    context
+    context,
   }))
 }
 
@@ -31,15 +30,13 @@ const getContextValue = <T extends Record<string, unknown>, U>(context: T, path:
     .reduce((o, k) => (o || {})[k], (context ?? {}) as Record<string, any>) as U | undefined
 }
 
-const matchConditionExpression = ({
+export const matchConditionExpression = ({
   value,
   expression,
-  inverted,
   context,
 }: {
   value: unknown
   expression: NonNullable<GuantrAnyPermission['condition']>[keyof NonNullable<GuantrAnyPermission['condition']>]
-  inverted: boolean
   context?: Record<string, unknown>
 }): boolean => {
   const [operator, maybeContextualOperand, options] = expression ?? []
@@ -48,119 +45,71 @@ const matchConditionExpression = ({
 
   switch (operator) {
     case 'equals': {
-      // possible value types: null, undefined, string, number, boolean, symbol, Date
+      // possible value types: null, undefined, string, number, boolean
       if (
         value !== null &&
         typeof value !== 'undefined' &&
         typeof value !== 'string' &&
         typeof value !== 'number' &&
-        typeof value !== 'boolean' &&
-        typeof value !== 'symbol' &&
-        !(value instanceof Date)
+        typeof value !== 'boolean'
       ) {
         throw new TypeError(`Unexpected resource value type while evaluating condition with equals operator. (received: ${typeof value})`)
       }
-      // possible operand types: null, undefined, string, number, boolean, symbol, Date
+      // possible operand types: null, undefined, string, number, boolean
       if (
         operand !== null &&
         typeof operand !== 'undefined' &&
         typeof operand !== 'string' &&
         typeof operand !== 'number' &&
-        typeof operand !== 'boolean' &&
-        typeof operand !== 'symbol' &&
-        !(operand instanceof Date)
+        typeof operand !== 'boolean'
       ) {
-        throw new TypeError(`The operand for condition with equals operator must be one of the following types: null, undefined, string, number, boolean, symbol, Date. (received: ${typeof operand})`)
+        throw new TypeError(`The operand for condition with equals operator must be one of the following types: null, undefined, string, number, boolean. (received: ${typeof operand})`)
       }
 
       if (
         operand === null ||
         typeof operand === 'undefined' ||
         typeof operand === 'number' ||
-        typeof operand === 'boolean' ||
-        typeof operand === 'symbol'
+        typeof operand === 'boolean'
       ) {
-        return inverted
-          ? value !== operand
-          : value === operand
-      }
-      // Date
-      // TODO: Whats the better way to check if operand or value is date(time) string or timestamp number?
-      if (value instanceof Date || operand instanceof Date) {
-        // Coerce resource value to number
-        let equalNumberValue = value instanceof Date ? value.getTime() : undefined
-        if (!equalNumberValue && typeof value === 'string') {
-          try {
-            equalNumberValue = new Date(value).getTime()
-          } catch {
-            equalNumberValue = undefined
-          }
-        }
-        // Coerce operand to number
-        let equalNumberOperand = operand instanceof Date ? operand.getTime() : undefined
-        if (!equalNumberOperand && typeof operand === 'string') {
-          try {
-            equalNumberOperand = new Date(operand).getTime()
-          } catch {
-            equalNumberOperand = undefined
-          }
-        }
-
-        if (!equalNumberValue || !equalNumberOperand) {
-          return inverted
-            ? true
-            : false
-        }
-
-        return inverted
-          ? value !== operand
-          : value === operand
+        return value === operand
       }
       // string
       if (options?.caseInsensitive) {
-        return inverted
-          ? (typeof value === 'string' ? value.toLowerCase() : value) !== operand.toLowerCase()
-          : (typeof value === 'string' ? value.toLowerCase() : value) === operand.toLowerCase()
+        return (typeof value === 'string' ? value.toLowerCase() : value) === operand.toLowerCase()
       }
-
-      return inverted
-        ? value !== operand
-        : value === operand
+      return value === operand
     }
 
     case 'in': {
-      // possible value types: null, undefined, string, number, symbol
+      // possible value types: null, undefined, string, number
       if (
         value !== null &&
         typeof value !== 'undefined' &&
         typeof value !== 'string' &&
-        typeof value !== 'number' &&
-        typeof value !== 'symbol'
+        typeof value !== 'number'
       ) {
         throw new TypeError(`Unexpected resource value type while evaluating condition with in operator. (received: ${typeof value})`)
       }
-      // possible operand types: (string | number | symbol)[]
-      if (!Array.isArray(operand) || operand.some(i => typeof i !== 'string' && typeof i !== 'number' && typeof i !== 'symbol')) {
-        throw new TypeError(`The operand for condition with in operator must be one of the following types: (string | number | symbol)[]. (received: ${typeof operand})`)
+      // possible operand types: (string | number)[]
+      if (!Array.isArray(operand) || operand.some(i => typeof i !== 'string' && typeof i !== 'number')) {
+        throw new TypeError(`The operand for condition with in operator must be one of the following types: (string | number)[]. (received: ${typeof operand})`)
       }
 
       if (value === null || typeof value === 'undefined') {
-        return inverted
-          ? true
-          : false
+        return false
       }
 
-      const opd = operand as (string | number | symbol)[]
+      const opd = operand as (string | number)[]
 
       if (options?.caseInsensitive) {
-        return inverted
-          ? !opd.map(i => (typeof i === 'string' ? i.toLowerCase() : i)).includes((typeof value === 'string' ? value.toLowerCase() : value))
-          : opd.map(i => (typeof i === 'string' ? i.toLowerCase() : i)).includes((typeof value === 'string' ? value.toLowerCase() : value))
+        return opd.map(i => 
+          (typeof i === 'string' ? i.toLowerCase() : i))
+            .includes((typeof value === 'string' ? value.toLowerCase() : value)
+        )
       }
 
-      return inverted
-        ? !opd.includes(value)
-        : opd.includes(value)
+      return opd.includes(value)
     }
 
     case 'contains': {
@@ -178,20 +127,14 @@ const matchConditionExpression = ({
       }
 
       if (value === null || typeof value === 'undefined') {
-        return inverted
-          ? true
-          : false
+        return false
       }
 
       if (options?.caseInsensitive) {
-        return inverted
-          ? !value.toLowerCase().includes(operand.toLowerCase())
-          : value.toLowerCase().includes(operand.toLowerCase())
+        return value.toLowerCase().includes(operand.toLowerCase())
       }
 
-      return inverted
-        ? !value.includes(operand)
-        : value.includes(operand)
+      return value.includes(operand)
     }
 
     case 'startsWith': {
@@ -209,20 +152,14 @@ const matchConditionExpression = ({
       }
 
       if (value === null || typeof value === 'undefined') {
-        return inverted
-          ? true
-          : false
+        return false
       }
 
       if (options?.caseInsensitive) {
-        return inverted
-          ? !value.toLowerCase().startsWith(operand.toLowerCase())
-          : value.toLowerCase().startsWith(operand.toLowerCase())
+        return value.toLowerCase().startsWith(operand.toLowerCase())
       }
 
-      return inverted
-        ? !value.startsWith(operand)
-        : value.startsWith(operand)
+      return value.startsWith(operand)
     }
 
     case 'endsWith': {
@@ -240,209 +177,140 @@ const matchConditionExpression = ({
       }
 
       if (value === null || typeof value === 'undefined') {
-        return inverted
-          ? true
-          : false
+        return false
       }
 
       if (options?.caseInsensitive) {
-        return inverted
-          ? !value.toLowerCase().endsWith(operand.toLowerCase())
-          : value.toLowerCase().endsWith(operand.toLowerCase())
+        return value.toLowerCase().endsWith(operand.toLowerCase())
       }
 
-      return inverted
-        ? !value.endsWith(operand)
-        : value.endsWith(operand)
+      return value.endsWith(operand)
     }
 
     case 'gt': {
-      // possible value types: null, undefined, string, number, Date
+      // possible value types: null, undefined, number
       if (
         value !== null &&
         typeof value !== 'undefined' &&
-        typeof value !== 'string' &&
-        typeof value !== 'number' &&
-        !(value instanceof Date)
+        typeof value !== 'number'
       ) {
         throw new TypeError(`Unexpected resource value type while evaluating condition with gt operator. (received: ${typeof value})`)
       }
-      // possible operand types: number, Date
-      if (
-        typeof operand !== 'number' &&
-        !(operand instanceof Date)
-      ) {
-        throw new TypeError(`The operand for condition with gt operator must be one of the following types: number, Date. (received: ${typeof operand})`)
+      // possible operand types: number
+      if (typeof operand !== 'number') {
+        throw new TypeError(`The operand for condition with gt operator must be one of the following types: number. (received: ${typeof operand})`)
       }
 
       if (value === null || typeof value === 'undefined') {
-        return inverted
-          ? true
-          : false
+        return false
       }
 
-      // Coerce resource value to number
-      let gtNumberValue = value instanceof Date ? value.getTime() : undefined
-      if (!gtNumberValue && typeof value === 'string') {
-        try {
-          gtNumberValue = new Date(value).getTime()
-        } catch {
-          gtNumberValue = undefined
-        }
-      }
-
-      if (!gtNumberValue) {
-        return inverted
-          ? true
-          : false
-      }
-
-      return inverted
-        ? gtNumberValue < (operand instanceof Date ? operand.getTime() : operand)
-        : gtNumberValue > (operand instanceof Date ? operand.getTime() : operand)
+      return value > operand
     }
 
     case 'gte': {
-      // possible value types: null, undefined, string, number, Date
+      // possible value types: null, undefined, number
       if (
         value !== null &&
         typeof value !== 'undefined' &&
-        typeof value !== 'string' &&
-        typeof value !== 'number' &&
-        !(value instanceof Date)
+        typeof value !== 'number'
       ) {
         throw new TypeError(`Unexpected resource value type while evaluating condition with gte operator. (received: ${typeof value})`)
       }
-      // possible operand types: number, Date
-      if (
-        typeof operand !== 'number' &&
-        !(operand instanceof Date)
-      ) {
-        throw new TypeError(`The operand for condition with gte operator must be one of the following types: number, Date. (received: ${typeof operand})`)
+      // possible operand types: number
+      if (typeof operand !== 'number') {
+        throw new TypeError(`The operand for condition with gte operator must be one of the following types: number. (received: ${typeof operand})`)
       }
 
       if (value === null || typeof value === 'undefined') {
-        return inverted
-          ? true
-          : false
+        return false
       }
 
-      // Coerce resource value to number
-      let gteNumberValue = value instanceof Date ? value.getTime() : undefined
-      if (!gteNumberValue && typeof value === 'string') {
-        try {
-          gteNumberValue = new Date(value).getTime()
-        } catch {
-          gteNumberValue = undefined
-        }
-      }
-
-      if (!gteNumberValue) {
-        return inverted
-          ? true
-          : false
-      }
-
-      return inverted
-        ? gteNumberValue <= (operand instanceof Date ? operand.getTime() : operand)
-        : gteNumberValue >= (operand instanceof Date ? operand.getTime() : operand)
+      return value >= operand
     }
 
     case 'has': {
-      // possible value types: null, undefined, (string | number | symbol)[]
+      // possible value types: null, undefined, (string | number)[]
       if (
         value !== null &&
         typeof value !== 'undefined' &&
-        (!Array.isArray(value) || value.some(i => typeof i !== 'string' && typeof i !== 'number' && typeof i !== 'symbol'))
+        (!Array.isArray(value) || value.some(i => typeof i !== 'string' && typeof i !== 'number'))
       ) {
         throw new TypeError(`Unexpected resource value type while evaluating condition with has operator. (received: ${typeof value})`)
       }
-      // possible operand types: string, number, symbol
+      // possible operand types: string, number
       if (
         typeof operand !== 'string' &&
-        typeof operand !== 'number' &&
-        typeof operand !== 'symbol'
+        typeof operand !== 'number'
       ) {
-        throw new TypeError(`The operand for condition with has operator must be one of the following types: string, number, symbol. (received: ${typeof operand})`)
+        throw new TypeError(`The operand for condition with has operator must be one of the following types: string, number. (received: ${typeof operand})`)
       }
 
       if (value === null || typeof value === 'undefined') {
-        return inverted
-          ? true
-          : false
+        return false
       }
 
       if (options && options?.caseInsensitive) {
-        return inverted
-          ? !value.map(i => (typeof i === 'string' ? i.toLowerCase() : i)).includes((typeof operand === 'string' ? operand.toLowerCase() : operand))
-          : value.map(i => (typeof i === 'string' ? i.toLowerCase() : i)).includes((typeof operand === 'string' ? operand.toLowerCase() : operand))
+        return value.map(i => (typeof i === 'string' ? i.toLowerCase() : i)).includes((typeof operand === 'string' ? operand.toLowerCase() : operand))
       }
 
-      return inverted
-        ? !value.includes(operand)
-        : value.includes(operand)
+      return value.includes(operand)
     }
 
     case 'hasSome': {
-      // possible value types: null, undefined, (string | number | symbol)[]
+      // possible value types: null, undefined, (string | number)[]
       if (
         value !== null &&
         typeof value !== 'undefined' &&
-        (!Array.isArray(value) || value.some(i => typeof i !== 'string' && typeof i !== 'number' && typeof i !== 'symbol'))
+        (!Array.isArray(value) || value.some(i => typeof i !== 'string' && typeof i !== 'number'))
       ) {
         throw new TypeError(`Unexpected resource value type while evaluating condition with hasSome operator. (received: ${typeof value})`)
       }
-      // possible operand types: (string | number | symbol)[]
-      if (!Array.isArray(operand) || operand.some(i => typeof i !== 'string' && typeof i !== 'number' && typeof i !== 'symbol')) {
-        throw new TypeError(`The operand for condition with hasSome operator must be one of the following types: (string | number | symbol)[]. (received: ${typeof operand})`)
+      // possible operand types: (string | number)[]
+      if (!Array.isArray(operand) || operand.some(i => typeof i !== 'string' && typeof i !== 'number')) {
+        throw new TypeError(`The operand for condition with hasSome operator must be one of the following types: (string | number)[]. (received: ${typeof operand})`)
       }
 
       if (value === null || typeof value === 'undefined') {
-        return inverted
-          ? true
-          : false
+        return false
       }
 
       if (options && options?.caseInsensitive) {
-        return inverted
-          ? !value.some(i => (typeof i === 'string' ? i.toLowerCase() : i) === (typeof operand === 'string' ? operand.toLowerCase() : operand))
-          : value.some(i => (typeof i === 'string' ? i.toLowerCase() : i) === (typeof operand === 'string' ? operand.toLowerCase() : operand))
+        return operand.some(item =>
+          value.map(i => typeof i === 'string' ? i.toLowerCase() : i)
+            .includes((typeof item === 'string' ? item.toLowerCase() : item))
+        )
       }
 
-      return inverted
-        ? !value.includes(operand)
-        : value.includes(operand)
+      return operand.some(i => value.includes(i))
     }
 
     case 'hasEvery': {
-      // possible value types: null, undefined, (string | number | symbol)[]
+      // possible value types: null, undefined, (string | number)[]
       if (
         value !== null &&
         typeof value !== 'undefined' &&
-        (!Array.isArray(value) || value.some(i => typeof i !== 'string' && typeof i !== 'number' && typeof i !== 'symbol'))
+        (!Array.isArray(value) || value.some(i => typeof i !== 'string' && typeof i !== 'number'))
       ) {
         throw new TypeError(`Unexpected resource value type while evaluating condition with hasEvery operator. (received: ${typeof value})`)
       }
-      // possible operand types: (string | number | symbol)[]
-      if (!Array.isArray(operand) || operand.some(i => typeof i !== 'string' && typeof i !== 'number' && typeof i !== 'symbol')) {
-        throw new TypeError(`The operand for condition with hasEvery operator must be one of the following types: (string | number | symbol)[]. (received: ${typeof operand})`)
+      // possible operand types: (string | number)[]
+      if (!Array.isArray(operand) || operand.some(i => typeof i !== 'string' && typeof i !== 'number')) {
+        throw new TypeError(`The operand for condition with hasEvery operator must be one of the following types: (string | number)[]. (received: ${typeof operand})`)
       }
 
       if (value === null || typeof value === 'undefined') {
-        return inverted
-          ? true
-          : false
+        return false
       }
 
       if (options && options?.caseInsensitive) {
-        return inverted
-          ? !value.every(i => (typeof i === 'string' ? i.toLowerCase() : i) === (typeof operand === 'string' ? operand.toLowerCase() : operand))
-          : value.every(i => (typeof i === 'string' ? i.toLowerCase() : i) === (typeof operand === 'string' ? operand.toLowerCase() : operand))
+        return operand.every(item =>
+          value.map(i => typeof i === 'string' ? i.toLowerCase() : i)
+            .includes((typeof item === 'string' ? item.toLowerCase() : item))
+        )
       }
 
-      return inverted
-        ? !value.every(i => i === operand)
-        : value.every(i => i === operand)
+      return operand.every(i => value.includes(i))
     }
 
     case 'some': {
@@ -466,21 +334,16 @@ const matchConditionExpression = ({
       }
 
       if (value === null || typeof value === 'undefined') {
-        return inverted
-          ? true
-          : false
+        return false
       }
 
       const match = (i: any) => Object.entries(operand).every(([path, expression]) => matchConditionExpression({
         value: getResourceValue(i, path),
         expression,
-        inverted: inverted,
         context
       }))
 
-      return inverted
-        ? !value.some(i => match(i))
-        : value.some(i => match(i))
+      return value.some(i => match(i))
     }
 
     case 'every': {
@@ -504,21 +367,16 @@ const matchConditionExpression = ({
       }
 
       if (value === null || typeof value === 'undefined') {
-        return inverted
-          ? true
-          : false
+        return false
       }
 
       const match = (i: any) => Object.entries(operand).every(([path, expression]) => matchConditionExpression({
         value: getResourceValue(i, path),
         expression,
-        inverted: inverted,
         context
       }))
 
-      return inverted
-        ? !value.every(i => match(i))
-        : value.every(i => match(i))
+      return value.every(i => match(i))
     }
 
     default: {
