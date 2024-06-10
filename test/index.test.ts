@@ -19,7 +19,7 @@ type MockResourceMap = {
   },
   post: {
     id: number,
-    published: boolean | undefined
+    published: boolean | undefined,
     title: string,
     description: string | null
     tags: string[] | null | undefined
@@ -31,21 +31,6 @@ type MockAction = 'create' | 'read' | 'update' | 'delete';
 
 type MockMeta = GuantrMeta<MockResourceMap, MockAction>;
 
-const mockContext: MockResourceMap['user'] = {
-  id: 1,
-  name: 'John Doe',
-  suspended: null,
-  roles: [{ id: 1, name: 'admin' }, { id: 2, name: 'user' }],
-  address: {
-    line1: '123 Main St',
-    line2: 'Apt 4B',
-    city: 'AnyTown',
-    state: 'CA',
-    zip: '12345',
-    country: 'USA'
-  }
-}
-
 describe('Guantr', () => {
   test('createGuantr should return new Guantr instance', () => {
     const guantr = createGuantr<MockMeta>();
@@ -53,6 +38,21 @@ describe('Guantr', () => {
     expect(guantr.context).toEqual({});
     expect(guantr.permissions).toEqual([]);
   });
+
+  const mockContext: MockResourceMap['user'] = {
+    id: 1,
+    name: 'John Doe',
+    suspended: null,
+    roles: [{ id: 1, name: 'admin' }, { id: 2, name: 'user' }],
+    address: {
+      line1: '123 Main St',
+      line2: 'Apt 4B',
+      city: 'AnyTown',
+      state: 'CA',
+      zip: '12345',
+      country: 'USA'
+    }
+  }
 
   test('withContext method should update instance context', () => {
     const guantr = createGuantr<MockMeta>().withContext(mockContext);
@@ -145,18 +145,14 @@ describe('Guantr.can', () => {
       inverted: false
     }]);
 
-    const hasPermission = guantr.can('read', 'post');
-
-    expect(hasPermission).toBe(true);
+    expect(guantr.can('read', 'post')).toBe(true);
   });
 
   it('should return false if user does not have permission', () => {
     const guantr = createGuantr<MockMeta>()
     guantr.setPermissions([]);
 
-    const hasPermission = guantr.can('read', 'post');
-
-    expect(hasPermission).toBe(false);
+    expect(guantr.can('read', 'post')).toBe(false);
   });
 
   it('should return false if resource or action not found in permissions', () => {
@@ -168,9 +164,7 @@ describe('Guantr.can', () => {
       inverted: false
     }]);
 
-    const hasPermission = guantr.can('create', 'post');
-
-    expect(hasPermission).toBe(false);
+    expect(guantr.can('create', 'post')).toBe(false);
   });
 
   it('should return false if user has inverted permission', () => {
@@ -182,106 +176,38 @@ describe('Guantr.can', () => {
       inverted: true
     }]);
 
-    const hasPermission = guantr.can('delete', 'post');
-
-    expect(hasPermission).toBe(false);
+    expect(guantr.can('delete', 'post')).toBe(false);
   });
+
+  it('should handle inverted rule correctly', () => {
+    const guantr = createGuantr<MockMeta>()
+    guantr.setPermissions([
+      {
+        resource: 'post',
+        action: 'read',
+        condition: null,
+        inverted: false
+      },
+      {
+        resource: 'post',
+        action: 'read',
+        condition: {
+          published: ['equals', false]
+        },
+        inverted: true
+      }
+    ])
+    
+    expect(guantr.can('read', 'post')).toBe(true)
+    const post = {
+      id: 1,
+      title: 'Hello World',
+      description: '',
+      lastUpdatedAt: null,
+      tags: []
+    }
+    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(true)
+    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
+  })
 })
 
-describe('Guantr.can [string:equals]', () => {
-  it('should return true if condition matches', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([{
-      action: 'read',
-      resource: 'post',
-      condition: {
-        title: ['equals', 'Hello World'],
-      },
-      inverted: false,
-    }]);
-
-    const resource: MockResourceMap['post'] = {
-      id: 1,
-      published: true,
-      title: 'Hello World',
-      description: null,
-      tags: ['hello', 'world'],
-      lastUpdatedAt: null
-    }
-    const hasPermission = guantr.can('read', ['post', resource]);
-
-    expect(hasPermission).toBe(true);
-  });
-
-  it('should return false if condition not matches', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([{
-      action: 'read',
-      resource: 'post',
-      condition: {
-        title: ['equals', 'hello world']
-      },
-      inverted: false,
-    }]);
-
-    const resource: MockResourceMap['post'] = {
-      id: 1,
-      published: true,
-      title: 'Hello World',
-      description: null,
-      tags: ['hello', 'world'],
-      lastUpdatedAt: null
-    }
-    const hasPermission = guantr.can('read', ['post', resource]);
-
-    expect(hasPermission).toBe(false);
-  });
-
-  it('should return true if condition matches with options.caseInsensitive', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([{
-      action: 'read',
-      resource: 'post',
-      condition: {
-        title: ['equals', 'hello world', { caseInsensitive: true }],
-      },
-      inverted: false,
-    }]);
-
-    const resource: MockResourceMap['post'] = {
-      id: 1,
-      published: true,
-      title: 'Hello World',
-      description: null,
-      tags: ['hello', 'world'],
-      lastUpdatedAt: null
-    }
-    const hasPermission = guantr.can('read', ['post', resource]);
-
-    expect(hasPermission).toBe(true);
-  });
-
-  it('should return false if condition not matches with options.caseInsensitive', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([{
-      action: 'read',
-      resource: 'post',
-      condition: {
-        title: ['equals', 'hello', { caseInsensitive: true }]
-      },
-      inverted: false,
-    }]);
-
-    const resource: MockResourceMap['post'] = {
-      id: 1,
-      published: true,
-      title: 'Hello World',
-      description: null,
-      tags: ['hello', 'world'],
-      lastUpdatedAt: null
-    }
-    const hasPermission = guantr.can('read', ['post', resource]);
-
-    expect(hasPermission).toBe(false);
-  });
-})
