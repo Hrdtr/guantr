@@ -70,6 +70,17 @@ export class Guantr<
     this._permissions = permissions;
   }
 
+  relatedPermissionsFor<
+    ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string),
+    Resource extends (Meta extends GuantrMeta<infer U> ? U[ResourceKey] : Record<string, unknown>)
+  >(
+    action: Meta extends GuantrMeta<infer _, infer Action> ? Action : string,
+    resource: ResourceKey | [ResourceKey, Resource]
+  ) {
+    // error TS2589: Type instantiation is excessively deep and possibly infinite.
+    return this.permissions.filter((item: any) => item.action === action && item.resource === (typeof resource === 'string' ? resource : resource[0])) as unknown as GuantrPermission<Meta, Context>[]
+  }
+
   can<
     ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string),
     Resource extends (Meta extends GuantrMeta<infer U> ? U[ResourceKey] : Record<string, unknown>)
@@ -77,17 +88,23 @@ export class Guantr<
     action: Meta extends GuantrMeta<infer _, infer Action> ? Action : string,
     resource: ResourceKey | [ResourceKey, Resource]
   ) {
-    return this.permissions.some(item => {
-      if (typeof resource === 'string') {
-        return item.action === action && item.resource === resource && !item.inverted
+    if (typeof resource === 'string') {
+      return this.permissions.some(item => item.action === action && item.resource === resource && !item.inverted)
+    }
+    const relatedPermissions = this.relatedPermissionsFor(action, resource[0])
+    for (const permission of relatedPermissions) {
+      if (!permission.condition) continue
+      const pass = matchPermissionCondition(resource[1], permission as GuantrPermission & { condition: NonNullable<GuantrPermission['condition']> }, this.context)
+      if (permission.inverted) {
+        if (!pass) continue
+        return false
       }
       else {
-        const permission = item.action === action && item.resource === resource[0] ? item : null
-        if (!permission) return false
-        if (!permission.condition) return true
-        return matchPermissionCondition(resource[1], permission as GuantrPermission & { condition: NonNullable<GuantrPermission['condition']> }, this.context)
+        if (pass) continue
+        return false
       }
-    })
+    }
+    return true
   }
 
   cannot<
