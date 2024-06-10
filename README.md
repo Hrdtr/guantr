@@ -7,7 +7,7 @@
 
 <!-- /automd -->
 
-Flexible JavaScript library for efficient authorization and permission checking. Easily manage roles, permissions, and context-aware access control with minimal overhead and a simple API.
+Flexible, type-safe JavaScript library for efficient authorization and permission checking. Easily manage permissions, and context-aware access control with minimal overhead and a simple API.
 
 ## Usage
 
@@ -36,27 +36,87 @@ bun install guantr
 
 Import:
 
-<!-- automd:jsimport cjs cdn name="guantr" -->
+<!-- automd:jsimport cjs cdn name="guantr" imports="createGuantr" -->
 
 **ESM** (Node.js, Bun)
 
 ```js
-import {} from "guantr";
+import { createGuantr } from "guantr";
 ```
 
 **CommonJS** (Legacy Node.js)
 
 ```js
-const {} = require("guantr");
+const { createGuantr } = require("guantr");
 ```
 
 **CDN** (Deno, Bun and Browsers)
 
 ```js
-import {} from "https://esm.sh/guantr";
+import { createGuantr } from "https://esm.sh/guantr";
 ```
 
 <!-- /automd -->
+
+Initialize:
+
+```ts
+const guantr = createGuantr()
+
+// With Typescript Meta:
+type ResourceMap = {
+  post: {
+    id: number,
+    title: string,
+    published: boolean
+  }
+}
+type Action = 'create' | 'read' | 'update' | 'delete'
+
+const guantr = createGuantr<GuantrMeta<ResourceMap, Action>>()
+
+// Contextual
+const guantrWithContext = guantr.withContext({
+  id: number,
+  name: 'John Doe',
+  roles: ['admin']
+})
+
+```
+
+Setting permissions:
+
+```js
+guantr.setPermission((can, cannot) => {
+  can('read', 'post')
+  cannot('read', ['post', { published: ['equals', true] }])
+})
+// Or
+guantr.setPermissions([
+  {
+    resource: 'post',
+    action: 'read',
+    condition: null,
+    inverted: false
+  },
+  {
+    resource: 'post',
+    action: 'read',
+    condition: {
+      published: ['equals', true]
+    },
+    inverted: true
+  }
+])
+```
+
+Checking Permission:
+
+```js
+guantr.can('read', 'post') // true
+guantr.can('read', ['post', { id: 1, title: 'Hello World', published: false }]) // false
+
+```
 
 ## Development
 
