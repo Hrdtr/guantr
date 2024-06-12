@@ -34,9 +34,12 @@
     "play": "jiti playground",
     "release": "pnpm test && changelogen --release && npm publish && git push --follow-tags",
     "release:rc": "pnpm test && changelogen --release --prerelease rc && npm publish && git push --follow-tags",
-    "test": "pnpm lint && pnpm typecheck && vitest run --typecheck --coverage --coverage.exclude commitlint.config.ts",
+    "test": "pnpm lint && pnpm typecheck && vitest run --typecheck --coverage --coverage.exclude commitlint.config.ts --coverage.exclude \"docs/**\"",
     "test:prepare": "npx --yes prisma generate --schema test/query-filter-transformer/prisma/schema.prisma",
-    "typecheck": "tsc --noEmit --skipLibCheck"
+    "typecheck": "tsc --noEmit --skipLibCheck",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
     "@commitlint/config-conventional": "^19.2.2",
@@ -54,6 +57,7 @@
     "lint-staged": "^15.2.5",
     "typescript": "^5.4.5",
     "unbuild": "^2.0.0",
+    "vitepress": "^1.2.3",
     "vitest": "^1.5.3"
   },
   "packageManager": "pnpm@9.2.0",

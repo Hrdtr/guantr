@@ -89,7 +89,7 @@ Setting permissions:
 ```js
 guantr.setPermission((can, cannot) => {
   can('read', 'post')
-  cannot('read', ['post', { published: ['equals', true] }])
+  cannot('read', ['post', { published: ['equals', false] }])
 })
 // Or
 guantr.setPermissions([
@@ -103,7 +103,7 @@ guantr.setPermissions([
     resource: 'post',
     action: 'read',
     condition: {
-      published: ['equals', true]
+      published: ['equals', false]
     },
     inverted: true
   }
