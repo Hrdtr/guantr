@@ -34,7 +34,7 @@
     "play": "jiti playground",
     "release": "pnpm test && changelogen --release && npm publish && git push --follow-tags",
     "test": "pnpm lint && pnpm typecheck && vitest run --typecheck --coverage --coverage.exclude commitlint.config.ts",
-    "test:prepare": "npx --yes prisma generate --schema test/q/prisma/schema.prisma",
+    "test:prepare": "npx --yes prisma generate --schema test/query-filter-transformer/prisma/schema.prisma",
     "typecheck": "tsc --noEmit --skipLibCheck"
   },
   "devDependencies": {
