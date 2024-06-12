@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Community Discussions
+    url: https://github.com/Hrdtr/guantr/discussions
+    about: Please ask and answer questions here.
+
+  - name: 📚 Guantr Documentation
+    url: https://github.com/Hrdtr/guantr#readme
+    about: Check the documentation for usage of Guantr
