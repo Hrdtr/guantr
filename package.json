@@ -1,6 +1,6 @@
 {
   "name": "guantr",
-  "version": "1.0.0-beta.0",
+  "version": "1.0.0-rc.0",
   "description": "Flexible, type-safe JavaScript library for efficient authorization and permission checking",
   "repository": "Hrdtr/guantr",
   "license": "MIT",
@@ -33,6 +33,7 @@
     "prepare": "husky && echo \"pnpm lint-staged\" > .husky/pre-commit && echo \"pnpm commitlint --edit ${1}\" > .husky/commit-msg && pnpm test:prepare",
     "play": "jiti playground",
     "release": "pnpm test && changelogen --release && npm publish && git push --follow-tags",
+    "release:rc": "pnpm test && changelogen --release --prerelease rc && npm publish && git push --follow-tags",
     "test": "pnpm lint && pnpm typecheck && vitest run --typecheck --coverage --coverage.exclude commitlint.config.ts",
     "test:prepare": "npx --yes prisma generate --schema test/query-filter-transformer/prisma/schema.prisma",
     "typecheck": "tsc --noEmit --skipLibCheck"
