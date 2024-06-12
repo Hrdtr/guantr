@@ -1,5 +1,10 @@
 import type { GuantrAnyPermission } from "../../types";
 
+/**
+ * Converts a GuantrAnyPermission condition object to a Prisma where clause.
+ *
+ * @param {GuantrAnyPermission['condition']} condition - The condition object to convert.
+ */
 const toPrismaWhereClause = (condition: GuantrAnyPermission['condition']) => {
   const clause = {} as Record<string, any>;
   for (const [key, value] of Object.entries(condition ?? {})) {
@@ -24,6 +29,11 @@ const toPrismaWhereClause = (condition: GuantrAnyPermission['condition']) => {
   return clause;
 }
 
+/**
+ * Constructs a Prisma query based on the provided permissions.
+ *
+ * @param {GuantrAnyPermission[]} permissions - Array of permissions to build the query from
+ */
 export const prisma = (permissions: GuantrAnyPermission[]) => {
   const query = {
     OR: undefined as Record<string, any>[] | undefined,

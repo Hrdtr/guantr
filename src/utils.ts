@@ -1,5 +1,13 @@
 import { GuantrAnyPermission } from "./types"
 
+/**
+ * Checks if the given resource matches the permission condition.
+ *
+ * @param {Resource} resource - The resource to check against the permission condition.
+ * @param {GuantrAnyPermission & { condition: NonNullable<GuantrAnyPermission['condition']> }} permission - The permission object containing the condition to match.
+ * @param {Context} [context] - Optional context object for additional information.
+ * @returns {boolean} Returns true if the resource matches the permission condition, false otherwise.
+ */
 export const matchPermissionCondition = <
   Resource extends Record<string, unknown>,
   Context extends Record<string, unknown> | undefined = undefined,
@@ -7,7 +15,7 @@ export const matchPermissionCondition = <
   resource: Resource,
   permission: GuantrAnyPermission & { condition: NonNullable<GuantrAnyPermission['condition']> },
   context?: Context,
-) => {
+): boolean => {
   return Object.entries(permission.condition).every(([path, expression]) => matchConditionExpression({
     value: getResourceValue(resource, path),
     expression,
@@ -15,6 +23,15 @@ export const matchPermissionCondition = <
   }))
 }
 
+/**
+ * Retrieves the value at the specified path in the given resource object.
+ *
+ * @template T - The type of the resource object.
+ * @template U - The type of the value to retrieve.
+ * @param {T} resource - The resource object to search in.
+ * @param {string} path - The dot-separated path to the value.
+ * @return {U | undefined} The value at the specified path, or undefined if not found.
+ */
 const getResourceValue = <T extends Record<string, unknown>, U>(resource: T, path: string): U | undefined => {
   return path
     .split('.')
@@ -22,7 +39,22 @@ const getResourceValue = <T extends Record<string, unknown>, U>(resource: T, pat
     .reduce((o, k) => (o || {})[k], resource as Record<string, any>) as U | undefined
 }
 
+/**
+ * Checks if the given path is a string and starts with either '$context.' or 'context.'.
+ *
+ * @param {unknown} path - The path to check.
+ * @return {boolean} - Returns true if the path is a string and starts with either '$context.' or 'context.', otherwise returns false.
+ */
 export const isContextualOperand = (path: unknown): path is string => typeof path === 'string' && (path.startsWith('$context.') || path.startsWith('context.'))
+/**
+ * Retrieves the value at the specified path from the given context object.
+ *
+ * @template T - The type of the context object.
+ * @template U - The type of the value to retrieve.
+ * @param {T} context - The context object to search in.
+ * @param {string} path - The dot-separated path to the value.
+ * @return {U | undefined} The value at the specified path, or undefined if not found.
+ */
 export const getContextValue = <T extends Record<string, unknown>, U>(context: T, path: string): U | undefined => {
   return (path.replace(path.startsWith('$') ? '$context.' : 'context.', ''))
     .split('.')
@@ -30,15 +62,23 @@ export const getContextValue = <T extends Record<string, unknown>, U>(context: T
     .reduce((o, k) => (o || {})[k], (context ?? {}) as Record<string, any>) as U | undefined
 }
 
-export const matchConditionExpression = ({
-  value,
-  expression,
-  context,
-}: {
+/**
+ * Evaluates a condition expression against a given value and context.
+ *
+ * @param {Object} data - The data object containing the value, expression, and optional context.
+ * @param {unknown} data.value - The value to evaluate the condition against.
+ * @param {NonNullable<GuantrAnyPermission['condition']>[keyof NonNullable<GuantrAnyPermission['condition']>]} data.expression - The condition expression to evaluate.
+ * @param {Record<string, unknown>} [data.context] - The optional context object to use for evaluating the condition.
+ * @return {boolean} The result of evaluating the condition expression against the value and context.
+ * @throws {TypeError} If the resource value type is unexpected or the operand type is invalid.
+ */
+export const matchConditionExpression = (data: {
   value: unknown
   expression: NonNullable<GuantrAnyPermission['condition']>[keyof NonNullable<GuantrAnyPermission['condition']>]
   context?: Record<string, unknown>
 }): boolean => {
+  const { value, expression, context, } = data
+
   const [operator, maybeContextualOperand, options] = expression ?? []
   let operand = maybeContextualOperand
   if (isContextualOperand(operand)) operand = getContextValue(context ?? {}, operand)

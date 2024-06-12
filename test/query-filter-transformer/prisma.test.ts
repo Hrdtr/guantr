@@ -170,7 +170,6 @@ describe('Query transformer - Prisma', () => {
     ])
   })
 
-  // New test cases for additional operators
   it('should handle greater than and less than conditions', async () => {
     const guantr = createGuantr<MockMeta>().withContext(mockContext)
     guantr.setPermissions([
