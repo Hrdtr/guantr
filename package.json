@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
+    },
+    "./query-filter-transformer/prisma": {
+      "types": "./dist/query-filter-transformer/prisma/index.d.ts",
+      "import": "./dist/query-filter-transformer/prisma/index.mjs",
+      "require": "./dist/query-filter-transformer/prisma/index.cjs"
     }
   },
   "main": "./dist/index.cjs",
@@ -25,15 +30,17 @@
     "lint": "eslint .",
     "lint:fix": "automd && eslint . --fix",
     "prepack": "pnpm build",
-    "prepare": "husky && echo \"pnpm lint-staged\" > .husky/pre-commit && echo \"pnpm commitlint --edit ${1}\" > .husky/commit-msg",
+    "prepare": "husky && echo \"pnpm lint-staged\" > .husky/pre-commit && echo \"pnpm commitlint --edit ${1}\" > .husky/commit-msg && pnpm test:prepare",
     "play": "jiti playground",
     "release": "pnpm test && changelogen --release && npm publish && git push --follow-tags",
-    "test": "pnpm lint && pnpm typecheck && vitest run --typecheck --coverage",
+    "test": "pnpm lint && pnpm typecheck && vitest run --typecheck --coverage --coverage.exclude commitlint.config.ts",
+    "test:prepare": "npx --yes prisma generate --schema test/q/prisma/schema.prisma",
     "typecheck": "tsc --noEmit --skipLibCheck"
   },
   "devDependencies": {
     "@commitlint/config-conventional": "^19.2.2",
     "@commitlint/types": "^19.0.3",
+    "@prisma/client": "^5.15.0",
     "@types/node": "^20.12.7",
     "@vitest/coverage-v8": "^1.5.3",
     "automd": "^0.3.7",
@@ -53,5 +60,8 @@
     "**/*.{ts,js,mjs,vue,html,json,yml}": [
       "pnpm lint:fix"
     ]
+  },
+  "peerDependencies": {
+    "@prisma/client": "^5.15.0"
   }
 }

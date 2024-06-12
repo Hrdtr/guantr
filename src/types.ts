@@ -67,11 +67,6 @@ type BooleanConditionExpression<
   Context extends Record<string, unknown> = Record<string, unknown>
 > = [operator: 'equals', operand: boolean | ContextField<Context, boolean>]
 
-type DateConditionExpression<
-  Context extends Record<string, unknown> = Record<string, unknown>
-> = [operator: 'gt', operand: Date | string | number | ContextField<Context, Date>]
-  | [operator: 'gte', operand: Date | string | number | ContextField<Context, Date>]
-
 type PlainArrayConditionExpression<
   T extends (string | number)[] = (string | number)[],
   Context extends Record<string, unknown> = Record<string, unknown>
@@ -91,7 +86,6 @@ type ObjectArrayConditionExpression<
           | StringConditionExpression
           | NumberConditionExpression
           | BooleanConditionExpression
-          | DateConditionExpression
           | PlainArrayConditionExpression
           | ObjectArrayConditionExpression<any[], any, true>>
         : GuantrCondition<T[number], Context>
@@ -103,7 +97,6 @@ type ObjectArrayConditionExpression<
           | StringConditionExpression
           | NumberConditionExpression
           | BooleanConditionExpression
-          | DateConditionExpression
           | PlainArrayConditionExpression
           | ObjectArrayConditionExpression<any[], any, true>>
         : GuantrCondition<T[number], Context>
@@ -129,15 +122,19 @@ type ConditionExpression<T, Context extends Record<string, unknown> = Record<str
         ? NumberConditionExpression<Context>
         : T extends boolean
           ? BooleanConditionExpression<Context>
-          : T extends Date
-            ? DateConditionExpression<Context>
-            : never
+          : never
+
+type ResolveCondition<
+  Resource extends Record<string, unknown>,
+  K extends ConditionField<Resource>,
+  Context extends Record<string, unknown> = Record<string, unknown>
+> = ConditionExpression<ConditionFieldValue<Resource, K>, Context>;
 
 export type GuantrCondition<
   Resource extends Record<string, unknown>,
   Context extends Record<string, unknown> = Record<string, unknown>
 > = Resource extends any // needed to enable union types inference
-  ? Partial<{ [K in ConditionField<Resource>]: ConditionExpression<ConditionFieldValue<Resource, K>, Context> }>
+  ? Partial<{ [K in ConditionField<Resource>]: ResolveCondition<Resource, K, Context> }>
   : never;
 
 export type GuantrResourceMap = Record<string, Record<string, unknown>>
@@ -155,7 +152,6 @@ export type GuantrAnyPermission = {
     | StringConditionExpression
     | NumberConditionExpression
     | BooleanConditionExpression
-    | DateConditionExpression
     | PlainArrayConditionExpression
     | ObjectArrayConditionExpression<any[], any, true>
   > | null;

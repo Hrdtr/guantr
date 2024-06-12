@@ -22,8 +22,8 @@ const getResourceValue = <T extends Record<string, unknown>, U>(resource: T, pat
     .reduce((o, k) => (o || {})[k], resource as Record<string, any>) as U | undefined
 }
 
-const isContextualOperand = (path: unknown): path is string => typeof path === 'string' && (path.startsWith('$context.') || path.startsWith('context.'))
-const getContextValue = <T extends Record<string, unknown>, U>(context: T, path: string): U | undefined => {
+export const isContextualOperand = (path: unknown): path is string => typeof path === 'string' && (path.startsWith('$context.') || path.startsWith('context.'))
+export const getContextValue = <T extends Record<string, unknown>, U>(context: T, path: string): U | undefined => {
   return (path.replace(path.startsWith('$') ? '$context.' : 'context.', ''))
     .split('.')
     // eslint-disable-next-line unicorn/no-array-reduce

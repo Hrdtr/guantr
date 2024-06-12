@@ -111,7 +111,7 @@ describe('Guantr', () => {
   test('setPermissions method should replace existing permissions', () => {
     const guantr = createGuantr<MockMeta>()
     guantr.setPermission((can) => {
-      can('read', 'post');
+      can('read', ['post', { id: ['equals', 1] }]);
     });
 
     const newPermissions: GuantrPermission<MockMeta>[] = [

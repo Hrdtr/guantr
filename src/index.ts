@@ -1,5 +1,5 @@
-import type { GuantrMeta, GuantrPermission, GuantrResourceMap } from "./types";
-import { matchPermissionCondition } from "./utils";
+import type { GuantrMeta, GuantrAnyPermission, GuantrPermission, GuantrResourceMap } from "./types";
+import { getContextValue, isContextualOperand, matchPermissionCondition } from "./utils";
 
 export type { GuantrMeta, GuantrPermission, GuantrResourceMap, GuantrCondition } from './types'
 
@@ -8,7 +8,7 @@ export class Guantr<
   Context extends Record<string, unknown> = Record<string, unknown>
 > {
   private _context: Context = {} as Context;
-  private _permissions: GuantrPermission<Meta, Context>[] = [];
+  private _permissions: GuantrAnyPermission[] = [];
 
   constructor(options?: { context: Context }) {
     if (options?.context) this._context = options.context;
@@ -24,7 +24,7 @@ export class Guantr<
     return this._context;
   }
 
-  get permissions(): ReadonlyArray<GuantrPermission<Meta, Context>> {
+  get permissions(): ReadonlyArray<GuantrAnyPermission> {
     return this._permissions;
   }
   static create <Meta extends GuantrMeta<GuantrResourceMap, string> | undefined = undefined>() {
@@ -54,31 +54,29 @@ export class Guantr<
       (action, resource) => this._permissions.push({
         action,
         resource: typeof resource === 'string' ? resource : resource[0],
-        condition: typeof resource === 'string' ? null : resource[1],
+        condition: typeof resource === 'string' ? null : resource[1] as GuantrAnyPermission['condition'],
         inverted: false
-      } as unknown as GuantrPermission<Meta, Context>),
+      }),
       (action, resource) => this._permissions.push({
         action,
         resource: typeof resource === 'string' ? resource : resource[0],
-        condition: typeof resource === 'string' ? null : resource[1],
+        condition: typeof resource === 'string' ? null : resource[1] as GuantrAnyPermission['condition'],
         inverted: true
-      } as unknown as GuantrPermission<Meta, Context>),
+      }),
     )
   }
 
   setPermissions(permissions: GuantrPermission<Meta, Context>[]) {
-    this._permissions = permissions;
+    this._permissions = permissions as GuantrAnyPermission[];
   }
 
   relatedPermissionsFor<
     ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string),
-    Resource extends (Meta extends GuantrMeta<infer U> ? U[ResourceKey] : Record<string, unknown>)
   >(
     action: Meta extends GuantrMeta<infer _, infer Action> ? Action : string,
-    resource: ResourceKey | [ResourceKey, Resource]
+    resource: ResourceKey
   ) {
-    // error TS2589: Type instantiation is excessively deep and possibly infinite.
-    return this.permissions.filter((item: any) => item.action === action && item.resource === (typeof resource === 'string' ? resource : resource[0])) as unknown as GuantrPermission<Meta, Context>[]
+    return this.permissions.filter((item: any) => item.action === action && item.resource === resource)
   }
 
   can<
@@ -94,7 +92,7 @@ export class Guantr<
     const relatedPermissions = this.relatedPermissionsFor(action, resource[0])
     for (const permission of relatedPermissions) {
       if (!permission.condition) continue
-      const pass = matchPermissionCondition(resource[1], permission as GuantrPermission & { condition: NonNullable<GuantrPermission['condition']> }, this.context)
+      const pass = matchPermissionCondition(resource[1], permission as GuantrAnyPermission & { condition: NonNullable<GuantrAnyPermission['condition']> }, this.context)
       if (permission.inverted) {
         if (!pass) continue
         return false
@@ -115,6 +113,27 @@ export class Guantr<
     resource: ResourceKey | [ResourceKey, Resource]
   ) {
     return !this.can(action, resource)
+  }
+
+  queryFilterFor<
+    ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string),
+    Action extends (Meta extends GuantrMeta<infer _, infer U> ? U : string),
+    R
+  >(transformer: (permissions: GuantrAnyPermission[]) => R, resource: ResourceKey, action?: Action) {
+    const relatedPermissions = this.relatedPermissionsFor(
+      action ?? 'read' as Action,
+      resource
+    ).map(permission => ({
+      ...permission,
+      condition: permission.condition
+        ? JSON.parse(JSON.stringify(permission.condition), (_, v) => {
+            if (isContextualOperand(v)) return getContextValue(this._context, v) ?? v
+            return v
+          }) as GuantrAnyPermission['condition']
+        : null
+    }))
+
+    return transformer(relatedPermissions)
   }
 }
 
