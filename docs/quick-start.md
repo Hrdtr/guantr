@@ -70,20 +70,21 @@ const guantr = createGuantr()
 If you're using TypeScript, you can provide additional metadata to strongly type your permissions. This ensures that your resource and action definitions are consistent and type-safe.
 
 ```ts
-type ResourceMap = {
+type Meta = GuantrMeta<{
   post: {
-    id: number,
-    title: string,
-    published: boolean
+    action: 'create' | 'read' | 'update' | 'delete'
+    model: {
+      id: number,
+      title: string,
+      published: boolean
+    }
   }
-};
+}>;
 
-type Action = 'create' | 'read' | 'update' | 'delete';
-
-const guantr = createGuantr<GuantrMeta<ResourceMap, Action>>();
+const guantr = createGuantr<Meta>();
 ```
 
-In this example, we define a `ResourceMap` for posts, specifying the structure of each post. We also define a set of actions (`'create'`, `'read'`, `'update'`, `'delete'`) that can be performed on these resources.
+In this example, we define a `ResourceMap` for posts, specifying the structure of each post inside `model` and a set of actions inside `action` (`'create'`, `'read'`, `'update'`, `'delete'`) that can be performed on these resources.
 
 ### With Context
 
