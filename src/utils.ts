@@ -78,6 +78,7 @@ export const isContextualOperand = (path: unknown): path is string => typeof pat
  */
 export const getContextValue = <T extends Record<string, unknown>, U>(context: T, path: string): U | undefined => {
   return (path.replace(path.startsWith('$') ? '$context.' : 'context.', ''))
+    .replaceAll('?.', '.')
     .split('.')
     // eslint-disable-next-line unicorn/no-array-reduce
     .reduce((o, k) => (o || {})[k], (context ?? {}) as Record<string, any>) as U | undefined

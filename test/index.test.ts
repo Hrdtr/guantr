@@ -310,6 +310,60 @@ describe('Guantr.can', () => {
     expect(guantr.can('read', ['user', mockUser])).toBe(false)
   })
 
+  it('should be able to reach nullable context', () => {
+    const mockContext1 = {
+      address: null
+    } as { address: { line1: string } | null }
+    const mockContext2 = {
+      address: { line1: '123 Main St', }
+    } as { address: { line1: string } | null }
+
+    const guantr1 = createGuantr<MockMeta>().withContext(mockContext1)
+    guantr1.setPermissions([
+      {
+        resource: 'user',
+        action: 'read',
+        condition: {
+          address: {
+            line1: ['equals', '$context.address?.line1']
+          }
+        },
+        inverted: false
+      },
+    ])
+
+    const guantr2 = createGuantr<MockMeta>().withContext(mockContext2)
+    guantr2.setPermissions([
+      {
+        resource: 'user',
+        action: 'read',
+        condition: {
+          address: {
+            line1: ['equals', '$context.address?.line1']
+          }
+        },
+        inverted: false
+      },
+    ])
+
+    const mockUser: MockResourceMap['user'] = {
+      id: 1,
+      name: 'John Doe',
+      suspended: null,
+      roles: [{ id: 1, name: 'admin' }, { id: 2, name: 'user' }],
+      address: {
+        line1: '123 Main St',
+        line2: 'Apt 4B',
+        city: 'AnyTown',
+        state: 'CA',
+        zip: '12345',
+        country: 'ID'
+      }
+    }
+    expect(guantr1.can('read', ['user', mockUser])).toBe(false)
+    expect(guantr2.can('read', ['user', mockUser])).toBe(true)
+  })
+
   it('should handle inverted rule correctly', () => {
     const guantr = createGuantr<MockMeta>()
     guantr.setPermissions([
@@ -341,4 +395,3 @@ describe('Guantr.can', () => {
     expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
   })
 })
-

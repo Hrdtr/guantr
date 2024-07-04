@@ -4,9 +4,9 @@ type ContextField<
   Prefix extends string = "$context."
 > = `context.${string}` | {
   [K in keyof Context]: K extends string | number
-    ? Context[K] extends Record<string, unknown>
-      ? ContextField<Context[K], T, `${Prefix}${K}.`>
-      : T extends Context[K] ? `${Prefix}${K}` : never
+    ? NonNullable<Context[K]> extends Record<string, unknown>
+      ? Extract<Context[K], null | undefined> extends never ? ContextField<NonNullable<Context[K]>, T, `${Prefix}${K}.`> : ContextField<NonNullable<Context[K]>, T, `${Prefix}${K}?.`>
+      : T extends NonNullable<Context[K]> ? `${Prefix}${K}` : never
     : never
 }[keyof Context];
 
