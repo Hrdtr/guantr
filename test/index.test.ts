@@ -1,35 +1,39 @@
 import { describe, expect, it, test } from "vitest";
 import { createGuantr } from "../src";
-import type { GuantrMeta, GuantrPermission } from "../src";
+import type { GuantrMeta, GuantrPermission, GuantrResourceMap } from "../src";
 
-type MockResourceMap = {
+type MockResourceMap = GuantrResourceMap<{
   user: {
-    id: number,
-    name: string,
-    suspended: boolean | null
-    roles: { id: number, name: string }[]
-    address: {
-      line1: string,
-      line2: string
-      city: string
-      state: string
-      zip: string
-      country: string
-    } | null
+    action: 'create' | 'read' | 'update' | 'delete'
+    model: {
+      id: number,
+      name: string,
+      suspended: boolean | null
+      roles: { id: number, name: string }[]
+      address: {
+        line1: string,
+        line2: string
+        city: string
+        state: string
+        zip: string
+        country: string
+      } | null
+    }
   },
   post: {
-    id: number,
-    published: boolean | undefined,
-    title: string,
-    description: string | null
-    tags: string[] | null | undefined
-    lastUpdatedAt: Date | null
+    action: 'create' | 'read' | 'update' | 'delete',
+    model: {
+      id: number,
+      published: boolean | undefined,
+      title: string,
+      description: string | null
+      tags: string[] | null | undefined
+      lastUpdatedAt: Date | null
+    }
   }
-}
+}>
 
-type MockAction = 'create' | 'read' | 'update' | 'delete';
-
-type MockMeta = GuantrMeta<MockResourceMap, MockAction>;
+type MockMeta = GuantrMeta<MockResourceMap>;
 
 describe('Guantr', () => {
   test('createGuantr should return new Guantr instance', () => {
@@ -39,7 +43,7 @@ describe('Guantr', () => {
     expect(guantr.permissions).toEqual([]);
   });
 
-  const mockContext: MockResourceMap['user'] = {
+  const mockContext: MockResourceMap['user']['model'] = {
     id: 1,
     name: 'John Doe',
     suspended: null,
@@ -194,7 +198,7 @@ describe('Guantr.can', () => {
       },
     ])
 
-    const mockUser: MockResourceMap['user'] = {
+    const mockUser: MockResourceMap['user']['model'] = {
       id: 1,
       name: 'John Doe',
       suspended: null,
@@ -224,7 +228,7 @@ describe('Guantr.can', () => {
       },
     ])
 
-    const mockUser: MockResourceMap['user'] = {
+    const mockUser: MockResourceMap['user']['model'] = {
       id: 1,
       name: 'John Doe',
       suspended: null,
@@ -256,7 +260,7 @@ describe('Guantr.can', () => {
       },
     ])
 
-    const mockUser: MockResourceMap['user'] = {
+    const mockUser: MockResourceMap['user']['model'] = {
       id: 1,
       name: 'John Doe',
       suspended: null,
@@ -291,7 +295,7 @@ describe('Guantr.can', () => {
       },
     ])
 
-    const mockUser: MockResourceMap['user'] = {
+    const mockUser: MockResourceMap['user']['model'] = {
       id: 1,
       name: 'John Doe',
       suspended: null,
@@ -346,7 +350,7 @@ describe('Guantr.can', () => {
       },
     ])
 
-    const mockUser: MockResourceMap['user'] = {
+    const mockUser: MockResourceMap['user']['model'] = {
       id: 1,
       name: 'John Doe',
       suspended: null,

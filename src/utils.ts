@@ -8,25 +8,25 @@ export const isValidConditionExpression = (maybeExpression: unknown): maybeExpre
 }
 
 /**
- * Checks if the given resource matches the permission condition.
+ * Checks if the given model matches the permission condition.
  *
- * @param {Resource} resource - The resource to check against the permission condition.
+ * @param {Model} model - The model to check against the permission condition.
  * @param {GuantrAnyPermission & { condition: NonNullable<GuantrAnyPermission['condition']> }} permission - The permission object containing the condition to match.
  * @param {Context} [context] - Optional context object for additional information.
- * @returns {boolean} Returns true if the resource matches the permission condition, false otherwise.
+ * @returns {boolean} Returns true if the model matches the permission condition, false otherwise.
  */
 export const matchPermissionCondition = <
-  Resource extends Record<string, unknown>,
+  Model extends Record<string, unknown>,
   Context extends Record<string, unknown> | undefined = undefined,
 >(
-  resource: Resource,
+  model: Model,
   condition: NonNullable<GuantrAnyPermission['condition']>,
   context?: Context,
 ): boolean => {
   return Object.entries(condition).every(([key, expressionOrNestedCondition]) => {
     if (Array.isArray(expressionOrNestedCondition)) {
       return matchConditionExpression({
-        value: resource[key],
+        value: model[key],
         expression: expressionOrNestedCondition,
         context,
       })
@@ -34,22 +34,22 @@ export const matchPermissionCondition = <
     else if (typeof expressionOrNestedCondition === 'object') {
       const { $expr, ...condition } = expressionOrNestedCondition
 
-      const nestedResource = resource[key]
-      if (!nestedResource || typeof nestedResource !== 'object') {
+      const nestedModel = model[key]
+      if (!nestedModel || typeof nestedModel !== 'object') {
         return false
       }
 
       if ($expr) {
         return (
           isValidConditionExpression($expr) ? matchConditionExpression({
-            value: resource[key],
+            value: model[key],
             expression: $expr,
             context
           }) : false
-        ) && matchPermissionCondition(nestedResource as Record<string, unknown>, condition, context)
+        ) && matchPermissionCondition(nestedModel as Record<string, unknown>, condition, context)
       }
       return matchPermissionCondition(
-        nestedResource as Record<string, unknown>,
+        nestedModel as Record<string, unknown>,
         condition,
         context
       )
@@ -92,7 +92,7 @@ export const getContextValue = <T extends Record<string, unknown>, U>(context: T
  * @param {NonNullable<GuantrAnyPermission['condition']>[keyof NonNullable<GuantrAnyPermission['condition']>]} data.expression - The condition expression to evaluate.
  * @param {Record<string, unknown>} [data.context] - The optional context object to use for evaluating the condition.
  * @return {boolean} The result of evaluating the condition expression against the value and context.
- * @throws {TypeError} If the resource value type is unexpected or the operand type is invalid.
+ * @throws {TypeError} If the model value type is unexpected or the operand type is invalid.
  */
 export const matchConditionExpression = (data: {
   value: unknown
@@ -115,7 +115,7 @@ export const matchConditionExpression = (data: {
         typeof value !== 'number' &&
         typeof value !== 'boolean'
       ) {
-        throw new TypeError(`Unexpected resource value type while evaluating condition with equals operator. (received: ${typeof value})`)
+        throw new TypeError(`Unexpected model value type while evaluating condition with equals operator. (received: ${typeof value})`)
       }
       // possible operand types: null, undefined, string, number, boolean
       if (
@@ -151,7 +151,7 @@ export const matchConditionExpression = (data: {
         typeof value !== 'string' &&
         typeof value !== 'number'
       ) {
-        throw new TypeError(`Unexpected resource value type while evaluating condition with in operator. (received: ${typeof value})`)
+        throw new TypeError(`Unexpected model value type while evaluating condition with in operator. (received: ${typeof value})`)
       }
       // possible operand types: (string | number)[]
       if (!Array.isArray(operand) || operand.some(i => typeof i !== 'string' && typeof i !== 'number')) {
@@ -181,7 +181,7 @@ export const matchConditionExpression = (data: {
         typeof value !== 'undefined' &&
         typeof value !== 'string'
       ) {
-        throw new TypeError(`Unexpected resource value type while evaluating condition with contains operator. (received: ${typeof value})`)
+        throw new TypeError(`Unexpected model value type while evaluating condition with contains operator. (received: ${typeof value})`)
       }
       // possible operand types: string
       if (typeof operand !== 'string') {
@@ -206,7 +206,7 @@ export const matchConditionExpression = (data: {
         typeof value !== 'undefined' &&
         typeof value !== 'string'
       ) {
-        throw new TypeError(`Unexpected resource value type while evaluating condition with startsWith operator. (received: ${typeof value})`)
+        throw new TypeError(`Unexpected model value type while evaluating condition with startsWith operator. (received: ${typeof value})`)
       }
       // possible operand types: string
       if (typeof operand !== 'string') {
@@ -231,7 +231,7 @@ export const matchConditionExpression = (data: {
         typeof value !== 'undefined' &&
         typeof value !== 'string'
       ) {
-        throw new TypeError(`Unexpected resource value type while evaluating condition with endsWith operator. (received: ${typeof value})`)
+        throw new TypeError(`Unexpected model value type while evaluating condition with endsWith operator. (received: ${typeof value})`)
       }
       // possible operand types: string
       if (typeof operand !== 'string') {
@@ -256,7 +256,7 @@ export const matchConditionExpression = (data: {
         typeof value !== 'undefined' &&
         typeof value !== 'number'
       ) {
-        throw new TypeError(`Unexpected resource value type while evaluating condition with gt operator. (received: ${typeof value})`)
+        throw new TypeError(`Unexpected model value type while evaluating condition with gt operator. (received: ${typeof value})`)
       }
       // possible operand types: number
       if (typeof operand !== 'number') {
@@ -277,7 +277,7 @@ export const matchConditionExpression = (data: {
         typeof value !== 'undefined' &&
         typeof value !== 'number'
       ) {
-        throw new TypeError(`Unexpected resource value type while evaluating condition with gte operator. (received: ${typeof value})`)
+        throw new TypeError(`Unexpected model value type while evaluating condition with gte operator. (received: ${typeof value})`)
       }
       // possible operand types: number
       if (typeof operand !== 'number') {
@@ -298,7 +298,7 @@ export const matchConditionExpression = (data: {
         typeof value !== 'undefined' &&
         (!Array.isArray(value) || value.some(i => typeof i !== 'string' && typeof i !== 'number'))
       ) {
-        throw new TypeError(`Unexpected resource value type while evaluating condition with has operator. (received: ${typeof value})`)
+        throw new TypeError(`Unexpected model value type while evaluating condition with has operator. (received: ${typeof value})`)
       }
       // possible operand types: string, number
       if (
@@ -326,7 +326,7 @@ export const matchConditionExpression = (data: {
         typeof value !== 'undefined' &&
         (!Array.isArray(value) || value.some(i => typeof i !== 'string' && typeof i !== 'number'))
       ) {
-        throw new TypeError(`Unexpected resource value type while evaluating condition with hasSome operator. (received: ${typeof value})`)
+        throw new TypeError(`Unexpected model value type while evaluating condition with hasSome operator. (received: ${typeof value})`)
       }
       // possible operand types: (string | number)[]
       if (!Array.isArray(operand) || operand.some(i => typeof i !== 'string' && typeof i !== 'number')) {
@@ -354,7 +354,7 @@ export const matchConditionExpression = (data: {
         typeof value !== 'undefined' &&
         (!Array.isArray(value) || value.some(i => typeof i !== 'string' && typeof i !== 'number'))
       ) {
-        throw new TypeError(`Unexpected resource value type while evaluating condition with hasEvery operator. (received: ${typeof value})`)
+        throw new TypeError(`Unexpected model value type while evaluating condition with hasEvery operator. (received: ${typeof value})`)
       }
       // possible operand types: (string | number)[]
       if (!Array.isArray(operand) || operand.some(i => typeof i !== 'string' && typeof i !== 'number')) {
@@ -383,7 +383,7 @@ export const matchConditionExpression = (data: {
         // Ensure value is array of non-null plain object
         (!Array.isArray(value) || value.some(i => i === null || typeof i !== 'object' || Array.isArray(i)))
       ) {
-        throw new TypeError(`Unexpected resource value type while evaluating condition with some operator. (received: ${typeof value})`)
+        throw new TypeError(`Unexpected model value type while evaluating condition with some operator. (received: ${typeof value})`)
       }
       // possible operand types: Record<string, object | ConditionExpression>
       if (
@@ -436,7 +436,7 @@ export const matchConditionExpression = (data: {
         // Ensure value is array of non-null plain object
         (!Array.isArray(value) || value.some(i => i === null || typeof i !== 'object' || Array.isArray(i)))
       ) {
-        throw new TypeError(`Unexpected resource value type while evaluating condition with every operator. (received: ${typeof value})`)
+        throw new TypeError(`Unexpected model value type while evaluating condition with every operator. (received: ${typeof value})`)
       }
       // possible operand types: Record<string, object | ConditionExpression>
       if (

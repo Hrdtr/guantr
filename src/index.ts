@@ -4,15 +4,18 @@ import { matchPermissionCondition } from "./utils";
 export type {
   GuantrMeta,
   GuantrPermission,
+  GuantrResource,
+  GuantrResourceAction,
+  GuantrResourceModel,
   GuantrResourceMap,
   GuantrCondition,
   GuantrAnyCondition,
   GuantrAnyConditionExpression,
-  GuantrAnyPermission
+  GuantrAnyPermission,
 } from './types'
 
 export class Guantr<
-  Meta extends GuantrMeta<GuantrResourceMap, string> | undefined = undefined,
+  Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
   Context extends Record<string, unknown> = Record<string, unknown>
 > {
   private _context: Context = {} as Context;
@@ -65,7 +68,7 @@ export class Guantr<
    * @template GuantrResourceMap - The type of the resource map used by the Guantr instance.
    * @returns {Guantr<Meta>} - A new instance of the Guantr class.
    */
-  static create <Meta extends GuantrMeta<GuantrResourceMap, string> | undefined = undefined>(): Guantr<Meta> {
+  static create <Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined>(): Guantr<Meta> {
     return new Guantr<Meta>();
   }
 
@@ -79,14 +82,14 @@ export class Guantr<
   setPermission(
     callback: (
       can: <ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string)>(
-        action: GuantrPermission<Meta, Context>['action'],
+        action: GuantrPermission<Meta, Context, ResourceKey>['action'],
         resource: GuantrPermission<Meta, Context, ResourceKey>['resource'] | [
           GuantrPermission<Meta, Context, ResourceKey>['resource'],
           GuantrPermission<Meta, Context, ResourceKey>['condition']
         ],
       ) => void,
       cannot: <ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string)>(
-        action: GuantrPermission<Meta, Context>['action'],
+        action: GuantrPermission<Meta, Context, ResourceKey>['action'],
         resource: GuantrPermission<Meta, Context, ResourceKey>['resource'] | [
           GuantrPermission<Meta, Context, ResourceKey>['resource'],
           GuantrPermission<Meta, Context, ResourceKey>['condition']
@@ -129,7 +132,7 @@ export class Guantr<
    * @return {GuantrAnyPermission[]} The filtered permissions based on the action and resource.
    */
   relatedPermissionsFor<ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string)>(
-    action: Meta extends GuantrMeta<infer _, infer Action> ? Action : string,
+    action: Meta extends GuantrMeta<infer U> ? U[ResourceKey]['action'] : string,
     resource: ResourceKey
   ): GuantrAnyPermission[] {
     return this.permissions.filter((item: any) => item.action === action && item.resource === resource)
@@ -146,9 +149,9 @@ export class Guantr<
    */
   can<
     ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string),
-    Resource extends (Meta extends GuantrMeta<infer U> ? U[ResourceKey] : Record<string, unknown>)
+    Resource extends (Meta extends GuantrMeta<infer U> ? U[ResourceKey]['model'] : Record<string, unknown>)
   >(
-    action: Meta extends GuantrMeta<infer _, infer Action> ? Action : string,
+    action: Meta extends GuantrMeta<infer U> ? U[ResourceKey]['action'] : string,
     resource: ResourceKey | [ResourceKey, Resource]
   ): boolean {
     if (typeof resource === 'string') {
@@ -181,9 +184,9 @@ export class Guantr<
    */
   cannot<
     ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string),
-    Resource extends (Meta extends GuantrMeta<infer U> ? U[ResourceKey] : Record<string, unknown>)
+    Resource extends (Meta extends GuantrMeta<infer U> ? U[ResourceKey]['model'] : Record<string, unknown>)
   >(
-    action: Meta extends GuantrMeta<infer _, infer Action> ? Action : string,
+    action: Meta extends GuantrMeta<infer U> ? U[ResourceKey]['action'] : string,
     resource: ResourceKey | [ResourceKey, Resource]
   ): boolean {
     return !this.can(action, resource)
@@ -196,7 +199,7 @@ export class Guantr<
  * @template Meta - The type of metadata associated with the Guantr instance. Defaults to undefined.
  * @return {Guantr<Meta>} A new instance of the Guantr class.
  */
-export const createGuantr = <Meta extends GuantrMeta<GuantrResourceMap, string> | undefined = undefined>(): Guantr<Meta> =>  {
+export const createGuantr = <Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined>(): Guantr<Meta> =>  {
   const instance = Guantr.create<Meta>();
   return instance
 };

@@ -98,20 +98,28 @@ type ResolveConditionExpression<
   : ConditionExpression<T, Context>;
 
 export type GuantrCondition<
-  Resource extends Record<string, unknown>,
+  Model extends Record<string, unknown>,
   Context extends Record<string, unknown> = Record<string, unknown>
-> = Resource extends any // needed to enable union types inference
+> = Model extends any // needed to enable union types inference
   ? Partial<{
-    [K in keyof Resource]: ResolveConditionExpression<Resource[K], Context>
+    [K in keyof Model]: ResolveConditionExpression<Model[K], Context>
   }>
   : never;
 
-export type GuantrResourceMap = Record<string, Record<string, unknown>>
 
-export type GuantrMeta<ResourceMap extends GuantrResourceMap, Action extends string = string> = {
+export type GuantrMeta<ResourceMap extends GuantrResourceMap> = {
   ResourceMap: ResourceMap;
-  Action: Action;
 }
+
+export type GuantrResourceAction<T extends string = string> = T
+export type GuantrResourceModel<T extends Record<string, unknown> = Record<string, unknown>> = T
+
+export type GuantrResource = {
+  action: GuantrResourceAction
+  model: GuantrResourceModel
+}
+
+export type GuantrResourceMap<T extends Record<string, GuantrResource> = Record<string, GuantrResource>> = T
 
 export type GuantrAnyConditionExpression =
   | NullishConditionExpression<null | undefined>
@@ -133,12 +141,12 @@ export type GuantrAnyPermission = {
 }
 
 export type GuantrPermission<
-  Meta extends GuantrMeta<GuantrResourceMap, string> | undefined = undefined,
+  Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
   Context extends Record<string, unknown> = Record<string, unknown>,
   ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string) = (Meta extends GuantrMeta<infer U> ? keyof U : string),
-> = Meta extends GuantrMeta<infer ResourceMap, infer Action> ? {
+> = Meta extends GuantrMeta<infer ResourceMap> ? {
   resource: ResourceKey,
-  action: Action;
-  condition: GuantrCondition<ResourceMap[ResourceKey], Context> | null;
+  action: ResourceMap[ResourceKey]['action'];
+  condition: GuantrCondition<ResourceMap[ResourceKey]['model'], Context> | null;
   inverted: boolean;
 } : GuantrAnyPermission
