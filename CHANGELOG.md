@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v1.0.0-rc.3
+
+[compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.2...v1.0.0-rc.3)
+
+### 🩹 Fixes
+
+- Should be able to reach nullable operand ([c53675c](https://github.com/Hrdtr/guantr/commit/c53675c))
+
+### ❤️ Contributors
+
+- Herdi Tr. ([@Hrdtr](http://github.com/Hrdtr))
+
 ## v1.0.0-rc.2
 
 [compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.1...v1.0.0-rc.2)
