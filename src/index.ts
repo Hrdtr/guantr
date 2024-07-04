@@ -1,7 +1,15 @@
 import type { GuantrMeta, GuantrAnyPermission, GuantrPermission, GuantrResourceMap } from "./types";
-import { getContextValue, isContextualOperand, matchPermissionCondition } from "./utils";
+import { matchPermissionCondition } from "./utils";
 
-export type { GuantrMeta, GuantrPermission, GuantrResourceMap, GuantrCondition } from './types'
+export type {
+  GuantrMeta,
+  GuantrPermission,
+  GuantrResourceMap,
+  GuantrCondition,
+  GuantrAnyCondition,
+  GuantrAnyConditionExpression,
+  GuantrAnyPermission
+} from './types'
 
 export class Guantr<
   Meta extends GuantrMeta<GuantrResourceMap, string> | undefined = undefined,
@@ -149,7 +157,7 @@ export class Guantr<
     const relatedPermissions = this.relatedPermissionsFor(action, resource[0])
     for (const permission of relatedPermissions) {
       if (!permission.condition) continue
-      const pass = matchPermissionCondition(resource[1], permission as GuantrAnyPermission & { condition: NonNullable<GuantrAnyPermission['condition']> }, this.context)
+      const pass = matchPermissionCondition(resource[1], permission.condition, this.context)
       if (permission.inverted) {
         if (!pass) continue
         return false
@@ -179,38 +187,6 @@ export class Guantr<
     resource: ResourceKey | [ResourceKey, Resource]
   ): boolean {
     return !this.can(action, resource)
-  }
-
-  /**
-   * Retrieves the query filter for the specified resource and action, and applies a transformer function to the resulting permissions.
-   *
-   * @template ResourceKey - The type of the resource key.
-   * @template Action - The type of the action.
-   * @template R - The type of the result returned by the transformer function.
-   * @param {(permissions: GuantrAnyPermission[]) => R} transformer - The transformer function to apply to the permissions.
-   * @param {ResourceKey} resource - The resource key for which to retrieve the query filter.
-   * @param {Action} [action='read'] - The action for which to retrieve the query filter. Defaults to 'read' if not provided.
-   * @return {R} The result of applying the transformer function to the permissions.
-   */
-  queryFilterFor<
-    ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string),
-    Action extends (Meta extends GuantrMeta<infer _, infer U> ? U : string),
-    R
-  >(transformer: (permissions: GuantrAnyPermission[]) => R, resource: ResourceKey, action?: Action): R {
-    const relatedPermissions = this.relatedPermissionsFor(
-      action ?? 'read' as Action,
-      resource
-    ).map(permission => ({
-      ...permission,
-      condition: permission.condition
-        ? JSON.parse(JSON.stringify(permission.condition), (_, v) => {
-            if (isContextualOperand(v)) return getContextValue(this._context, v) ?? v
-            return v
-          }) as GuantrAnyPermission['condition']
-        : null
-    }))
-
-    return transformer(relatedPermissions)
   }
 }
 

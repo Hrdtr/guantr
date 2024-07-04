@@ -1,4 +1,11 @@
-import { GuantrAnyPermission } from "./types"
+import { GuantrAnyConditionExpression, GuantrAnyPermission } from "./types"
+
+export const isValidConditionExpression = (maybeExpression: unknown): maybeExpression is GuantrAnyConditionExpression => {
+  if (!Array.isArray(maybeExpression)) return false
+  if (maybeExpression.length < 2) return false
+  if (typeof maybeExpression[0] !== 'string') false
+  return true
+}
 
 /**
  * Checks if the given resource matches the permission condition.
@@ -11,32 +18,46 @@ import { GuantrAnyPermission } from "./types"
 export const matchPermissionCondition = <
   Resource extends Record<string, unknown>,
   Context extends Record<string, unknown> | undefined = undefined,
-  >(
+>(
   resource: Resource,
-  permission: GuantrAnyPermission & { condition: NonNullable<GuantrAnyPermission['condition']> },
+  condition: NonNullable<GuantrAnyPermission['condition']>,
   context?: Context,
 ): boolean => {
-  return Object.entries(permission.condition).every(([path, expression]) => matchConditionExpression({
-    value: getResourceValue(resource, path),
-    expression,
-    context,
-  }))
-}
+  return Object.entries(condition).every(([key, expressionOrNestedCondition]) => {
+    if (Array.isArray(expressionOrNestedCondition)) {
+      return matchConditionExpression({
+        value: resource[key],
+        expression: expressionOrNestedCondition,
+        context,
+      })
+    }
+    else if (typeof expressionOrNestedCondition === 'object') {
+      const { $expr, ...condition } = expressionOrNestedCondition
 
-/**
- * Retrieves the value at the specified path in the given resource object.
- *
- * @template T - The type of the resource object.
- * @template U - The type of the value to retrieve.
- * @param {T} resource - The resource object to search in.
- * @param {string} path - The dot-separated path to the value.
- * @return {U | undefined} The value at the specified path, or undefined if not found.
- */
-const getResourceValue = <T extends Record<string, unknown>, U>(resource: T, path: string): U | undefined => {
-  return path
-    .split('.')
-    // eslint-disable-next-line unicorn/no-array-reduce
-    .reduce((o, k) => (o || {})[k], resource as Record<string, any>) as U | undefined
+      const nestedResource = resource[key]
+      if (!nestedResource || typeof nestedResource !== 'object') {
+        return false
+      }
+
+      if ($expr) {
+        return (
+          isValidConditionExpression($expr) ? matchConditionExpression({
+            value: resource[key],
+            expression: $expr,
+            context
+          }) : false
+        ) && matchPermissionCondition(nestedResource as Record<string, unknown>, condition, context)
+      }
+      return matchPermissionCondition(
+        nestedResource as Record<string, unknown>,
+        condition,
+        context
+      )
+    }
+    else {
+      throw new TypeError(`Unexpected expression value type: ${typeof expressionOrNestedCondition}`)
+    }
+  })
 }
 
 /**
@@ -74,7 +95,7 @@ export const getContextValue = <T extends Record<string, unknown>, U>(context: T
  */
 export const matchConditionExpression = (data: {
   value: unknown
-  expression: NonNullable<GuantrAnyPermission['condition']>[keyof NonNullable<GuantrAnyPermission['condition']>]
+  expression: Extract<NonNullable<GuantrAnyPermission['condition']>[keyof NonNullable<GuantrAnyPermission['condition']>], Array<any>>
   context?: Record<string, unknown>
 }): boolean => {
   const { value, expression, context, } = data
@@ -363,25 +384,45 @@ export const matchConditionExpression = (data: {
       ) {
         throw new TypeError(`Unexpected resource value type while evaluating condition with some operator. (received: ${typeof value})`)
       }
-      // possible operand types: Record<string, ConditionExpression>
+      // possible operand types: Record<string, object | ConditionExpression>
       if (
         operand === null ||
         typeof operand !== 'object' ||
-        // Ensure the operand is valid condition
-        Object.values(operand).some(i => !Array.isArray(i) || i.length < 2 || typeof i[0] !== 'string')
+        Object.values(operand).some(i => {
+          if (typeof i !== 'object') return true
+          if (Array.isArray(i)) {
+            if (i.length < 2) return true
+            if (typeof i[0] !== 'string') return true
+          }
+          return false
+        })
       ) {
-        throw new TypeError(`The operand for condition with some operator must be one of the following types: Record<string, ConditionExpression>. (received: ${typeof operand})`)
+        throw new TypeError(`The operand for condition with every operator must be one of the following types: Record<string, object | ConditionExpression>. (received: ${typeof operand})`)
       }
 
       if (value === null || typeof value === 'undefined') {
         return false
       }
 
-      const match = (i: any) => Object.entries(operand).every(([path, expression]) => matchConditionExpression({
-        value: getResourceValue(i, path),
-        expression,
-        context
-      }))
+      const match = (i: any) => Object.entries(operand).every(([key, expressionOrNestedCondition]) => {
+        if (Array.isArray(expressionOrNestedCondition)) {
+          return matchConditionExpression({
+            value: i[key],
+            expression: expressionOrNestedCondition as any,
+            context,
+          })
+        }
+        else if (typeof expressionOrNestedCondition === 'object') {
+          return matchPermissionCondition(
+            i[key] as Record<string, any>,
+            expressionOrNestedCondition,
+            context
+          )
+        }
+        else {
+          throw new TypeError(`Unexpected expression value type: ${typeof expressionOrNestedCondition}`)
+        }
+      })
 
       return value.some(i => match(i))
     }
@@ -396,25 +437,45 @@ export const matchConditionExpression = (data: {
       ) {
         throw new TypeError(`Unexpected resource value type while evaluating condition with every operator. (received: ${typeof value})`)
       }
-      // possible operand types: Record<string, ConditionExpression>
+      // possible operand types: Record<string, object | ConditionExpression>
       if (
         operand === null ||
         typeof operand !== 'object' ||
-        // Ensure the operand is valid condition
-        Object.values(operand).some(i => !Array.isArray(i) || i.length < 2 || typeof i[0] !== 'string')
+        Object.values(operand).some(i => {
+          if (typeof i !== 'object') return true
+          if (Array.isArray(i)) {
+            if (i.length < 2) return true
+            if (typeof i[0] !== 'string') return true
+          }
+          return false
+        })
       ) {
-        throw new TypeError(`The operand for condition with every operator must be one of the following types: Record<string, ConditionExpression>. (received: ${typeof operand})`)
+        throw new TypeError(`The operand for condition with every operator must be one of the following types: Record<string, object | ConditionExpression>. (received: ${typeof operand})`)
       }
 
       if (value === null || typeof value === 'undefined') {
         return false
       }
 
-      const match = (i: any) => Object.entries(operand).every(([path, expression]) => matchConditionExpression({
-        value: getResourceValue(i, path),
-        expression,
-        context
-      }))
+      const match = (i: any) => Object.entries(operand).every(([key, expressionOrNestedCondition]) => {
+        if (Array.isArray(expressionOrNestedCondition)) {
+          return matchConditionExpression({
+            value: i[key],
+            expression: expressionOrNestedCondition as any,
+            context,
+          })
+        }
+        else if (typeof expressionOrNestedCondition === 'object') {
+          return matchPermissionCondition(
+            i[key] as Record<string, any>,
+            expressionOrNestedCondition,
+            context
+          )
+        }
+        else {
+          throw new TypeError(`Unexpected expression value type: ${typeof expressionOrNestedCondition}`)
+        }
+      })
 
       return value.every(i => match(i))
     }

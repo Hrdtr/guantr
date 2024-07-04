@@ -27,9 +27,9 @@ describe('matchConditionExpression - some operator', () => {
     { value: [{ id: 1, status: 'active' }, { id: 2, status: 'inactive' }], operand: { status: ['equals', '$context.status'] }, expected: true }, // One item with status === context.status ('active')
 
     // Nested
-    { value: [{ id: 1, name: { first: 'John', last: 'Doe' } }, { id: 2, name: { first: 'Alice', last: 'Smith' } }], operand: { 'name.first': ['equals', 'Alice'] }, expected: true },
-    { value: [{ id: 1, name: { first: 'John', last: 'Doe' } }, { id: 2, name: { first: 'Alice', last: 'Smith' } }], operand: { 'name.first': ['equals', '$context.name.last'] }, expected: false },
-    { value: [{ id: 1, name: { first: 'John', last: 'Doe' } }, { id: 2, name: { first: 'Alice', last: 'Smith' } }], operand: { 'name.last': ['equals', '$context.name.last'] }, expected: true },
+    { value: [{ id: 1, name: { first: 'John', last: 'Doe' } }, { id: 2, name: { first: 'Alice', last: 'Smith' } }], operand: { name: { first: ['equals', 'Alice'] } }, expected: true },
+    { value: [{ id: 1, name: { first: 'John', last: 'Doe' } }, { id: 2, name: { first: 'Alice', last: 'Smith' } }], operand: { name: { first: ['equals', '$context.name.last'] } }, expected: false },
+    { value: [{ id: 1, name: { first: 'John', last: 'Doe' } }, { id: 2, name: { first: 'Alice', last: 'Smith' } }], operand: { name: { last: ['equals', '$context.name.last'] } }, expected: true },
 
     // Handling null and undefined
     { value: null, operand: { value: ['gt', 10] }, expected: false }, // null array

@@ -10,40 +10,6 @@ type ContextField<
     : never
 }[keyof Context];
 
-type ConditionField<
-  Resource extends Record<string, unknown>,
-  Prefix extends string = ""
-> = {
-  [K in keyof Resource]: K extends string | number
-    ? Resource[K] extends Record<string, unknown>
-      ? ConditionField<Resource[K], `${Prefix}${K}.`>
-      : Resource[K] extends unknown[]
-        ? `${Prefix}${K}` | `${Prefix}${K}.length`
-        : `${Prefix}${K}`
-    : never
-}[keyof Resource];
-
-type Split<S extends string, D extends string> = string extends S
-  ? string[]
-  : S extends ''
-    ? []
-    : S extends `${infer T}${D}${infer U}`
-      ? [T, ...Split<U, D>]
-      : [S];
-
-type Access<T, K> = K extends [infer F, ...infer R] 
-  ? F extends keyof T 
-    ? R extends []
-      ? T[F]
-      : Access<T[F], R>
-    : never
-  : never;
-
-type ConditionFieldValue<
-  Resource extends Record<string, unknown>,
-  K extends ConditionField<Resource>
-> = Access<Resource, Split<K, '.'>>;
-
 type StringConditionExpression<
   Context extends Record<string, unknown> = Record<string, unknown>
   // NonNullable<unknown> intersection is required.
@@ -81,24 +47,22 @@ type ObjectArrayConditionExpression<
 > = [
       operator: 'some',
       operand: Untyped extends true
-        ? Record<string,
-          [operator: 'equals', operand: null | undefined]
+        ? Record<string, NullishConditionExpression<null | undefined>
+          | PlainArrayConditionExpression
+          | ObjectArrayConditionExpression<any[], any, true>>
           | StringConditionExpression
           | NumberConditionExpression
           | BooleanConditionExpression
-          | PlainArrayConditionExpression
-          | ObjectArrayConditionExpression<any[], any, true>>
         : GuantrCondition<T[number], Context>
     ] | [
       operator: 'every',
       operand: Untyped extends true
-        ? Record<string,
-          [operator: 'equals', operand: null | undefined]
+        ? Record<string, NullishConditionExpression<null | undefined>
+          | PlainArrayConditionExpression
+          | ObjectArrayConditionExpression<any[], any, true>>
           | StringConditionExpression
           | NumberConditionExpression
           | BooleanConditionExpression
-          | PlainArrayConditionExpression
-          | ObjectArrayConditionExpression<any[], any, true>>
         : GuantrCondition<T[number], Context>
     ]
 
@@ -111,30 +75,35 @@ type ArrayConditionExpression<
     ? ObjectArrayConditionExpression<T, Context>
     : never
 
-type ConditionExpression<T, Context extends Record<string, unknown> = Record<string, unknown>> =
-  T extends null | undefined
-  ? [operator: 'equals', operand: T]
-  : T extends unknown[]
-    ? ArrayConditionExpression<T, Context>
-    : T extends string
-      ? StringConditionExpression<Context>
-      : T extends number
-        ? NumberConditionExpression<Context>
-        : T extends boolean
-          ? BooleanConditionExpression<Context>
-          : never
+type NullishConditionExpression<T extends null | undefined> = [operator: 'equals', operand: T]
 
-type ResolveCondition<
-  Resource extends Record<string, unknown>,
-  K extends ConditionField<Resource>,
+type ConditionExpression<T, Context extends Record<string, unknown> = Record<string, unknown>> =
+  T extends unknown[]
+  ? ArrayConditionExpression<T, Context> | { length: NumberConditionExpression<Context>, $expr?: ArrayConditionExpression<T, Context> }
+  : T extends string
+    ? StringConditionExpression<Context>
+    : T extends number
+      ? NumberConditionExpression<Context>
+      : T extends boolean
+        ? BooleanConditionExpression<Context>
+        : never
+
+type ResolveConditionExpression<
+  T,
   Context extends Record<string, unknown> = Record<string, unknown>
-> = ConditionExpression<ConditionFieldValue<Resource, K>, Context>;
+> = T extends null | undefined
+? NullishConditionExpression<T>
+: T extends Record<string, unknown>
+  ? GuantrCondition<T, Context>
+  : ConditionExpression<T, Context>;
 
 export type GuantrCondition<
   Resource extends Record<string, unknown>,
   Context extends Record<string, unknown> = Record<string, unknown>
 > = Resource extends any // needed to enable union types inference
-  ? Partial<{ [K in ConditionField<Resource>]: ResolveCondition<Resource, K, Context> }>
+  ? Partial<{
+    [K in keyof Resource]: ResolveConditionExpression<Resource[K], Context>
+  }>
   : never;
 
 export type GuantrResourceMap = Record<string, Record<string, unknown>>
@@ -144,17 +113,22 @@ export type GuantrMeta<ResourceMap extends GuantrResourceMap, Action extends str
   Action: Action;
 }
 
+export type GuantrAnyConditionExpression =
+  | NullishConditionExpression<null | undefined>
+  | StringConditionExpression
+  | NumberConditionExpression
+  | BooleanConditionExpression
+  | PlainArrayConditionExpression
+  | ObjectArrayConditionExpression<any[], any, true>
+
+export interface GuantrAnyCondition {
+  [key: string]: GuantrAnyConditionExpression | GuantrAnyCondition
+}
+
 export type GuantrAnyPermission = {
   resource: string;
   action: string;
-  condition: Record<string,
-    [operator: 'equals', operand: null | undefined]
-    | StringConditionExpression
-    | NumberConditionExpression
-    | BooleanConditionExpression
-    | PlainArrayConditionExpression
-    | ObjectArrayConditionExpression<any[], any, true>
-  > | null;
+  condition: GuantrAnyCondition | null;
   inverted: boolean;
 }
 

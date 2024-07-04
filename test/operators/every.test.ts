@@ -27,7 +27,7 @@ describe('matchConditionExpression - every operator', () => {
     { value: [{ id: 1, status: 'active' }, { id: 2, status: 'active' }], operand: { status: ['equals', '$context.status'] }, expected: true }, // All items with status === context.status ('active')
 
     // Nested
-    { value: [{ id: 1, name: { first: 'John', last: 'Doe' } }, { id: 2, name: { first: 'Alice', last: 'Doe' } }], operand: { 'name.last': ['equals', '$context.name.last'] }, expected: true }, // All items with name.last === context.name.last ('Doe')
+    { value: [{ id: 1, name: { first: 'John', last: 'Doe' } }, { id: 2, name: { first: 'Alice', last: 'Doe' } }], operand: { name: { last: ['equals', '$context.name.last'] } }, expected: true }, // All items with name.last === context.name.last ('Doe')
 
     // Handling null and undefined
     { value: null, operand: { value: ['gt', 10] }, expected: false }, // null array

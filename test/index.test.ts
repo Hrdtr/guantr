@@ -179,6 +179,137 @@ describe('Guantr.can', () => {
     expect(guantr.can('delete', 'post')).toBe(false);
   });
 
+  it('should be able to match condition for nested resource condition', () => {
+    const guantr = createGuantr<MockMeta>()
+    guantr.setPermissions([
+      {
+        resource: 'user',
+        action: 'read',
+        condition: {
+          address: {
+            country: ['equals', 'id', { caseInsensitive: true }]
+          }
+        },
+        inverted: false
+      },
+    ])
+
+    const mockUser: MockResourceMap['user'] = {
+      id: 1,
+      name: 'John Doe',
+      suspended: null,
+      roles: [{ id: 1, name: 'admin' }, { id: 2, name: 'user' }],
+      address: {
+        line1: '123 Main St',
+        line2: 'Apt 4B',
+        city: 'AnyTown',
+        state: 'CA',
+        zip: '12345',
+        country: 'ID'
+      }
+    }
+    expect(guantr.can('read', ['user', mockUser])).toBe(true)
+  })
+
+  it('should be able to match condition of array', () => {
+    const guantr = createGuantr<MockMeta>()
+    guantr.setPermissions([
+      {
+        resource: 'user',
+        action: 'read',
+        condition: {
+          roles: ['some', { name: ['equals', 'user'] }]
+        },
+        inverted: false
+      },
+    ])
+
+    const mockUser: MockResourceMap['user'] = {
+      id: 1,
+      name: 'John Doe',
+      suspended: null,
+      roles: [{ id: 1, name: 'admin' }, { id: 2, name: 'user' }],
+      address: {
+        line1: '123 Main St',
+        line2: 'Apt 4B',
+        city: 'AnyTown',
+        state: 'CA',
+        zip: '12345',
+        country: 'ID'
+      }
+    }
+    expect(guantr.can('read', ['user', mockUser])).toBe(true)
+  })
+
+  it('should be able to match condition for array length check', () => {
+    const guantr = createGuantr<MockMeta>()
+    guantr.setPermissions([
+      {
+        resource: 'user',
+        action: 'read',
+        condition: {
+          roles: {
+            length: ['equals', 2]
+          }
+        },
+        inverted: false
+      },
+    ])
+
+    const mockUser: MockResourceMap['user'] = {
+      id: 1,
+      name: 'John Doe',
+      suspended: null,
+      roles: [{ id: 1, name: 'admin' }, { id: 2, name: 'user' }],
+      address: {
+        line1: '123 Main St',
+        line2: 'Apt 4B',
+        city: 'AnyTown',
+        state: 'CA',
+        zip: '12345',
+        country: 'ID'
+      }
+    }
+    expect(guantr.can('read', ['user', mockUser])).toBe(true)
+    mockUser.roles.pop()
+    expect(guantr.can('read', ['user', mockUser])).toBe(false)
+  })
+
+  it('should be able to match condition for array length check with expression', () => {
+    const guantr = createGuantr<MockMeta>()
+    guantr.setPermissions([
+      {
+        resource: 'user',
+        action: 'read',
+        condition: {
+          roles: {
+            length: ['equals', 2],
+            $expr: ['some', { name: ['equals', 'User', { caseInsensitive: true }] }]
+          }
+        },
+        inverted: false
+      },
+    ])
+
+    const mockUser: MockResourceMap['user'] = {
+      id: 1,
+      name: 'John Doe',
+      suspended: null,
+      roles: [{ id: 1, name: 'admin' }, { id: 2, name: 'user' }],
+      address: {
+        line1: '123 Main St',
+        line2: 'Apt 4B',
+        city: 'AnyTown',
+        state: 'CA',
+        zip: '12345',
+        country: 'ID'
+      }
+    }
+    expect(guantr.can('read', ['user', mockUser])).toBe(true)
+    mockUser.roles.pop()
+    expect(guantr.can('read', ['user', mockUser])).toBe(false)
+  })
+
   it('should handle inverted rule correctly', () => {
     const guantr = createGuantr<MockMeta>()
     guantr.setPermissions([
