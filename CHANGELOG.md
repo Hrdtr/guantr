@@ -1,6 +1,36 @@
 # Changelog
 
 
+## v1.0.0-rc.2
+
+[compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.1...v1.0.0-rc.2)
+
+### 🩹 Fixes
+
+- ⚠️  Temporary drop ability to generate query filter ([141b541](https://github.com/Hrdtr/guantr/commit/141b541))
+
+### 💅 Refactors
+
+- ⚠️  Remove support for dot-notation condition field ([02ceda1](https://github.com/Hrdtr/guantr/commit/02ceda1))
+
+### 📖 Documentation
+
+- Deploy initial documentation site ([e5795ce](https://github.com/Hrdtr/guantr/commit/e5795ce))
+
+### 🏡 Chore
+
+- Add github pr & issue templates ([93f1a37](https://github.com/Hrdtr/guantr/commit/93f1a37))
+- Deps update ([65cb745](https://github.com/Hrdtr/guantr/commit/65cb745))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Temporary drop ability to generate query filter ([141b541](https://github.com/Hrdtr/guantr/commit/141b541))
+- ⚠️  Remove support for dot-notation condition field ([02ceda1](https://github.com/Hrdtr/guantr/commit/02ceda1))
+
+### ❤️ Contributors
+
+- Herdi Tr. ([@Hrdtr](http://github.com/Hrdtr))
+
 ## v1.0.0-rc.1
 
 
