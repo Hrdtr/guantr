@@ -11,11 +11,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
-    },
-    "./query-filter-transformer/prisma": {
-      "types": "./dist/query-filter-transformer/prisma/index.d.ts",
-      "import": "./dist/query-filter-transformer/prisma/index.mjs",
-      "require": "./dist/query-filter-transformer/prisma/index.cjs"
     }
   },
   "main": "./dist/index.cjs",
@@ -30,12 +25,11 @@
     "lint": "eslint .",
     "lint:fix": "automd && eslint . --fix",
     "prepack": "pnpm build",
-    "prepare": "husky && echo \"pnpm lint-staged\" > .husky/pre-commit && echo \"pnpm commitlint --edit ${1}\" > .husky/commit-msg && pnpm test:prepare",
+    "prepare": "husky && echo \"pnpm lint-staged\" > .husky/pre-commit && echo \"pnpm commitlint --edit ${1}\" > .husky/commit-msg",
     "play": "jiti playground",
     "release": "pnpm test && changelogen --release && npm publish && git push --follow-tags",
     "release:rc": "pnpm test && changelogen --release --prerelease rc && npm publish && git push --follow-tags",
     "test": "pnpm lint && pnpm typecheck && vitest run --typecheck --coverage --coverage.exclude commitlint.config.ts --coverage.exclude \"docs/**\"",
-    "test:prepare": "npx --yes prisma generate --schema test/query-filter-transformer/prisma/schema.prisma",
     "typecheck": "tsc --noEmit --skipLibCheck",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
