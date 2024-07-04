@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v1.0.0-rc.4
+
+[compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.3...v1.0.0-rc.4)
+
+### 💅 Refactors
+
+- ⚠️  Per-resource action definition ([cf593ec](https://github.com/Hrdtr/guantr/commit/cf593ec))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Per-resource action definition ([cf593ec](https://github.com/Hrdtr/guantr/commit/cf593ec))
+
+### ❤️ Contributors
+
+- Herdi Tr. ([@Hrdtr](http://github.com/Hrdtr))
+
 ## v1.0.0-rc.3
 
 [compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.2...v1.0.0-rc.3)
