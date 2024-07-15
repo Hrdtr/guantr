@@ -1,5 +1,5 @@
 import type { GuantrMeta, GuantrAnyPermission, GuantrPermission, GuantrResourceMap } from "./types";
-import { matchPermissionCondition } from "./utils";
+import { getContextValue, isContextualOperand, matchPermissionCondition } from "./utils";
 
 export type {
   GuantrMeta,
@@ -190,6 +190,41 @@ export class Guantr<
     resource: ResourceKey | [ResourceKey, Resource]
   ): boolean {
     return !this.can(action, resource)
+  }
+
+    /**
+   * Retrieves the query filter for the specified resource and action, and applies a transformer function to the resulting permissions.
+   *
+   * @template ResourceKey - The type of the resource key.
+   * @template Action - The type of the action.
+   * @template R - The type of the result returned by the transformer function.
+   * @param {(permissions: GuantrAnyPermission[]) => R} transformer - The transformer function to apply to the permissions.
+   * @param {ResourceKey} resource - The resource key for which to retrieve the query filter.
+   * @param {Action} [action='read'] - The action for which to retrieve the query filter. Defaults to 'read' if not provided.
+   * @return {R} The result of applying the transformer function to the permissions.
+   */
+    queryFilterFor<
+      ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string),
+      R
+    >(
+      transformer: (permissions: GuantrAnyPermission[]) => R,
+      resource: ResourceKey,
+      action?: Meta extends GuantrMeta<infer U> ? U[ResourceKey]['action'] : string
+    ): R {
+    const relatedPermissions = this.relatedPermissionsFor(
+      action ?? 'read' as NonNullable<typeof action>,
+      resource
+    ).map(permission => ({
+      ...permission,
+      condition: permission.condition
+        ? JSON.parse(JSON.stringify(permission.condition), (_, v) => {
+            if (isContextualOperand(v)) return getContextValue(this._context, v) ?? v
+            return v
+          }) as GuantrAnyPermission['condition']
+        : null
+    }))
+
+    return transformer(relatedPermissions)
   }
 }
 

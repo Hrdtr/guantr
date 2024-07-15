@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
+    },
+    "./query-filter-transformer/prisma": {
+      "types": "./dist/query-filter-transformer/prisma/index.d.ts",
+      "import": "./dist/query-filter-transformer/prisma/index.mjs",
+      "require": "./dist/query-filter-transformer/prisma/index.cjs"
     }
   },
   "main": "./dist/index.cjs",
@@ -25,11 +30,12 @@
     "lint": "eslint .",
     "lint:fix": "automd && eslint . --fix",
     "prepack": "pnpm build",
-    "prepare": "husky && echo \"pnpm lint-staged\" > .husky/pre-commit && echo \"pnpm commitlint --edit ${1}\" > .husky/commit-msg",
+    "prepare": "husky && echo \"pnpm lint-staged\" > .husky/pre-commit && echo \"pnpm commitlint --edit ${1}\" > .husky/commit-msg && pnpm test:prepare",
     "play": "jiti playground",
     "release": "pnpm test && changelogen --release && npm publish && git push --follow-tags",
     "release:rc": "pnpm test && changelogen --release --prerelease rc && npm publish && git push --follow-tags",
     "test": "pnpm lint && pnpm typecheck && vitest run --typecheck --coverage --coverage.exclude commitlint.config.ts --coverage.exclude \"docs/**\"",
+    "test:prepare": "npx --yes prisma generate --schema test/query-filter-transformer/prisma/schema.prisma",
     "typecheck": "tsc --noEmit --skipLibCheck",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
@@ -38,7 +44,7 @@
   "devDependencies": {
     "@commitlint/config-conventional": "^19.2.2",
     "@commitlint/types": "^19.0.3",
-    "@prisma/client": "^5.16.1",
+    "@prisma/client": "^5.0.0",
     "@types/node": "^20.14.9",
     "@vitest/coverage-v8": "^1.5.3",
     "automd": "^0.3.7",
@@ -61,6 +67,6 @@
     ]
   },
   "peerDependencies": {
-    "@prisma/client": "^5.15.0"
+    "@prisma/client": "^5.0.0"
   }
 }

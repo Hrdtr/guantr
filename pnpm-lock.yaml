@@ -15,7 +15,7 @@ importers:
         specifier: ^19.0.3
         version: 19.0.3
       '@prisma/client':
-        specifier: ^5.16.1
+        specifier: ^5.0.0
         version: 5.16.1
       '@types/node':
         specifier: ^20.14.9
