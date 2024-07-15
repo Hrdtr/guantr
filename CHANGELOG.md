@@ -1,6 +1,23 @@
 # Changelog
 
 
+## v1.0.0-rc.5
+
+[compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.4...v1.0.0-rc.5)
+
+### 🚀 Enhancements
+
+- Prisma query filter transformer ([f382d0c](https://github.com/Hrdtr/guantr/commit/f382d0c))
+
+### 📖 Documentation
+
+- Update quickstart to follow meta structure changes ([d30dd9b](https://github.com/Hrdtr/guantr/commit/d30dd9b))
+- Update readme.md usage section to follow meta structure changes ([a020173](https://github.com/Hrdtr/guantr/commit/a020173))
+
+### ❤️ Contributors
+
+- Herdi Tr. ([@Hrdtr](http://github.com/Hrdtr))
+
 ## v1.0.0-rc.4
 
 [compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.3...v1.0.0-rc.4)
