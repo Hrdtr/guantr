@@ -64,16 +64,18 @@ Initialize:
 const guantr = createGuantr()
 
 // With Typescript Meta:
-type ResourceMap = {
+type Meta = GuantrMeta<{
   post: {
-    id: number,
-    title: string,
-    published: boolean
+    action: 'create' | 'read' | 'update' | 'delete'
+    model: {
+      id: number,
+      title: string,
+      published: boolean
+    }
   }
-}
-type Action = 'create' | 'read' | 'update' | 'delete'
+}>;
 
-const guantr = createGuantr<GuantrMeta<ResourceMap, Action>>()
+const guantr = createGuantr<Meta>()
 
 // Contextual
 const guantrWithContext = guantr.withContext({
