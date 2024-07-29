@@ -1,6 +1,24 @@
 # Changelog
 
 
+## v1.0.0-rc.6
+
+[compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.5...v1.0.0-rc.6)
+
+### 🩹 Fixes
+
+- Correcly handle overlapping permission ([48d6cf8](https://github.com/Hrdtr/guantr/commit/48d6cf8))
+
+### 🏡 Chore
+
+- Deps update ([1ee7410](https://github.com/Hrdtr/guantr/commit/1ee7410))
+- Move inline test options to file ([4af7b97](https://github.com/Hrdtr/guantr/commit/4af7b97))
+- Rename test folder ([5914b4c](https://github.com/Hrdtr/guantr/commit/5914b4c))
+
+### ❤️ Contributors
+
+- Herdi Tr. ([@Hrdtr](http://github.com/Hrdtr))
+
 ## v1.0.0-rc.5
 
 [compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.4...v1.0.0-rc.5)
