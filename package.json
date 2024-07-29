@@ -35,7 +35,7 @@
     "release": "pnpm test && changelogen --release && npm publish && git push --follow-tags",
     "release:rc": "pnpm test && changelogen --release --prerelease rc && npm publish && git push --follow-tags",
     "test": "pnpm lint && pnpm typecheck && vitest run",
-    "test:prepare": "npx --yes prisma generate --schema test/query-filter-transformer/prisma/schema.prisma",
+    "test:prepare": "npx --yes prisma generate --schema tests/query-filter-transformer/prisma/schema.prisma",
     "typecheck": "tsc --noEmit --skipLibCheck",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",

@@ -30,7 +30,7 @@ const mockContext = {
 } satisfies Omit<MockResourceMap['user']['model'], 'posts'>
 
 beforeAll(async () => {
-  execSync('npx --yes prisma db push --schema test/query-filter-transformer/prisma/schema.prisma')
+  execSync('npx --yes prisma db push --schema tests/query-filter-transformer/prisma/schema.prisma')
   prismaClient = new (await import('@prisma/client')).PrismaClient()
   // Ensure the database is in a clean state
   await prismaClient.$executeRaw`PRAGMA foreign_keys=OFF;`
@@ -62,7 +62,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await prismaClient.$disconnect()
-  await rm('test/query-filter-transformer/prisma/dev.db', { force: true })
+  await rm('tests/query-filter-transformer/prisma/dev.db', { force: true })
 })
 
 describe('Query transformer - Prisma', () => {
