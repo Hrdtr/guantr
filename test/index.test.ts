@@ -314,6 +314,56 @@ describe('Guantr.can', () => {
     expect(guantr.can('read', ['user', mockUser])).toBe(false)
   })
 
+  it('should be able to match condition using context', () => {
+    const mockContext1 = {
+      name: 'john doe',
+      role: {
+        name: 'admin'
+      } as { name: string } | null,
+    }
+
+    const guantr1 = createGuantr<MockMeta>().withContext(mockContext1)
+    guantr1.setPermissions([
+      {
+        resource: 'user',
+        action: 'read',
+        condition: {
+          name: ['equals', '$context.name', { caseInsensitive: true }]
+        },
+        inverted: false
+      },
+    ])
+
+    const guantr2 = createGuantr<MockMeta>().withContext(mockContext1)
+    guantr2.setPermissions([
+      {
+        resource: 'user',
+        action: 'read',
+        condition: {
+          roles: ['some', { name: ['equals', '$context.role?.name'] }]
+        },
+        inverted: false
+      },
+    ])
+
+    const mockUser: MockResourceMap['user']['model'] = {
+      id: 1,
+      name: 'John Doe',
+      suspended: null,
+      roles: [{ id: 1, name: 'admin' }, { id: 2, name: 'user' }],
+      address: {
+        line1: '123 Main St',
+        line2: 'Apt 4B',
+        city: 'AnyTown',
+        state: 'CA',
+        zip: '12345',
+        country: 'ID'
+      }
+    }
+    expect(guantr1.can('read', ['user', mockUser])).toBe(true)
+    expect(guantr2.can('read', ['user', mockUser])).toBe(true)
+  })
+
   it('should be able to reach nullable context', () => {
     const mockContext1 = {
       address: null
@@ -368,7 +418,69 @@ describe('Guantr.can', () => {
     expect(guantr2.can('read', ['user', mockUser])).toBe(true)
   })
 
-  it('should handle inverted rule correctly', () => {
+  it('should be able to handle overlapping permissions: general -> specific', () => {
+    const guantr = createGuantr<MockMeta>()
+    guantr.setPermissions([
+      {
+        resource: 'post',
+        action: 'read',
+        condition: null,
+        inverted: false
+      },
+      {
+        resource: 'post',
+        action: 'read',
+        condition: {
+          published: ['equals', true]
+        },
+        inverted: false
+      }
+    ])
+    
+    expect(guantr.can('read', 'post')).toBe(true)
+    const post = {
+      id: 1,
+      title: 'Hello World',
+      description: '',
+      lastUpdatedAt: null,
+      tags: []
+    }
+    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(true)
+    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(true)
+  })
+
+  it('should be able to handle overlapping permissions: specific -> general', () => {
+    const guantr = createGuantr<MockMeta>()
+    guantr.setPermissions([
+      {
+        resource: 'post',
+        action: 'read',
+        condition: {
+          published: ['equals', true]
+        },
+        inverted: false
+      },
+      {
+        resource: 'post',
+        action: 'read',
+        condition: null,
+        inverted: false
+      }
+    ])
+    
+    expect(guantr.can('read', 'post')).toBe(true)
+    const post = {
+      id: 1,
+      title: 'Hello World',
+      description: '',
+      lastUpdatedAt: null,
+      tags: []
+    }
+    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(true)
+    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(true)
+  })
+
+  it('should be able to handle overlapping permissions: general -> specific-inverted', () => {
     const guantr = createGuantr<MockMeta>()
     guantr.setPermissions([
       {
@@ -384,7 +496,7 @@ describe('Guantr.can', () => {
           published: ['equals', false]
         },
         inverted: true
-      }
+      },
     ])
     
     expect(guantr.can('read', 'post')).toBe(true)
@@ -396,6 +508,161 @@ describe('Guantr.can', () => {
       tags: []
     }
     expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(true)
+    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
+  })
+
+  it('should be able to handle overlapping permissions: specific-inverted -> general', () => {
+    const guantr = createGuantr<MockMeta>()
+    guantr.setPermissions([
+      {
+        resource: 'post',
+        action: 'read',
+        condition: {
+          published: ['equals', true]
+        },
+        inverted: true
+      },
+      {
+        resource: 'post',
+        action: 'read',
+        condition: null,
+        inverted: false
+      },
+    ])
+
+    expect(guantr.can('read', 'post')).toBe(true)
+    const post = {
+      id: 1,
+      title: 'Hello World',
+      description: '',
+      lastUpdatedAt: null,
+      tags: []
+    }
+    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
+    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(true)
+  })
+
+  it('should be able to handle overlapping permissions: general-inverted -> specific-inverted', () => {
+    const guantr = createGuantr<MockMeta>()
+    guantr.setPermissions([
+      {
+        resource: 'post',
+        action: 'read',
+        condition: null,
+        inverted: true
+      },
+      {
+        resource: 'post',
+        action: 'read',
+        condition: {
+          published: ['equals', false]
+        },
+        inverted: true
+      },
+    ])
+    
+    expect(guantr.can('read', 'post')).toBe(false)
+    const post = {
+      id: 1,
+      title: 'Hello World',
+      description: '',
+      lastUpdatedAt: null,
+      tags: []
+    }
+    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
+    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
+  })
+
+  it('should be able to handle overlapping permissions: specific-inverted -> general-inverted', () => {
+    const guantr = createGuantr<MockMeta>()
+    guantr.setPermissions([
+      {
+        resource: 'post',
+        action: 'read',
+        condition: {
+          published: ['equals', false]
+        },
+        inverted: true
+      },
+      {
+        resource: 'post',
+        action: 'read',
+        condition: null,
+        inverted: true
+      },
+    ])
+    
+    expect(guantr.can('read', 'post')).toBe(false)
+    const post = {
+      id: 1,
+      title: 'Hello World',
+      description: '',
+      lastUpdatedAt: null,
+      tags: []
+    }
+    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
+    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
+  })
+
+  it('should be able to handle overlapping permissions: general-inverted -> specific', () => {
+    const guantr = createGuantr<MockMeta>()
+    guantr.setPermissions([
+      {
+        resource: 'post',
+        action: 'read',
+        condition: null,
+        inverted: true
+      },
+      {
+        resource: 'post',
+        action: 'read',
+        condition: {
+          published: ['equals', true]
+        },
+        inverted: false
+      },
+    ])
+
+    expect(guantr.can('read', 'post')).toBe(true)
+    const post = {
+      id: 1,
+      title: 'Hello World',
+      description: '',
+      lastUpdatedAt: null,
+      tags: []
+    }
+    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
+    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
+  })
+
+  it('should be able to handle overlapping permissions: specific -> general-inverted', () => {
+    const guantr = createGuantr<MockMeta>()
+    guantr.setPermissions([
+      {
+        resource: 'post',
+        action: 'read',
+        condition: {
+          published: ['equals', true]
+        },
+        inverted: false
+      },
+      {
+        resource: 'post',
+        action: 'read',
+        condition: null,
+        inverted: true
+      },
+    ])
+
+    expect(guantr.can('read', 'post')).toBe(true)
+    const post = {
+      id: 1,
+      title: 'Hello World',
+      description: '',
+      lastUpdatedAt: null,
+      tags: []
+    }
+    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
     expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
   })
 })

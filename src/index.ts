@@ -158,19 +158,28 @@ export class Guantr<
       return this.permissions.some(item => item.action === action && item.resource === resource && !item.inverted)
     }
     const relatedPermissions = this.relatedPermissionsFor(action, resource[0])
+    if (relatedPermissions.length === 0) return false
+
+    const passed: boolean[] = []
+    const passedInverted: boolean[] = []
+
     for (const permission of relatedPermissions) {
-      if (!permission.condition) continue
-      const pass = matchPermissionCondition(resource[1], permission.condition, this.context)
-      if (permission.inverted) {
-        if (!pass) continue
-        return false
+      if (!permission.condition) {
+        if (permission.inverted) passedInverted.push(false)
+        else passed.push(true)
+        continue
       }
-      else {
-        if (pass) continue
-        return false
+      const matched = matchPermissionCondition(resource[1], permission.condition, this.context)
+      if (matched) {
+        if (permission.inverted) passedInverted.push(false)
+        else passed.push(true)
+        continue
       }
+      if (permission.inverted) passedInverted.push(true)
+      else passed.push(false)
     }
-    return true
+
+    return passed.includes(true) && !passedInverted.includes(false)
   }
 
   /**
