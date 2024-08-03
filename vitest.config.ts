@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     coverage: {
       enabled: true,
-      exclude: ['*.config.{json,js,cjs,mjs,ts,cts,mts}', 'dist/**', 'docs/**']
+      include: ['src/**/*.{js,ts}'],
     },
     typecheck: {
       enabled: true

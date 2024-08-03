@@ -20,37 +20,46 @@ export default defineConfig({
         ]
       },
       {
-        text: 'References',
+        text: 'API',
         items: [
           {
             text: 'createGuantr',
+            link: '/api/createGuantr',
           },
           {
             text: 'Guantr',
             items: [
               {
-                text: '.withContext'
+                text: '.withContext',
+                link: '/api/Guantr/withContext'
               },
               {
-                text: '.context'
+                text: '.context',
+                link: '/api/Guantr/context'
               },
               {
-                text: '.permissions'
+                text: '.permissions',
+                link: '/api/Guantr/permissions'
               },
               {
-                text: '.setPermission'
+                text: '.setPermission',
+                link: '/api/Guantr/setPermission'
               },
               {
-                text: '.setPermissions'
+                text: '.setPermissions',
+                link: '/api/Guantr/setPermissions'
               },
               {
-                text: '.relatedPermissionsFor'
+                text: '.relatedPermissionsFor',
+                link: '/api/Guantr/relatedPermissionsFor'
               },
               {
-                text: '.can'
+                text: '.can',
+                link: '/api/Guantr/can'
               },
               {
-                text: '.cannot'
+                text: '.cannot',
+                link: '/api/Guantr/cannot'
               }
             ]
           },
