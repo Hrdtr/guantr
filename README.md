@@ -3,7 +3,7 @@
 <!-- automd:badges color=yellow -->
 
 [![npm version](https://img.shields.io/npm/v/guantr?color=yellow)](https://npmjs.com/package/guantr)
-[![npm downloads](https://img.shields.io/npm/dm/guantr?color=yellow)](https://npmjs.com/package/guantr)
+[![npm downloads](https://img.shields.io/npm/dm/guantr?color=yellow)](https://npm.chart.dev/guantr)
 
 <!-- /automd -->
 
@@ -30,6 +30,9 @@ pnpm install guantr
 
 # bun
 bun install guantr
+
+# deno
+deno install guantr
 ```
 
 <!-- /automd -->
@@ -38,7 +41,7 @@ Import:
 
 <!-- automd:jsimport cjs cdn name="guantr" imports="createGuantr" -->
 
-**ESM** (Node.js, Bun)
+**ESM** (Node.js, Bun, Deno)
 
 ```js
 import { createGuantr } from "guantr";
