@@ -1,9 +1,7 @@
 import { GuantrAnyConditionExpression, GuantrAnyPermission } from "./types"
 
 export const isValidConditionExpression = (maybeExpression: unknown): maybeExpression is GuantrAnyConditionExpression => {
-  if (!Array.isArray(maybeExpression)) return false
-  if (maybeExpression.length < 2) return false
-  if (typeof maybeExpression[0] !== 'string') false
+  if (!Array.isArray(maybeExpression) || maybeExpression.length < 2 || typeof maybeExpression[0] !== 'string') return false
   return true
 }
 

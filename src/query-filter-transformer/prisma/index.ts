@@ -67,10 +67,17 @@ const toPrismaWhereClause = (condition: GuantrAnyPermission['condition']) => {
       }
     } else if (typeof nestedConditionOrExpression === 'object') {
       const { $expr, ...rest } = nestedConditionOrExpression
-      clause[key] = 'length' in rest ? {
-          ...(rest.length['1'] === 0 ? { none: {} } : { some: {} }),
-          ...($expr ? toPrismaWhereClause({[key]: $expr})[key] : {}),
-        } : toPrismaWhereClause(nestedConditionOrExpression);
+      clause[key] = 'length' in rest
+        ? {
+            /**
+             * When there is condition to checking length of an array,
+             * we only able to generate Prisma where clause for `some` and `none` operators
+             * to check if the array is empty for now.
+             */
+            ...(rest.length['1'] === 0 ? { none: {} } : { some: {} }),
+            ...($expr ? toPrismaWhereClause({[key]: $expr})[key] : {}),
+          }
+        : toPrismaWhereClause(nestedConditionOrExpression);
     }
   };
   

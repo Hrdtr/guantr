@@ -118,7 +118,6 @@ export class Guantr<
    * Sets the permissions for the Guantr instance.
    *
    * @param {GuantrPermission<Meta, Context>[]} permissions - The array of permissions to set.
-   * @return {void} This function does not return anything.
    */
   setPermissions(permissions: GuantrPermission<Meta, Context>[]): void {
     this._permissions = permissions as GuantrAnyPermission[];
@@ -135,7 +134,7 @@ export class Guantr<
     action: Meta extends GuantrMeta<infer U> ? U[ResourceKey]['action'] : string,
     resource: ResourceKey
   ): GuantrAnyPermission[] {
-    return this.permissions.filter((item: any) => item.action === action && item.resource === resource)
+    return this.permissions.filter((item) => item.action === action && item.resource === resource)
   }
 
   /**
