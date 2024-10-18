@@ -1,6 +1,27 @@
 # Changelog
 
 
+## v1.0.0-rc.7
+
+[compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.6...v1.0.0-rc.7)
+
+### 🩹 Fixes
+
+- Invalid return from condition expression check utility fn ([a540740](https://github.com/Hrdtr/guantr/commit/a540740))
+
+### 📖 Documentation
+
+- Add base api references ([cb07790](https://github.com/Hrdtr/guantr/commit/cb07790))
+
+### 🏡 Chore
+
+- Deps update ([ef21742](https://github.com/Hrdtr/guantr/commit/ef21742))
+- Apply automated updates ([c6179e8](https://github.com/Hrdtr/guantr/commit/c6179e8))
+
+### ❤️ Contributors
+
+- Herdi Tr. ([@Hrdtr](http://github.com/Hrdtr))
+
 ## v1.0.0-rc.6
 
 [compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.5...v1.0.0-rc.6)
