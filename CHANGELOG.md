@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v1.0.0-rc.8
+
+[compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.7...v1.0.0-rc.8)
+
+### 💅 Refactors
+
+- Condition expression matcher & contextual values replacement ([c62597e](https://github.com/Hrdtr/guantr/commit/c62597e))
+
+### 🏡 Chore
+
+- Export prisma query filter transformer from parent dir ([466aa33](https://github.com/Hrdtr/guantr/commit/466aa33))
+
+### ❤️ Contributors
+
+- Herdi Tr. ([@Hrdtr](http://github.com/Hrdtr))
+
 ## v1.0.0-rc.7
 
 [compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.6...v1.0.0-rc.7)
