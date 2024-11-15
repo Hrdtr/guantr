@@ -2,7 +2,7 @@ import { execSync } from "node:child_process";
 import { rm } from "node:fs/promises";
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createGuantr } from '../../src'
-import { prisma } from '../../src/query-filter-transformer/prisma'
+import { prisma } from '../../src/query-filter-transformer'
 import type { Post, PrismaClient, User } from '@prisma/client'
 import type { GuantrMeta } from '../../src/types'
 

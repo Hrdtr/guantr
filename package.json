@@ -12,10 +12,10 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
-    "./query-filter-transformer/prisma": {
-      "types": "./dist/query-filter-transformer/prisma/index.d.ts",
-      "import": "./dist/query-filter-transformer/prisma/index.mjs",
-      "require": "./dist/query-filter-transformer/prisma/index.cjs"
+    "./query-filter-transformer": {
+      "types": "./dist/query-filter-transformer/index.d.ts",
+      "import": "./dist/query-filter-transformer/index.mjs",
+      "require": "./dist/query-filter-transformer/index.cjs"
     }
   },
   "main": "./dist/index.cjs",
