@@ -2,12 +2,6 @@ import { describe, expect, it } from "vitest"
 import { matchConditionExpression } from "../../src/utils"
 
 describe('matchConditionExpression - endsWith operator', () => {
-  const context = {
-    suffix1: 'world!',
-    suffix2: 'WORLD!',
-    suffix3: 'test',
-  }
-
   const testCases = [
     // Valid cases where the value ends with the operand
     { value: 'Hello, world!', operand: 'world!', expected: true },
@@ -21,11 +15,6 @@ describe('matchConditionExpression - endsWith operator', () => {
     { value: 'Hello, world!', operand: 'WORLD!', expected: true, options: { caseInsensitive: true } },
     { value: 'Testing endsWith Operator', operand: 'operator', expected: true, options: { caseInsensitive: true } },
 
-    // Context usage
-    { value: 'Hello, world!', operand: '$context.suffix1', expected: true },
-    { value: 'Hello, world!', operand: '$context.suffix2', expected: true, options: { caseInsensitive: true } },
-    { value: 'Hello, test', operand: '$context.suffix3', expected: true },
-
     // Null and undefined values
     { value: null, operand: 'suffix', expected: false },
     { value: undefined, operand: 'suffix', expected: false },
@@ -38,7 +27,7 @@ describe('matchConditionExpression - endsWith operator', () => {
   for (const [idx, { value, operand, expected, options }] of testCases.entries()) {
     it(`should return ${expected} for case #${idx + 1}`, () => {
       const expression = ['endsWith', operand, options] as any
-      const result = matchConditionExpression({ value, expression, context })
+      const result = matchConditionExpression({ value, expression })
       expect(result).toBe(expected)
     })
   }
@@ -48,7 +37,7 @@ describe('matchConditionExpression - endsWith operator', () => {
     const value = { key: 'value' } // Invalid type for 'endsWith' operator
     const operand = 'value'
     const expression = ['endsWith', operand] as any
-    expect(() => matchConditionExpression({ value, expression, context })).toThrow(TypeError)
+    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
   })
 
   // Edge case: invalid operand type
@@ -56,6 +45,6 @@ describe('matchConditionExpression - endsWith operator', () => {
     const value = 'string value'
     const operand = 123 // Invalid type for 'endsWith' operand
     const expression = ['endsWith', operand] as any
-    expect(() => matchConditionExpression({ value, expression, context })).toThrow(TypeError)
+    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
   })
 })

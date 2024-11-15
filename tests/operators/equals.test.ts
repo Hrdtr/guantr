@@ -2,15 +2,6 @@ import { describe, expect, it } from "vitest"
 import { matchConditionExpression } from "../../src/utils"
 
 describe('matchConditionExpression - equals operator', () => {
-  const context = {
-    number: 42,
-    string: 'Hello, world!',
-    boolean: true,
-    null: null,
-    undefined: undefined,
-    caseSensitive: 'Test'
-  }
-
   const testCases = [
     // Null and undefined values
     { value: null, operand: null, expected: true },
@@ -35,20 +26,12 @@ describe('matchConditionExpression - equals operator', () => {
     { value: false, operand: false, expected: true },
     { value: true, operand: false, expected: false },
     { value: false, operand: true, expected: false },
-
-    // Context usage
-    { value: 42, operand: '$context.number', expected: true },
-    { value: 'Hello, world!', operand: '$context.string', expected: true },
-    { value: true, operand: '$context.boolean', expected: true },
-    { value: null, operand: '$context.null', expected: true },
-    { value: undefined, operand: '$context.undefined', expected: true },
-    { value: 'Test', operand: '$context.caseSensitive', expected: true },
   ]
 
   for (const [idx, { value, operand, options, expected }] of testCases.entries()) {
     it(`should return ${expected} for case #${idx + 1}`, () => {
       const expression = ['equals', operand, options] as any
-      const result = matchConditionExpression({ value, expression, context })
+      const result = matchConditionExpression({ value, expression })
       expect(result).toBe(expected)
     })
   }
@@ -58,7 +41,7 @@ describe('matchConditionExpression - equals operator', () => {
     const value = { key: 'value' }
     const operand = 'test'
     const expression = ['equals', operand] as any
-    expect(() => matchConditionExpression({ value, expression, context })).toThrow(TypeError)
+    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
   })
 
   // Edge case: invalid operand type
@@ -66,6 +49,6 @@ describe('matchConditionExpression - equals operator', () => {
     const value = 'test'
     const operand = { key: 'value' }
     const expression = ['equals', operand] as any
-    expect(() => matchConditionExpression({ value, expression, context })).toThrow(TypeError)
+    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
   })
 })

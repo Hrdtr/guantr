@@ -19,7 +19,7 @@ export class Guantr<
   Context extends Record<string, unknown> = Record<string, unknown>
 > {
   private _context: Context = {} as Context;
-  private _permissions: GuantrAnyPermission[] = [];
+  private _permissions = new Set<GuantrAnyPermission>();
 
   /**
    * Initializes a new instance of the Guantr class with an optional context.
@@ -58,7 +58,7 @@ export class Guantr<
    * @return {ReadonlyArray<GuantrAnyPermission>} The permissions of the Guantr instance.
    */
   get permissions(): ReadonlyArray<GuantrAnyPermission> {
-    return this._permissions;
+    return [...this._permissions];
   }
 
   /**
@@ -97,15 +97,15 @@ export class Guantr<
       ) => void,
     ) => void
   ): void {
-    this._permissions = []
+    this._permissions.clear()
     callback(
-      (action, resource) => this._permissions.push({
+      (action, resource) => this._permissions.add({
         action,
         resource: typeof resource === 'string' ? resource : resource[0],
         condition: typeof resource === 'string' ? null : resource[1] as GuantrAnyPermission['condition'],
         inverted: false
       }),
-      (action, resource) => this._permissions.push({
+      (action, resource) => this._permissions.add({
         action,
         resource: typeof resource === 'string' ? resource : resource[0],
         condition: typeof resource === 'string' ? null : resource[1] as GuantrAnyPermission['condition'],
@@ -120,7 +120,7 @@ export class Guantr<
    * @param {GuantrPermission<Meta, Context>[]} permissions - The array of permissions to set.
    */
   setPermissions(permissions: GuantrPermission<Meta, Context>[]): void {
-    this._permissions = permissions as GuantrAnyPermission[];
+    this._permissions = new Set(permissions as GuantrAnyPermission[])
   }
 
   /**
@@ -157,18 +157,21 @@ export class Guantr<
       return this.permissions.some(item => item.action === action && item.resource === resource && !item.inverted)
     }
     const relatedPermissions = this.relatedPermissionsFor(action, resource[0])
-    if (relatedPermissions.length === 0) return false
+      .map(permission => ({ ...permission, condition: this.applyContextualOperands(permission.condition) }))
+
+    if (relatedPermissions.length === 0) {
+      return false
+    }
 
     const passed: boolean[] = []
     const passedInverted: boolean[] = []
-
     for (const permission of relatedPermissions) {
       if (!permission.condition) {
         if (permission.inverted) passedInverted.push(false)
         else passed.push(true)
         continue
       }
-      const matched = matchPermissionCondition(resource[1], permission.condition, this.context)
+      const matched = matchPermissionCondition(resource[1], permission.condition)
       if (matched) {
         if (permission.inverted) passedInverted.push(false)
         else passed.push(true)
@@ -219,20 +222,18 @@ export class Guantr<
       resource: ResourceKey,
       action?: Meta extends GuantrMeta<infer U> ? U[ResourceKey]['action'] : string
     ): R {
-    const relatedPermissions = this.relatedPermissionsFor(
-      action ?? 'read' as NonNullable<typeof action>,
-      resource
-    ).map(permission => ({
-      ...permission,
-      condition: permission.condition
-        ? JSON.parse(JSON.stringify(permission.condition), (_, v) => {
-            if (isContextualOperand(v)) return getContextValue(this._context, v) ?? v
-            return v
-          }) as GuantrAnyPermission['condition']
-        : null
-    }))
+    const relatedPermissions = this.relatedPermissionsFor(action ?? 'read' as NonNullable<typeof action>, resource)
+      .map(permission => ({ ...permission, condition: this.applyContextualOperands(permission.condition) }))
 
     return transformer(relatedPermissions)
+  }
+
+  private applyContextualOperands(
+    condition: GuantrAnyPermission['condition']
+  ): GuantrAnyPermission['condition'] {
+    return condition
+      ? JSON.parse(JSON.stringify(condition), (_, value) => isContextualOperand(value) ? getContextValue(this._context, value) : value)
+      : null;
   }
 }
 

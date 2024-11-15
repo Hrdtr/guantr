@@ -2,13 +2,6 @@ import { describe, expect, it } from "vitest"
 import { matchConditionExpression } from "../../src/utils"
 
 describe('matchConditionExpression - startsWith operator', () => {
-  const context = {
-    user: 'AdminUser',
-    prefix: 'hello',
-    subString: 'Java',
-    caseInsensitiveWord: 'Case'
-  }
-
   const testCases = [
     // Valid cases where the value starts with the operand
     { value: 'hello world', operand: 'hello', expected: true },
@@ -23,12 +16,6 @@ describe('matchConditionExpression - startsWith operator', () => {
     // Case-insensitive comparisons
     { value: 'Case Insensitive Test', operand: 'case', options: { caseInsensitive: true }, expected: true },
     { value: 'Vitest Is Great', operand: 'vitest', options: { caseInsensitive: true }, expected: true },
-
-    // Context usage
-    { value: 'hello world', operand: '$context.prefix', expected: true },
-    { value: 'JavaScript rules', operand: '$context.subString', expected: true },
-    { value: 'AdminUser rules', operand: '$context.user', expected: true },
-    { value: 'Case insensitive context', operand: '$context.caseInsensitiveWord', options: { caseInsensitive: true }, expected: true },
 
     // Null and undefined values
     { value: null, operand: 'null', expected: false },
@@ -47,7 +34,7 @@ describe('matchConditionExpression - startsWith operator', () => {
   for (const [idx, { value, operand, options, expected }] of testCases.entries()) {
     it(`should return ${expected} for case #${idx + 1}`, () => {
       const expression = ['startsWith', operand, options] as any
-      const result = matchConditionExpression({ value, expression, context })
+      const result = matchConditionExpression({ value, expression })
       expect(result).toBe(expected)
     })
   }
@@ -57,7 +44,7 @@ describe('matchConditionExpression - startsWith operator', () => {
     const value = 123 // Invalid type for 'startsWith' operator
     const operand = 'test'
     const expression = ['startsWith', operand] as any
-    expect(() => matchConditionExpression({ value, expression, context })).toThrow(TypeError)
+    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
   })
 
   // Edge case: invalid operand type
@@ -65,6 +52,6 @@ describe('matchConditionExpression - startsWith operator', () => {
     const value = 'test'
     const operand = 123 // Operand must be a string
     const expression = ['startsWith', operand] as any
-    expect(() => matchConditionExpression({ value, expression, context })).toThrow(TypeError)
+    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
   })
 })

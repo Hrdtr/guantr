@@ -1,63 +1,5 @@
 import { GuantrAnyConditionExpression, GuantrAnyPermission } from "./types"
 
-export const isValidConditionExpression = (maybeExpression: unknown): maybeExpression is GuantrAnyConditionExpression => {
-  if (!Array.isArray(maybeExpression) || maybeExpression.length < 2 || typeof maybeExpression[0] !== 'string') return false
-  return true
-}
-
-/**
- * Checks if the given model matches the permission condition.
- *
- * @param {Model} model - The model to check against the permission condition.
- * @param {GuantrAnyPermission & { condition: NonNullable<GuantrAnyPermission['condition']> }} permission - The permission object containing the condition to match.
- * @param {Context} [context] - Optional context object for additional information.
- * @returns {boolean} Returns true if the model matches the permission condition, false otherwise.
- */
-export const matchPermissionCondition = <
-  Model extends Record<string, unknown>,
-  Context extends Record<string, unknown> | undefined = undefined,
->(
-  model: Model,
-  condition: NonNullable<GuantrAnyPermission['condition']>,
-  context?: Context,
-): boolean => {
-  return Object.entries(condition).every(([key, expressionOrNestedCondition]) => {
-    if (Array.isArray(expressionOrNestedCondition)) {
-      return matchConditionExpression({
-        value: model[key],
-        expression: expressionOrNestedCondition,
-        context,
-      })
-    }
-    else if (typeof expressionOrNestedCondition === 'object') {
-      const { $expr, ...condition } = expressionOrNestedCondition
-
-      const nestedModel = model[key]
-      if (!nestedModel || typeof nestedModel !== 'object') {
-        return false
-      }
-
-      if ($expr) {
-        return (
-          isValidConditionExpression($expr) ? matchConditionExpression({
-            value: model[key],
-            expression: $expr,
-            context
-          }) : false
-        ) && matchPermissionCondition(nestedModel as Record<string, unknown>, condition, context)
-      }
-      return matchPermissionCondition(
-        nestedModel as Record<string, unknown>,
-        condition,
-        context
-      )
-    }
-    else {
-      throw new TypeError(`Unexpected expression value type: ${typeof expressionOrNestedCondition}`)
-    }
-  })
-}
-
 /**
  * Checks if the given path is a string and starts with either '$context.' or 'context.'.
  *
@@ -65,6 +7,7 @@ export const matchPermissionCondition = <
  * @return {boolean} - Returns true if the path is a string and starts with either '$context.' or 'context.', otherwise returns false.
  */
 export const isContextualOperand = (path: unknown): path is string => typeof path === 'string' && (path.startsWith('$context.') || path.startsWith('context.'))
+
 /**
  * Retrieves the value at the specified path from the given context object.
  *
@@ -82,26 +25,69 @@ export const getContextValue = <T extends Record<string, unknown>, U>(context: T
     .reduce((o, k) => (o || {})[k], (context ?? {}) as Record<string, any>) as U | undefined
 }
 
+export const isValidConditionExpression = (maybeExpression: unknown): maybeExpression is GuantrAnyConditionExpression => {
+  if (!Array.isArray(maybeExpression) || maybeExpression.length < 2 || typeof maybeExpression[0] !== 'string') return false
+  return true
+}
+
+/**
+ * Checks if the given model matches the permission condition.
+ *
+ * @param {Model} model - The model to check against the permission condition.
+ * @param {GuantrAnyPermission & { condition: NonNullable<GuantrAnyPermission['condition']> }} condition - The condition to match.
+ * @returns {boolean} Returns true if the model matches the permission condition, false otherwise.
+ */
+export const matchPermissionCondition = <
+  Model extends Record<string, unknown>,
+>(
+  model: Model,
+  condition: NonNullable<GuantrAnyPermission['condition']>,
+): boolean => {
+  return Object.entries(condition).every(([key, expressionOrNestedCondition]) => {
+    if (Array.isArray(expressionOrNestedCondition)) {
+      return matchConditionExpression({
+        value: model[key],
+        expression: expressionOrNestedCondition,
+      })
+    }
+    else if (typeof expressionOrNestedCondition === 'object') {
+      const { $expr, ...condition } = expressionOrNestedCondition
+
+      const nestedModel = model[key]
+      if (!nestedModel || typeof nestedModel !== 'object') {
+        return false
+      }
+
+      if ($expr) {
+        return (isValidConditionExpression($expr) ? matchConditionExpression({ value: model[key], expression: $expr }) : false)
+          && matchPermissionCondition(nestedModel as Record<string, unknown>, condition)
+      }
+      return matchPermissionCondition(nestedModel as Record<string, unknown>, condition)
+    }
+    else {
+      throw new TypeError(`Unexpected expression value type: ${typeof expressionOrNestedCondition}`)
+    }
+  })
+}
+
 /**
  * Evaluates a condition expression against a given value and context.
  *
  * @param {Object} data - The data object containing the value, expression, and optional context.
  * @param {unknown} data.value - The value to evaluate the condition against.
  * @param {NonNullable<GuantrAnyPermission['condition']>[keyof NonNullable<GuantrAnyPermission['condition']>]} data.expression - The condition expression to evaluate.
- * @param {Record<string, unknown>} [data.context] - The optional context object to use for evaluating the condition.
  * @return {boolean} The result of evaluating the condition expression against the value and context.
  * @throws {TypeError} If the model value type is unexpected or the operand type is invalid.
  */
 export const matchConditionExpression = (data: {
   value: unknown
   expression: Extract<NonNullable<GuantrAnyPermission['condition']>[keyof NonNullable<GuantrAnyPermission['condition']>], Array<any>>
-  context?: Record<string, unknown>
 }): boolean => {
-  const { value, expression, context, } = data
-
-  const [operator, maybeContextualOperand, options] = expression ?? []
-  let operand = maybeContextualOperand
-  if (isContextualOperand(operand)) operand = getContextValue(context ?? {}, operand)
+  const {
+    value,
+    expression,
+  } = data
+  const [operator, operand, options] = expression ?? []
 
   switch (operator) {
     case 'equals': {
@@ -408,14 +394,12 @@ export const matchConditionExpression = (data: {
           return matchConditionExpression({
             value: i[key],
             expression: expressionOrNestedCondition as any,
-            context,
           })
         }
         else if (typeof expressionOrNestedCondition === 'object') {
           return matchPermissionCondition(
             i[key] as Record<string, any>,
             expressionOrNestedCondition,
-            context
           )
         }
         else {
@@ -461,14 +445,12 @@ export const matchConditionExpression = (data: {
           return matchConditionExpression({
             value: i[key],
             expression: expressionOrNestedCondition as any,
-            context,
           })
         }
         else if (typeof expressionOrNestedCondition === 'object') {
           return matchPermissionCondition(
             i[key] as Record<string, any>,
             expressionOrNestedCondition,
-            context
           )
         }
         else {
