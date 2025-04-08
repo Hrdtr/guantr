@@ -178,7 +178,7 @@ You've now installed, initialized, set rules for, and checked permissions with G
 
 * **Guides:** Dive deeper into [Defining Rules](./guides/defining-rules.md), [Basic RBAC](./guides/example-basic-rbac.md), and [Basic ABAC](./guides/example-abac.md).
 * **Advanced Usage:** Learn about [Caching](./advanced-usage/caching.md) and creating a custom [Storage Adapter](./advanced-usage/custom-storage-adapter.md).
-* **API Reference:** Consult the detailed [API documentation](./api/README.md).
+* **API Reference:** Consult the detailed [API documentation](./api/createGuantr.md).
 * **GitHub:** Explore the [source code](https://github.com/Hrdtr/guantr) and contribute.
 * **Discussions:** Ask questions and share ideas in the [community forums](https://github.com/Hrdtr/guantr/discussions).
 
