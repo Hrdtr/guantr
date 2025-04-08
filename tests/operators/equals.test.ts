@@ -30,7 +30,7 @@ describe('matchConditionExpression - equals operator', () => {
 
   for (const [idx, { value, operand, options, expected }] of testCases.entries()) {
     it(`should return ${expected} for case #${idx + 1}`, () => {
-      const expression = ['equals', operand, options] as any
+      const expression = ['eq', operand, options] as any
       const result = matchConditionExpression({ value, expression })
       expect(result).toBe(expected)
     })
@@ -40,7 +40,7 @@ describe('matchConditionExpression - equals operator', () => {
   it('should throw TypeError for unexpected resource value type', () => {
     const value = { key: 'value' }
     const operand = 'test'
-    const expression = ['equals', operand] as any
+    const expression = ['eq', operand] as any
     expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
   })
 
@@ -48,7 +48,7 @@ describe('matchConditionExpression - equals operator', () => {
   it('should throw TypeError for invalid operand type', () => {
     const value = 'test'
     const operand = { key: 'value' }
-    const expression = ['equals', operand] as any
+    const expression = ['eq', operand] as any
     expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
   })
 })

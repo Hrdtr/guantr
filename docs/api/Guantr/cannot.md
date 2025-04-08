@@ -1,63 +1,71 @@
-# `cannot`
+# API: `Guantr.prototype.cannot`
 
-The `cannot` method checks if the user does not have permission to perform a specified action on a given resource.
+The `cannot` method checks if a specific action is explicitly or implicitly denied on a given resource. It is the logical negation of the `can` method.
 
-## Usage
-
-Use the `cannot` method to determine whether a user is explicitly denied permission to execute a particular action on a specific resource. This method is a negated version of the `can` method and helps in checking what actions are not allowed.
-
-### Example
+## Signature
 
 ```ts
-import { createGuantr } from 'guantr';
-
-// Create a new Guantr instance and set permissions
-const guantr = createGuantr();
-guantr.setPermissions([
-  { action: 'read', resource: 'posts', condition: null, inverted: false },
-  { action: 'write', resource: 'posts', condition: { title: { equals: 'Special Title' } }, inverted: false },
-  { action: 'delete', resource: 'posts', condition: null, inverted: true }
-]);
-
-// Check if the user does not have permission to 'read' on 'posts' resource
-const cannotRead = guantr.cannot('read', 'posts');
-console.log(cannotRead); // Output: false
-
-// Check if the user does not have permission to 'write' on 'posts' resource with a specific condition
-const cannotWrite = guantr.cannot('write', ['posts', { title: 'Special Title' }]);
-console.log(cannotWrite); // Output: false
-
-// Check if the user does not have permission to 'delete' on 'posts' resource
-const cannotDelete = guantr.cannot('delete', 'posts');
-console.log(cannotDelete); // Output: true
+interface Guantr<Meta, Context> {
+  cannot(
+    action: string, // Or specific action type from Meta
+    resource: string | [resourceKey: string, resourceInstance: object] // Or typed resource key/instance from Meta
+  ): Promise<boolean>;
+}
 ```
 
-In this example:
+## Parameters
 
-1. `guantr.setPermissions`: Sets a list of permissions on the guantr instance.
-2. `guantr.cannot('read', 'posts')`: Checks if the user does not have permission to perform the 'read' action on the 'posts' resource.
-3. `guantr.cannot('write', ['posts', { title: 'Special Title' }])`: Checks if the user does not have permission to perform the 'write' action on the 'posts' resource with a specific condition.
-4. `guantr.cannot('delete', 'posts')`: Checks if the user does not have permission to perform the 'delete' action on the 'posts' resource.
+* `action`: (`string`) The action being attempted (e.g., `'read'`, `'update'`).
+* `resource`: (`string` | `[string, object]`) The resource being acted upon.
+    * If a `string` (e.g., `'post'`) is provided, it checks rules defined for the general resource type *without* evaluating instance-specific conditions.
+    * If a tuple `[resourceKey: string, resourceInstance: object]` (e.g., `['post', { id: 1, status: 'draft' }]`) is provided, it checks rules for the `resourceKey` and evaluates any conditions against the properties of the `resourceInstance` and the current context.
 
-## References
+## Returns
 
-### Signature
+* `Promise<boolean>`: A promise that resolves to:
+    * `true` if the action is denied (either no matching `allow` rule exists, or a matching `deny` rule overrides any `allow` rule).
+    * `false` if the action is allowed (at least one matching `allow` rule exists and no matching `deny` rule exists).
+
+Essentially, `guantr.cannot(...)` is equivalent to `!await guantr.can(...)`.
+
+## How it Works
+
+It follows the same internal logic as the `can` method but returns the opposite boolean result.
+
+1.  Retrieves relevant rules.
+2.  Evaluates conditions if a `resourceInstance` is provided.
+3.  Determines the outcome based on matching `allow` and `deny` rules.
+4.  Returns `true` if the effective permission is "deny", `false` otherwise.
+
+## Examples
 
 ```ts
-cannot<
-  ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string),
-  Resource extends (Meta extends GuantrMeta<infer U> ? U[ResourceKey]['model'] : Record<string, unknown>)
->(
-  action: Meta extends GuantrMeta<infer U> ? U[ResourceKey]['action'] : string,
-  resource: ResourceKey | [ResourceKey, Resource]
-): boolean
+// Assume guantr instance is initialized and rules are set:
+// allow('read', 'article');
+// deny('read', ['article', { status: ['eq', 'archived'] }]);
+// allow('edit', ['article', { ownerId: ['eq', '$ctx.userId'] }]);
+
+const activeArticle = { id: 1, status: 'published', ownerId: 'user-123' };
+const archivedArticle = { id: 2, status: 'archived', ownerId: 'user-123' };
+const someoneElsesArticle = { id: 3, status: 'published', ownerId: 'user-456' };
+
+// Assume current context userId is 'user-123'
+
+// Check if cannot read specific instances
+const cannotReadActive = await guantr.cannot('read', ['article', activeArticle]);
+// -> false (reading active article is allowed)
+
+const cannotReadArchived = await guantr.cannot('read', ['article', archivedArticle]);
+// -> true (reading archived article is denied by a specific rule)
+
+// Check if cannot edit
+const cannotEditOwn = await guantr.cannot('edit', ['article', activeArticle]);
+// -> false (editing own article is allowed)
+
+const cannotEditElse = await guantr.cannot('edit', ['article', someoneElsesArticle]);
+// -> true (editing someone else's article is implicitly denied as no rule allows it)
+
+// Check action not defined in rules
+const cannotPublish = await guantr.cannot('publish', 'article');
+// -> true (implicitly denied as no 'allow publish article' rule exists)
 ```
-
-### Parameters
-
-- **action** (`Meta extends GuantrMeta<infer U> ? U[ResourceKey]['action'] : string`): The action to check permission for. If metadata is provided, it will use the action type defined in the metadata; otherwise, it defaults to a string.
-- **resource** (`ResourceKey | [ResourceKey, Resource]`): The resource to check permission for. If a string is provided, it is treated as the resource key. If an array is provided, the first element is treated as the resource key and the second element is the resource itself.
-
-### Returns
-
-- **boolean**: Returns `true` if the user does not have permission to perform the specified action on the given resource, otherwise `false`.

@@ -1,6 +1,6 @@
 import { describe, expect, it, test } from "vitest";
 import { createGuantr } from "../src";
-import type { GuantrMeta, GuantrPermission, GuantrResourceMap } from "../src";
+import type { GuantrMeta, GuantrRule, GuantrResourceMap, GuantrAnyRule } from "../src";
 
 type MockResourceMap = GuantrResourceMap<{
   user: {
@@ -36,165 +36,159 @@ type MockResourceMap = GuantrResourceMap<{
 type MockMeta = GuantrMeta<MockResourceMap>;
 
 describe('Guantr', () => {
-  test('createGuantr should return new Guantr instance', () => {
-    const guantr = createGuantr<MockMeta>();
+  test('createGuantr should return new Guantr instance', async () => {
+    const guantr = await createGuantr<MockMeta>([]);
 
-    expect(guantr.context).toEqual({});
-    expect(guantr.permissions).toEqual([]);
+    expect(await guantr.getRules()).toEqual([]);
   });
 
-  const mockContext: MockResourceMap['user']['model'] = {
-    id: 1,
-    name: 'John Doe',
-    suspended: null,
-    roles: [{ id: 1, name: 'admin' }, { id: 2, name: 'user' }],
-    address: {
-      line1: '123 Main St',
-      line2: 'Apt 4B',
-      city: 'AnyTown',
-      state: 'CA',
-      zip: '12345',
-      country: 'USA'
-    }
-  }
-
-  test('withContext method should update instance context', () => {
-    const guantr = createGuantr<MockMeta>().withContext(mockContext);
-
-    expect(guantr.context).toEqual(mockContext);
-  });
-
-  test('withContext method should update instance context without meta', () => {
-    const guantr = createGuantr().withContext(mockContext);
-
-    expect(guantr.context).toEqual(mockContext);
-  });
-
-  test('setPermission method should add permission to permissions array', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermission((can) => {
+  test('setRules method should add rule to rules array', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules((can) => {
       can('read', 'post');
     });
 
-    expect(guantr.permissions).toContainEqual({
+    expect(await guantr.getRules()).toContainEqual({
       action: 'read',
       resource: 'post',
       condition: null,
-      inverted: false
+      effect: 'allow'
     })
   });
 
-  test('setPermission method should replace existing permissions', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([{
+  test('setRules method should replace existing rules', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([{
       action: 'read',
       resource: 'post',
       condition: null,
-      inverted: false
+      effect: 'allow'
     }]);
-    guantr.setPermission(() => {});
+    await guantr.setRules(() => {});
 
-    expect(guantr.permissions).toEqual([])
+    expect(await guantr.getRules()).toEqual([])
   });
 
-  test('setPermissions method should add permission to permissions array', () => {
-    const guantr = createGuantr<MockMeta>()
-    
-    const permissions: GuantrPermission<MockMeta>[] = [{
+  test('setRules method should clear existing rules', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules((can) => {
+      can('read', 'post');
+    });
+
+    await guantr.setRules(() => {});
+
+    expect(await guantr.getRules()).toEqual([])
+  });
+
+  test('setRules method should add rule to rules array', async () => {
+    const guantr = await createGuantr<MockMeta>()
+
+    const rules: GuantrRule<MockMeta>[] = [{
       action: 'create',
       resource: 'post',
       condition: null,
-      inverted: false
+      effect: 'allow'
     }]
-    
-    guantr.setPermissions(permissions);
 
-    expect(guantr.permissions).toEqual(permissions)
+    guantr.setRules(rules);
+
+    expect(await guantr.getRules()).toEqual(rules)
   });
 
-  test('setPermissions method should replace existing permissions', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermission((can) => {
-      can('read', ['post', { id: ['equals', 1] }]);
+  test('setRules method should clear existing rules', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules((can) => {
+      can('read', 'post');
     });
 
-    const newPermissions: GuantrPermission<MockMeta>[] = [
+    await guantr.setRules([]);
+
+    expect(await guantr.getRules()).toEqual([])
+  });
+
+  test('setRules method should replace existing rules', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules((can) => {
+      can('read', ['post', { id: ['eq', 1] }]);
+    });
+
+    const newRules: GuantrRule<MockMeta>[] = [
       {
         action: 'create',
         resource: 'post',
         condition: null,
-        inverted: false
+        effect: 'allow'
       },
       {
         action: 'create',
         resource: 'post',
         condition: { title: ['startsWith', 'ANNOUNCEMENT:'] },
-        inverted: true
+        effect: 'deny'
       }
     ];
 
-    guantr.setPermissions(newPermissions);
+    guantr.setRules(newRules);
 
-    expect(guantr.permissions).toEqual(newPermissions);
+    expect(await guantr.getRules()).toEqual(newRules);
   });
 });
 
 describe('Guantr.can', () => {
-  it('should return true if user has permission', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([{
+  it('should return true if user has rule', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([{
       action: 'read',
       resource: 'post',
       condition: null,
-      inverted: false
+      effect: 'allow'
     }]);
 
-    expect(guantr.can('read', 'post')).toBe(true);
+    expect(await guantr.can('read', 'post')).toBe(true);
   });
 
-  it('should return false if user does not have permission', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([]);
+  it('should return false if user does not have rule', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([]);
 
-    expect(guantr.can('read', 'post')).toBe(false);
+    expect(await guantr.can('read', 'post')).toBe(false);
   });
 
-  it('should return false if resource or action not found in permissions', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([{
+  it('should return false if resource or action not found in rules', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([{
       action: 'delete',
       resource: 'post',
       condition: null,
-      inverted: false
+      effect: 'allow'
     }]);
 
-    expect(guantr.can('create', 'post')).toBe(false);
+    expect(await guantr.can('create', 'post')).toBe(false);
   });
 
-  it('should return false if user has inverted permission', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([{
+  it('should return false if user has inverted rule', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([{
       action: 'delete',
       resource: 'post',
       condition: null,
-      inverted: true
+      effect: 'deny'
     }]);
 
-    expect(guantr.can('delete', 'post')).toBe(false);
+    expect(await guantr.can('delete', 'post')).toBe(false);
   });
 
-  it('should be able to match condition for nested resource condition', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([
+  it('should be able to match condition for nested resource condition', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([
       {
         resource: 'user',
         action: 'read',
         condition: {
           address: {
-            country: ['equals', 'id', { caseInsensitive: true }]
+            country: ['eq', 'id', { caseInsensitive: true }]
           }
         },
-        inverted: false
+        effect: 'allow'
       },
     ])
 
@@ -212,19 +206,19 @@ describe('Guantr.can', () => {
         country: 'ID'
       }
     }
-    expect(guantr.can('read', ['user', mockUser])).toBe(true)
+    expect(await guantr.can('read', ['user', mockUser])).toBe(true)
   })
 
-  it('should be able to match condition of array', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([
+  it('should be able to match condition of array', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([
       {
         resource: 'user',
         action: 'read',
         condition: {
-          roles: ['some', { name: ['equals', 'user'] }]
+          roles: ['some', { name: ['eq', 'user'] }]
         },
-        inverted: false
+        effect: 'allow'
       },
     ])
 
@@ -242,56 +236,21 @@ describe('Guantr.can', () => {
         country: 'ID'
       }
     }
-    expect(guantr.can('read', ['user', mockUser])).toBe(true)
+    expect(await guantr.can('read', ['user', mockUser])).toBe(true)
   })
 
-  it('should be able to match condition for array length check', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([
-      {
-        resource: 'user',
-        action: 'read',
-        condition: {
-          roles: {
-            length: ['equals', 2]
-          }
-        },
-        inverted: false
-      },
-    ])
-
-    const mockUser: MockResourceMap['user']['model'] = {
-      id: 1,
-      name: 'John Doe',
-      suspended: null,
-      roles: [{ id: 1, name: 'admin' }, { id: 2, name: 'user' }],
-      address: {
-        line1: '123 Main St',
-        line2: 'Apt 4B',
-        city: 'AnyTown',
-        state: 'CA',
-        zip: '12345',
-        country: 'ID'
-      }
-    }
-    expect(guantr.can('read', ['user', mockUser])).toBe(true)
-    mockUser.roles.pop()
-    expect(guantr.can('read', ['user', mockUser])).toBe(false)
-  })
-
-  it('should be able to match condition for array length check with expression', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([
+  it('should be able to match condition for array length check', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([
       {
         resource: 'user',
         action: 'read',
         condition: {
           roles: {
-            length: ['equals', 2],
-            $expr: ['some', { name: ['equals', 'User', { caseInsensitive: true }] }]
+            length: ['eq', 2]
           }
         },
-        inverted: false
+        effect: 'allow'
       },
     ])
 
@@ -309,12 +268,47 @@ describe('Guantr.can', () => {
         country: 'ID'
       }
     }
-    expect(guantr.can('read', ['user', mockUser])).toBe(true)
+    expect(await guantr.can('read', ['user', mockUser])).toBe(true)
     mockUser.roles.pop()
-    expect(guantr.can('read', ['user', mockUser])).toBe(false)
+    expect(await guantr.can('read', ['user', mockUser])).toBe(false)
   })
 
-  it('should be able to match condition using context', () => {
+  it('should be able to match condition for array length check with expression', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([
+      {
+        resource: 'user',
+        action: 'read',
+        condition: {
+          roles: {
+            length: ['eq', 2],
+            $expr: ['some', { name: ['eq', 'User', { caseInsensitive: true }] }]
+          }
+        },
+        effect: 'allow'
+      },
+    ])
+
+    const mockUser: MockResourceMap['user']['model'] = {
+      id: 1,
+      name: 'John Doe',
+      suspended: null,
+      roles: [{ id: 1, name: 'admin' }, { id: 2, name: 'user' }],
+      address: {
+        line1: '123 Main St',
+        line2: 'Apt 4B',
+        city: 'AnyTown',
+        state: 'CA',
+        zip: '12345',
+        country: 'ID'
+      }
+    }
+    expect(await guantr.can('read', ['user', mockUser])).toBe(true)
+    mockUser.roles.pop()
+    expect(await guantr.can('read', ['user', mockUser])).toBe(false)
+  })
+
+  it('should be able to match condition using context', async () => {
     const mockContext1 = {
       name: 'john doe',
       role: {
@@ -322,29 +316,27 @@ describe('Guantr.can', () => {
       } as { name: string } | null,
     }
 
-    const guantr1 = createGuantr<MockMeta>().withContext(mockContext1)
-    guantr1.setPermissions([
+    const guantr1 = await createGuantr<MockMeta, typeof mockContext1>([
       {
         resource: 'user',
         action: 'read',
         condition: {
-          name: ['equals', '$context.name', { caseInsensitive: true }]
+          name: ['eq', '$ctx.name', { caseInsensitive: true }]
         },
-        inverted: false
+        effect: 'allow'
       },
-    ])
+    ], { getContext: () => mockContext1 })
 
-    const guantr2 = createGuantr<MockMeta>().withContext(mockContext1)
-    guantr2.setPermissions([
+    const guantr2 = await createGuantr<MockMeta, typeof mockContext1>([
       {
         resource: 'user',
         action: 'read',
         condition: {
-          roles: ['some', { name: ['equals', '$context.role?.name'] }]
+          roles: ['some', { name: ['eq', '$ctx.role?.name'] }]
         },
-        inverted: false
+        effect: 'allow'
       },
-    ])
+    ], { getContext: () => mockContext1 })
 
     const mockUser: MockResourceMap['user']['model'] = {
       id: 1,
@@ -360,11 +352,34 @@ describe('Guantr.can', () => {
         country: 'ID'
       }
     }
-    expect(guantr1.can('read', ['user', mockUser])).toBe(true)
-    expect(guantr2.can('read', ['user', mockUser])).toBe(true)
+    expect(await guantr1.can('read', ['user', mockUser])).toBe(true)
+    expect(await guantr2.can('read', ['user', mockUser])).toBe(true)
   })
 
-  it('should be able to reach nullable context', () => {
+  it('should apply contextual operands in relatedRulesFor', async () => {
+    const mockContext = {
+      name: 'john doe',
+    }
+
+    const guantr = await createGuantr<MockMeta>({ getContext: () => mockContext })
+    await guantr.setRules([
+      {
+        resource: 'user',
+        action: 'read',
+        condition: {
+          name: ['eq', '$ctx.name', { caseInsensitive: true }]
+        },
+        effect: 'allow'
+      },
+    ])
+
+    const rules = await guantr.relatedRulesFor('read', 'user', { applyConditionContextualOperands: true })
+    expect(rules[0].condition).toEqual({
+      name: ['eq', 'john doe', { caseInsensitive: true }]
+    })
+  })
+
+  it('should be able to reach nullable context', async () => {
     const mockContext1 = {
       address: null
     } as { address: { line1: string } | null }
@@ -372,33 +387,34 @@ describe('Guantr.can', () => {
       address: { line1: '123 Main St', }
     } as { address: { line1: string } | null }
 
-    const guantr1 = createGuantr<MockMeta>().withContext(mockContext1)
-    guantr1.setPermissions([
+    const guantr1 = await createGuantr<MockMeta>({ getContext: () => mockContext1 })
+    await guantr1.setRules([
       {
         resource: 'user',
         action: 'read',
         condition: {
           address: {
-            line1: ['equals', '$context.address?.line1']
+            line1: ['eq', '$ctx.address?.line1']
           }
         },
-        inverted: false
+        effect: 'allow'
       },
     ])
 
-    const guantr2 = createGuantr<MockMeta>().withContext(mockContext2)
-    guantr2.setPermissions([
+    const guantr2 = await createGuantr<MockMeta, typeof mockContext2>([
       {
         resource: 'user',
         action: 'read',
         condition: {
           address: {
-            line1: ['equals', '$context.address?.line1']
+            line1: ['eq', '$ctx.address?.line1']
           }
         },
-        inverted: false
+        effect: 'allow'
       },
-    ])
+    ], {
+      getContext: () => mockContext2
+    })
 
     const mockUser: MockResourceMap['user']['model'] = {
       id: 1,
@@ -414,30 +430,53 @@ describe('Guantr.can', () => {
         country: 'ID'
       }
     }
-    expect(guantr1.can('read', ['user', mockUser])).toBe(false)
-    expect(guantr2.can('read', ['user', mockUser])).toBe(true)
+    expect(await guantr1.can('read', ['user', mockUser])).toBe(false)
+    expect(await guantr2.can('read', ['user', mockUser])).toBe(true)
   })
 
-  it('should be able to handle overlapping permissions: general -> specific', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([
+  it('should handle circuit breaker in can method', async () => {
+    const guantr = await createGuantr()
+    const rules: GuantrAnyRule[] = [];
+    // change the loop to < 1000 should work as expected
+    for (let i = 0; i < 1001; i++) {
+      rules.push({
+        resource: 'post',
+        action: 'read',
+        condition: null,
+        effect: 'allow'
+      });
+    }
+    await guantr.setRules(rules);
+    const post = {
+      id: 1,
+      title: 'Hello World',
+      description: '',
+      lastUpdatedAt: null,
+      tags: []
+    }
+    expect(await guantr.can('read', ['post', post])).toBe(false);
+  })
+
+  it('should be able to handle overlapping rules: general -> specific', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([
       {
         resource: 'post',
         action: 'read',
         condition: null,
-        inverted: false
+        effect: 'allow'
       },
       {
         resource: 'post',
         action: 'read',
         condition: {
-          published: ['equals', true]
+          published: ['eq', true]
         },
-        inverted: false
+        effect: 'allow'
       }
     ])
-    
-    expect(guantr.can('read', 'post')).toBe(true)
+
+    expect(await guantr.can('read', 'post')).toBe(true)
     const post = {
       id: 1,
       title: 'Hello World',
@@ -445,30 +484,30 @@ describe('Guantr.can', () => {
       lastUpdatedAt: null,
       tags: []
     }
-    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(true)
-    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(true)
+    expect(await guantr.can('read', ['post', { ...post, published: true }])).toBe(true)
+    expect(await guantr.can('read', ['post', { ...post, published: false }])).toBe(true)
   })
 
-  it('should be able to handle overlapping permissions: specific -> general', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([
+  it('should be able to handle overlapping rules: specific -> general', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([
       {
         resource: 'post',
         action: 'read',
         condition: {
-          published: ['equals', true]
+          published: ['eq', true]
         },
-        inverted: false
+        effect: 'allow'
       },
       {
         resource: 'post',
         action: 'read',
         condition: null,
-        inverted: false
+        effect: 'allow'
       }
     ])
-    
-    expect(guantr.can('read', 'post')).toBe(true)
+
+    expect(await guantr.can('read', 'post')).toBe(true)
     const post = {
       id: 1,
       title: 'Hello World',
@@ -476,30 +515,30 @@ describe('Guantr.can', () => {
       lastUpdatedAt: null,
       tags: []
     }
-    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(true)
-    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(true)
+    expect(await guantr.can('read', ['post', { ...post, published: true }])).toBe(true)
+    expect(await guantr.can('read', ['post', { ...post, published: false }])).toBe(true)
   })
 
-  it('should be able to handle overlapping permissions: general -> specific-inverted', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([
+  it('should be able to handle overlapping rules: general -> specific-inverted', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([
       {
         resource: 'post',
         action: 'read',
         condition: null,
-        inverted: false
+        effect: 'allow'
       },
       {
         resource: 'post',
         action: 'read',
         condition: {
-          published: ['equals', false]
+          published: ['eq', false]
         },
-        inverted: true
+        effect: 'deny'
       },
     ])
-    
-    expect(guantr.can('read', 'post')).toBe(true)
+
+    expect(await guantr.can('read', 'post')).toBe(true)
     const post = {
       id: 1,
       title: 'Hello World',
@@ -507,30 +546,30 @@ describe('Guantr.can', () => {
       lastUpdatedAt: null,
       tags: []
     }
-    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(true)
-    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
+    expect(await guantr.can('read', ['post', { ...post, published: true }])).toBe(true)
+    expect(await guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
   })
 
-  it('should be able to handle overlapping permissions: specific-inverted -> general', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([
+  it('should be able to handle overlapping rules: specific-inverted -> general', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([
       {
         resource: 'post',
         action: 'read',
         condition: {
-          published: ['equals', true]
+          published: ['eq', true]
         },
-        inverted: true
+        effect: 'deny'
       },
       {
         resource: 'post',
         action: 'read',
         condition: null,
-        inverted: false
+        effect: 'allow'
       },
     ])
 
-    expect(guantr.can('read', 'post')).toBe(true)
+    expect(await guantr.can('read', 'post')).toBe(true)
     const post = {
       id: 1,
       title: 'Hello World',
@@ -538,30 +577,30 @@ describe('Guantr.can', () => {
       lastUpdatedAt: null,
       tags: []
     }
-    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
-    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(true)
+    expect(await guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
+    expect(await guantr.can('read', ['post', { ...post, published: false }])).toBe(true)
   })
 
-  it('should be able to handle overlapping permissions: general-inverted -> specific-inverted', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([
+  it('should be able to handle overlapping rules: general-inverted -> specific-inverted', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([
       {
         resource: 'post',
         action: 'read',
         condition: null,
-        inverted: true
+        effect: 'deny'
       },
       {
         resource: 'post',
         action: 'read',
         condition: {
-          published: ['equals', false]
+          published: ['eq', false]
         },
-        inverted: true
+        effect: 'deny'
       },
     ])
-    
-    expect(guantr.can('read', 'post')).toBe(false)
+
+    expect(await guantr.can('read', 'post')).toBe(false)
     const post = {
       id: 1,
       title: 'Hello World',
@@ -569,30 +608,30 @@ describe('Guantr.can', () => {
       lastUpdatedAt: null,
       tags: []
     }
-    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
-    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
+    expect(await guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
+    expect(await guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
   })
 
-  it('should be able to handle overlapping permissions: specific-inverted -> general-inverted', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([
+  it('should be able to handle overlapping rules: specific-inverted -> general-inverted', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([
       {
         resource: 'post',
         action: 'read',
         condition: {
-          published: ['equals', false]
+          published: ['eq', false]
         },
-        inverted: true
+        effect: 'deny'
       },
       {
         resource: 'post',
         action: 'read',
         condition: null,
-        inverted: true
+        effect: 'deny'
       },
     ])
-    
-    expect(guantr.can('read', 'post')).toBe(false)
+
+    expect(await guantr.can('read', 'post')).toBe(false)
     const post = {
       id: 1,
       title: 'Hello World',
@@ -600,30 +639,30 @@ describe('Guantr.can', () => {
       lastUpdatedAt: null,
       tags: []
     }
-    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
-    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
+    expect(await guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
+    expect(await guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
   })
 
-  it('should be able to handle overlapping permissions: general-inverted -> specific', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([
+  it('should be able to handle overlapping rules: general-inverted -> specific', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([
       {
         resource: 'post',
         action: 'read',
         condition: null,
-        inverted: true
+        effect: 'deny'
       },
       {
         resource: 'post',
         action: 'read',
         condition: {
-          published: ['equals', true]
+          published: ['eq', true]
         },
-        inverted: false
+        effect: 'allow'
       },
     ])
 
-    expect(guantr.can('read', 'post')).toBe(true)
+    expect(await guantr.can('read', 'post')).toBe(true)
     const post = {
       id: 1,
       title: 'Hello World',
@@ -631,30 +670,30 @@ describe('Guantr.can', () => {
       lastUpdatedAt: null,
       tags: []
     }
-    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
-    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
+    expect(await guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
+    expect(await guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
   })
 
-  it('should be able to handle overlapping permissions: specific -> general-inverted', () => {
-    const guantr = createGuantr<MockMeta>()
-    guantr.setPermissions([
+  it('should be able to handle overlapping rules: specific -> general-inverted', async () => {
+    const guantr = await createGuantr<MockMeta>()
+    await guantr.setRules([
       {
         resource: 'post',
         action: 'read',
         condition: {
-          published: ['equals', true]
+          published: ['eq', true]
         },
-        inverted: false
+        effect: 'allow'
       },
       {
         resource: 'post',
         action: 'read',
         condition: null,
-        inverted: true
+        effect: 'deny'
       },
     ])
 
-    expect(guantr.can('read', 'post')).toBe(true)
+    expect(await guantr.can('read', 'post')).toBe(true)
     const post = {
       id: 1,
       title: 'Hello World',
@@ -662,7 +701,7 @@ describe('Guantr.can', () => {
       lastUpdatedAt: null,
       tags: []
     }
-    expect(guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
-    expect(guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
+    expect(await guantr.can('read', ['post', { ...post, published: true }])).toBe(false)
+    expect(await guantr.can('read', ['post', { ...post, published: false }])).toBe(false)
   })
 })

@@ -1,4 +1,4 @@
-# Guantr (WIP)
+# Guantr
 
 <!-- automd:badges color=yellow -->
 
@@ -64,7 +64,7 @@ import { createGuantr } from "https://esm.sh/guantr";
 Initialize:
 
 ```ts
-const guantr = createGuantr()
+const guantr = await createGuantr()
 
 // With Typescript Meta:
 type Meta = GuantrMeta<{
@@ -78,48 +78,72 @@ type Meta = GuantrMeta<{
   }
 }>;
 
-const guantr = createGuantr<Meta>()
+const guantr = await createGuantr<Meta>()
 
 // Contextual
-const guantrWithContext = guantr.withContext({
+const user = {
   id: number,
   name: 'John Doe',
   roles: ['admin']
+}
+const guantrWithContext = await createGuantr<Meta, { user: typeof user }>({
+  getContext: () => ({ user })
 })
 
 ```
 
-Setting permissions:
+Setting rules:
 
 ```js
-guantr.setPermission((can, cannot) => {
+await guantr.setRules((can, cannot) => {
   can('read', 'post')
-  cannot('read', ['post', { published: ['equals', false] }])
+  cannot('read', ['post', { published: ['eq', false] }])
 })
 // Or
-guantr.setPermissions([
+await guantr.setRules([
   {
     resource: 'post',
     action: 'read',
     condition: null,
-    inverted: false
+    effect: 'allow'
   },
   {
     resource: 'post',
     action: 'read',
     condition: {
-      published: ['equals', false]
+      published: ['eq', false]
     },
-    inverted: true
+    effect: 'deny'
   }
 ])
 ```
 
-Checking Permission:
+Rules also can be set on instance creation:
+
+```ts
+const guantr = await createGuantr<Meta>([
+  {
+    resource: 'post',
+    action: 'read',
+    condition: {
+      published: ['eq', false]
+    },
+    effect: 'deny'
+  }
+])
+```
+
+Authorize:
 
 ```js
-guantr.can('read', 'post') // true
-guantr.can('read', ['post', { id: 1, title: 'Hello World', published: false }]) // false
+await guantr.can('read', 'post') // true
+
+const post = {
+  id: 1,
+  title: 'Hello World',
+  published: false
+}
+await guantr.can('read', ['post', post]) // false
 
 ```
 

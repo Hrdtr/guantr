@@ -1,12 +1,10 @@
 # Quick Start
 
-Welcome to Guantr's quick start guide! This guide will walk you through the initial steps to get up and running with Guantr in your project. Guantr provides a flexible, type-safe way to handle permissions and access control, making it a great choice for modern JavaScript and TypeScript applications.
+This guide will walk you through the initial steps to get up and running with Guantr in your project. Guantr provides a flexible, type-safe way to handle permissions and access control, making it a great choice for modern JavaScript and TypeScript applications.
 
 ## Installation
 
 First, you'll need to install the Guantr package. Depending on your package manager of choice, you can use one of the following commands:
-
-<!-- automd:pm-install -->
 
 ```sh
 # ✨ Auto-detect
@@ -25,20 +23,18 @@ pnpm install guantr
 bun install guantr
 ```
 
-<!-- /automd -->
-
-This command will add Guantr to your project's dependencies, allowing you to start leveraging its powerful features.
+This command adds Guantr to your project's dependencies.
 
 ## Importing Guantr
 
-Once installed, you can import Guantr into your project. Depending on your environment, choose the appropriate import method:
-
-<!-- automd:jsimport cjs cdn name="guantr" imports="createGuantr" -->
+Once installed, import the necessary functions from Guantr:
 
 **ESM** (Node.js, Bun)
 
 ```js
 import { createGuantr } from "guantr";
+// For defining typed rules (optional but recommended with TypeScript)
+// import type { GuantrRule, GuantrMeta } from "guantr";
 ```
 
 **CommonJS** (Legacy Node.js)
@@ -53,111 +49,137 @@ const { createGuantr } = require("guantr");
 import { createGuantr } from "https://esm.sh/guantr";
 ```
 
-<!-- /automd -->
-
-With Guantr now available in your project, you can proceed to initialize and configure it to manage permissions.
-
 ## Initializing Guantr
 
-To start using Guantr, create an instance using the `createGuantr` function. This function returns a new instance of Guantr, ready for configuration:
+Create an instance using the `createGuantr` function. `createGuantr` is asynchronous as it might interact with storage or asynchronous context.
+
+**Basic Initialization**
 
 ```ts
-const guantr = createGuantr()
+const guantr = await createGuantr();
 ```
 
-### Using TypeScript Meta
+**With TypeScript (Using GuantrMeta for Type Safety)**
 
-If you're using TypeScript, you can provide additional metadata to strongly type your permissions. This ensures that your resource and action definitions are consistent and type-safe.
+Define your resources, actions, and context shape using `GuantrMeta` for enhanced type checking when defining and checking rules.
 
 ```ts
-type Meta = GuantrMeta<{
-  post: {
-    action: 'create' | 'read' | 'update' | 'delete'
-    model: {
-      id: number,
-      title: string,
-      published: boolean
-    }
+import type { GuantrMeta, GuantrRule } from 'guantr';
+
+// Define your application's specific actions, resources, models, and context
+type MyMeta = GuantrMeta<
+  { // ResourceMap
+    post: { action: 'read' | 'edit', model: { id: number, archived: boolean, ownerId: string } },
+    comment: { action: 'read' | 'create', model: { id: number, postId: number } }
+  },
+  { // Context
+    userId: string | null
   }
-}>;
+>;
 
-const guantr = createGuantr<Meta>();
+const typedGuantr = await createGuantr<MyMeta>();
 ```
 
-In this example, we define a `ResourceMap` for posts, specifying the structure of each post inside `model` and a set of actions inside `action` (`'create'`, `'read'`, `'update'`, `'delete'`) that can be performed on these resources.
+**With Context**
 
-### With Context
-
-Guantr allows you to set a context for the permissions, which can be useful for dynamic conditions based on the current user or other stateful information.
+Provide a `getContext` function during initialization if your rules need dynamic data (like the current user ID).
 
 ```ts
-const guantrWithContext = createGuantr().withContext({
-  id: number,
-  name: 'John Doe',
-  roles: ['admin']
-})
-
-```
-
-Here, `withContext` sets up a user context which can be used to apply more granular permission checks based on the user's role or other attributes.
-
-
-## Setting permissions
-
-With Guantr initialized, you can now define permissions. Permissions are rules that specify what actions are allowed or denied on certain resources. You can set permissions in two ways:
-
-### Using a Callback Function
-
-Define permissions dynamically using a callback function. This is useful for complex or condition-based permissions:
-
-```ts
-guantr.setPermission((can, cannot) => {
-  can('read', 'post');
-  cannot('read', ['post', { published: ['equals', false] }]);
+const contextualGuantr = await createGuantr({
+  // This function will be called whenever context is needed for rule evaluation
+  getContext: async () => {
+    // In a real app, fetch user data, session info, etc.
+    const currentUser = await getCurrentUser();
+    return {
+      userId: currentUser?.id || null
+    };
+  }
 });
 ```
 
-In this example, the user is allowed to read all posts but only if they are published.
+## Setting Rules
 
-### Using Direct Assignment
+Define permissions using the `setRules` method. You can provide rules via a callback function or an array of rule objects.
 
-Alternatively, you can set permissions directly by passing an array of permission objects:
+### Using the Callback Function
 
-```js
-guantr.setPermissions([
+Pass an asynchronous function that receives `allow` and `deny` helpers.
+
+```ts
+await guantr.setRules(async (allow, deny) => {
+  // Allow reading any post
+  allow('read', 'post');
+
+  // Deny reading posts that are archived
+  // Conditions use the format: { field: [operator, value] }
+  deny('read', ['post', { archived: ['eq', true] }]);
+
+  // Example using context (if contextualGuantr was initialized with getContext)
+  // Allow editing a post only if the user is the owner
+  // allow('edit', ['post', { ownerId: ['eq', '$ctx.userId'] }]);
+});
+```
+
+### Using a Direct Array of Rule Objects
+
+You can also pass an array of rule objects. Remember that the `effect` property should be `'allow'` or `'deny'`, and conditions follow the `[operator, value]` format.
+
+```ts
+import type { GuantrRule } from 'guantr'; // Or GuantrAnyRule if not using Meta
+
+// Define types if using TypeScript without Meta for clarity in this example
+type Action = 'read' | 'edit';
+type ResourceKey = 'post';
+type Post = { archived: boolean };
+type Context = {}; // Empty if not needed for these rules
+
+const rules: GuantrRule<{ ResourceMap: { post: { action: Action, model: Post }}, Context: Context}>[] = [
   {
-    resource: 'post',
+    effect: 'allow',
     action: 'read',
-    condition: null,
-    inverted: false
+    resource: 'post',
+    condition: null // No condition for general read access
   },
   {
-    resource: 'post',
+    effect: 'deny',  // Use 'deny', not 'cannot'
     action: 'read',
-    condition: {
-      published: ['equals', false]
-    },
-    inverted: true
+    resource: 'post',
+    // Condition format: { field: [operator, value] }
+    condition: { archived: ['eq', true] }
   }
-])
+];
+
+await guantr.setRules(rules);
 ```
 
-This approach explicitly defines the permissions, where the first rule allows reading posts, and the second rule denies reading published posts.
+## Checking Permissions
 
-## Checking Permission
+Use the `can` (or `cannot`) method to check if an action is permitted. Pass the specific resource object when checking rules that involve conditions.
 
-To check if a user has permission to perform a specific action on a resource, use the `can` method. This method evaluates the defined permissions and returns a boolean value:
+```ts
+// Check general permission to read posts
+const canReadAnyPost = await guantr.can('read', 'post');
+console.log('Can read any post?', canReadAnyPost); // Likely true based on rules above
 
-```js
-guantr.can('read', 'post') // true
-guantr.can('read', ['post', { id: 1, title: 'Hello World', published: false }]) // false
+// Check permission to read a specific archived post
+const archivedPost = { id: 1, archived: true, ownerId: 'user-abc' };
+const canReadArchived = await guantr.can('read', ['post', archivedPost]);
+console.log('Can read the archived post?', canReadArchived); // Expected: false (due to the 'deny' rule)
 
+// Check permission to read a specific non-archived post
+const activePost = { id: 2, archived: false, ownerId: 'user-xyz' };
+const canReadActive = await guantr.can('read', ['post', activePost]);
+console.log('Can read the active post?', canReadActive); // Expected: true (allowed by general 'read', not blocked by 'deny')
 ```
 
-In the above code, the first check returns `true` because there is no restriction on reading posts in general. The second check returns `false` because the condition denies reading the post if it’s unpublished and does not meet the criteria.
+## Next Steps
 
-## Conclusion
+You've now installed, initialized, set rules for, and checked permissions with Guantr! Explore further topics:
 
-Guantr provides a robust and intuitive framework for managing permissions in your applications. With its type-safe approach and flexible API, it helps ensure that your authorization logic is clear, maintainable, and aligned with your application's requirements.
+* **Guides:** Dive deeper into [Defining Rules](./guides/defining-rules.md), [Basic RBAC](./guides/example-basic-rbac.md), and [Basic ABAC](./guides/example-abac.md).
+* **Advanced Usage:** Learn about [Caching](./advanced-usage/caching.md) and creating a custom [Storage Adapter](./advanced-usage/custom-storage-adapter.md).
+* **API Reference:** Consult the detailed [API documentation](./api/README.md).
+* **GitHub:** Explore the [source code](https://github.com/Hrdtr/guantr) and contribute.
+* **Discussions:** Ask questions and share ideas in the [community forums](https://github.com/Hrdtr/guantr/discussions).
 
-We look forward to seeing how Guantr empowers your projects and welcomes contributions from the community!
+Happy coding!

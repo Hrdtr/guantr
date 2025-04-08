@@ -20,6 +20,35 @@ export default defineConfig({
         ]
       },
       {
+        text: 'Guides',
+        items: [
+          {
+            text: 'Defining Rules',
+            link: '/guides/defining-rules',
+            items: [
+              { text: 'Condition Operators', link: '/guides/defining-rules/condition-operators' },
+            ]
+          },
+          { text: 'Context Usage', link: '/guides/context-usage' },
+          { text: 'Typescript', link: '/guides/typescript-integration' },
+          { text: 'Example: Basic RBAC', link: '/guides/example-basic-rbac' },
+          { text: 'Example: ABAC', link: '/guides/example-abac' },
+        ]
+      },
+      {
+        text: 'Advanced Usage',
+        items: [
+          { text: 'Custom Storage Adapter', link: '/advanced-usage/custom-storage-adapter' },
+          { text: 'Caching', link: '/advanced-usage/caching' },
+          {
+            text: 'Rules as Query Filters',
+            items: [
+              { text: 'Prisma', link: '/advanced-usage/rules-as-query-filters/prisma' },
+            ]
+          },
+        ]
+      },
+      {
         text: 'API',
         items: [
           {
@@ -30,28 +59,16 @@ export default defineConfig({
             text: 'Guantr',
             items: [
               {
-                text: '.withContext',
-                link: '/api/Guantr/withContext'
+                text: '.setRules',
+                link: '/api/Guantr/setRules'
               },
               {
-                text: '.context',
-                link: '/api/Guantr/context'
+                text: '.getRules',
+                link: '/api/Guantr/getRules'
               },
               {
-                text: '.permissions',
-                link: '/api/Guantr/permissions'
-              },
-              {
-                text: '.setPermission',
-                link: '/api/Guantr/setPermission'
-              },
-              {
-                text: '.setPermissions',
-                link: '/api/Guantr/setPermissions'
-              },
-              {
-                text: '.relatedPermissionsFor',
-                link: '/api/Guantr/relatedPermissionsFor'
+                text: '.relatedRulesFor',
+                link: '/api/Guantr/relatedRulesFor'
               },
               {
                 text: '.can',

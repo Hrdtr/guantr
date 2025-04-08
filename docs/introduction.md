@@ -1,78 +1,70 @@
 # Guantr: A Flexible, Type-Safe Authorization Library for JavaScript
 
-In the rapidly evolving world of web and application development, managing user permissions and access control is a fundamental yet complex challenge. To address this, we are excited to introduce **Guantr**, a versatile and type-safe JavaScript library designed to streamline and enhance your authorization needs.
-
-Inspired by the robust features of [CASL](https://github.com/stalniy/casl) created by [Sergii Stotskyi](https://github.com/stalniy), Guantr offers a modern, efficient approach to permission management, making it easier for developers to secure their applications.
+Managing user permissions and access control is a fundamental challenge in modern web development. **Guantr** is a versatile, type-safe JavaScript library designed to streamline this complexity. Inspired by the robust features of [CASL](https://github.com/stalniy/casl) by [Sergii Stotskyi](https://github.com/stalniy), Guantr offers an efficient, developer-friendly approach to handling authorization in your applications.
 
 ## What is Guantr?
 
-Guantr is a JavaScript library tailored for developers who need a reliable and flexible way to handle permissions and access control within their applications. It provides a straightforward yet powerful framework for defining and checking permissions, ensuring that users can only access what they are allowed to.
+Guantr provides a reliable and flexible framework for defining and checking permission rules. It helps ensure users access only what they're permitted to, simplifying the implementation of secure access control.
 
 ## Key Features
 
-1. **Type Safety:** Guantr leverages TypeScript to provide a type-safe environment, reducing runtime errors and enhancing code maintainability. This makes it easier to define permissions and resources with strong type-checking guarantees.
+1.  **Type Safety:** Leverages TypeScript for strongly-typed permission definitions, reducing runtime errors and improving code maintainability.
+2.  **Contextual Authorization:** Define rules based on dynamic conditions, adapting permissions to the current application state or user context.
+3.  **Flexible Permission Definitions:** Set rules clearly using callback functions or direct object assignments, accommodating both simple and complex logic.
+4.  **Comprehensive Permission Checking:** Offers straightforward methods (`can`/`cannot`) to verify user permissions for specific actions and resources.
 
-2. **Contextual Authorization:** With Guantr, permissions can be contextual. This means you can define permissions based on dynamic conditions that depend on the current state or context of your application.
+## How Guantr Works
 
-3. **Flexible Permission Definitions:** Guantr allows you to define permissions in a flexible manner. You can specify permissions using callback functions, which provide a clear and concise way to set up complex authorization rules.
+Guantr uses a simple API to manage permissions. Here’s a glimpse:
 
-4. **Comprehensive Permission Checking:** The library offers detailed methods to check if a user can or cannot perform certain actions on specified resources. This helps in implementing fine-grained access control policies.
+### Defining Rules
 
-## How Guantr Works?
-
-Guantr provides a straightforward API to manage and check permissions. Here’s a quick overview of how you can utilize Guantr in your project:
-
-### Defining Permissions
-
-Permissions are defined using the `setPermission` method. You can specify what actions are allowed or denied on specific resources, optionally providing conditions for more granular control.
+Use the `setRules` method to specify allowed (`can`) or denied (`cannot`) actions on resources, optionally adding conditions.
 
 ```ts
-const guantr = createGuantr();
+const guantr = await createGuantr();
 
-guantr.setPermission((can, cannot) => {
-  can('read', 'post');
-  cannot('read', ['post', { archived: true }]);
+await guantr.setRules((can, cannot) => {
+  can('read', 'post'); // Allow reading any post
+  cannot('read', ['post', { archived: true }]); // Deny reading archived posts
 });
 ```
 
-In this example, the user is allowed to read any post but cannot read posts with the `archived` flag set to `true`.
-
 ### Checking Permissions
 
-Once permissions are set, checking them is as simple as calling the can or cannot methods:
+Verify permissions easily using the `can` or `cannot` methods.
 
 ```ts
-guantr.can('read', 'post');
-guantr.cannot('read', ['post', { archived: true }]);
+await guantr.can('read', 'post'); // Check if reading posts is generally allowed
+const post = { id: 1, title: 'Hello, World!', archived: true };
+await guantr.cannot('read', ['post', post]); // Check if reading *this specific* archived post is denied
 ```
 
 ### Contextual Conditions
 
-Guantr supports context-based permissions, which are useful when permissions depend on dynamic conditions:
+Permissions can depend on dynamic context, like the current user's ID.
 
 ```ts
-const contextGuantr = createGuantr().withContext({ userId: '123' });
+// Initialize with context
+const contextGuantr = await createGuantr({ getContext: () => ({ userId: '123' }) });
 
-contextGuantr.setPermission((can, cannot) => {
-  can('read', 'Post');
-  cannot('delete', ['Post', { owner: '$context.userId' }]);
+// Set rules using context
+await contextGuantr.setRules((can, cannot) => {
+  // Allow deleting posts only if the ownerId matches the context's userId
+  cannot('delete', ['post', { ownerId: ['eq', '$ctx.userId'] }]);
 });
 
-const canDelete = contextGuantr.can('delete', ['Post', { owner: '123' }]); // true
+// Check permission for a specific post
+const post = { id: 1, title: 'My Post', ownerId: '123' };
+const canDelete = await contextGuantr.can('delete', ['post', post]); // true, because ownerId matches ctx.userId
 ```
-
-Here, the permission to delete a post is evaluated based on the context (e.g., the current user's ID).
 
 ## Why Choose Guantr?
 
-Guantr stands out due to its balance of simplicity and flexibility. Its design allows for seamless integration into any JavaScript or TypeScript project, whether it's a small application or a large-scale enterprise solution. By adopting Guantr, you ensure that your authorization logic is clear, maintainable, and adaptable to changing requirements.
+Guantr strikes a balance between simplicity and power. Its design integrates seamlessly into JavaScript or TypeScript projects of any scale. By using Guantr, you can implement clear, maintainable, and adaptable authorization logic.
 
 ## Join the Community
 
-Guantr is open-source, and we welcome contributions and feedback from the community. Whether you're interested in reporting bugs, suggesting new features, or contributing code, your participation is invaluable to us.
+Guantr is open-source! We welcome contributions, feedback, bug reports, and feature suggestions. Your participation helps make Guantr better.
 
-Join us on our journey to make authorization and permission management more intuitive and powerful with Guantr!
-
----
-
-Guantr is a testament to the power of open-source development and the inspiration from foundational libraries like CASL. We invite you to explore, contribute, and take advantage of the capabilities Guantr brings to your applications.
+Explore the library, contribute on [GitHub](https://github.com/Hrdtr/guantr), and join the [Discussions](https://github.com/Hrdtr/guantr/discussions) to help us build a more intuitive and powerful authorization solution!
