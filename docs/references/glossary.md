@@ -6,7 +6,7 @@ This glossary defines key terms used in the Guantr documentation to help ensure 
 
 ## **ABAC (Attribute-Based Access Control)**
 
-An authorization model where access decisions are made based on evaluating various attributes of the subject (user), resource, action, and environment. Guantr implements ABAC through its `Condition` system. See the [ABAC Guide](./guides/basic-abac.md).
+An authorization model where access decisions are made based on evaluating various attributes of the subject (user), resource, action, and environment. Guantr implements ABAC through its `Condition` system. See the [ABAC Guide](/guides/example-abac.md).
 
 ## **Action**
 
@@ -31,11 +31,11 @@ A property of a `Rule` indicating the outcome if the rule matches. It must be ei
 
 ## **`getContext`**
 
-An optional asynchronous function provided in the `GuantrOptions` during `createGuantr` initialization. It's responsible for returning the `Context` object used during rule evaluation. See the [Using Context Effectively Guide](./using-context-effectively.md).
+An optional asynchronous function provided in the `GuantrOptions` during `createGuantr` initialization. It's responsible for returning the `Context` object used during rule evaluation. See the [Using Context Effectively Guide](/guides/context-usage.md).
 
 ## **`GuantrMeta`**
 
-A TypeScript type (`GuantrMeta<ResourceMap, Context>`) used to define an application's complete authorization model for Guantr, including all resources, their actions, their data models (`ResourceMap`), and the shape of the `Context` object. Using `GuantrMeta` enables strong type safety and autocompletion. See the [TypeScript Integration Guide](./typescript-integration.md).
+A TypeScript type (`GuantrMeta<ResourceMap, Context>`) used to define an application's complete authorization model for Guantr, including all resources, their actions, their data models (`ResourceMap`), and the shape of the `Context` object. Using `GuantrMeta` enables strong type safety and autocompletion. See the [TypeScript Integration Guide](/guides/typescript-integration.md).
 
 ## **Operand**
 
@@ -43,11 +43,11 @@ The value part within a `Condition Expression` (`[Operator, Operand, Options?]`)
 
 ## **Operator**
 
-The keyword within a `Condition Expression` (`[Operator, Operand, Options?]`) specifying the comparison logic (e.g., `'eq'`, `'in'`, `'contains'`, `'gt'`, `'some'`). See the [Condition Operators Explained Guide](./condition-operators-explained.md).
+The keyword within a `Condition Expression` (`[Operator, Operand, Options?]`) specifying the comparison logic (e.g., `'eq'`, `'in'`, `'contains'`, `'gt'`, `'some'`). See the [Condition Operators Explained Guide](/guides/defining-rules/condition-operators.md).
 
 ## **RBAC (Role-Based Access Control)**
 
-An authorization model where permissions are assigned to predefined roles (e.g., 'admin', 'viewer'), and users are granted access based on the roles they hold. See the [RBAC Guide](./guides/basic-rbac.md).
+An authorization model where permissions are assigned to predefined roles (e.g., 'admin', 'viewer'), and users are granted access based on the roles they hold. See the [RBAC Guide](/guides/example-basic-rbac.md).
 
 ## **ReBAC (Relationship-Based Access Control)**
 
@@ -63,4 +63,4 @@ The fundamental unit defining a permission statement in Guantr. It consists of a
 
 ## **Storage**
 
-The mechanism responsible for persisting, retrieving (`getRules`, `queryRules`), and clearing (`clearRules`) Guantr `Rule`s, as well as optionally caching (`cache`) results. Defined by the `Storage` interface. Implementations can range from `InMemoryStorage` to custom adapters for databases or external stores. See the [Custom Storage Adapter Guide](./advanced/storage-adapter.md).
+The mechanism responsible for persisting, retrieving (`getRules`, `queryRules`), and clearing (`clearRules`) Guantr `Rule`s, as well as optionally caching (`cache`) results. Defined by the `Storage` interface. Implementations can range from `InMemoryStorage` to custom adapters for databases or external stores. See the [Custom Storage Adapter Guide](/advanced-usage/custom-storage-adapter.md).
