@@ -49,35 +49,25 @@ export default defineConfig({
         ]
       },
       {
+        text: 'References',
+        items: [
+          { text: 'Performance Considerations', link: '/references/performance-considerations' },
+          { text: 'Comparison with Alternatives', link: '/references/comparison-with-alternatives' },
+          { text: 'Glossary', link: '/references/glossary' },
+        ]
+      },
+      {
         text: 'API',
         items: [
-          {
-            text: 'createGuantr',
-            link: '/api/createGuantr',
-          },
+          { text: 'createGuantr', link: '/api/createGuantr' },
           {
             text: 'Guantr',
             items: [
-              {
-                text: '.setRules',
-                link: '/api/Guantr/setRules'
-              },
-              {
-                text: '.getRules',
-                link: '/api/Guantr/getRules'
-              },
-              {
-                text: '.relatedRulesFor',
-                link: '/api/Guantr/relatedRulesFor'
-              },
-              {
-                text: '.can',
-                link: '/api/Guantr/can'
-              },
-              {
-                text: '.cannot',
-                link: '/api/Guantr/cannot'
-              }
+              { text: '.setRules', link: '/api/Guantr/setRules' },
+              { text: '.getRules', link: '/api/Guantr/getRules' },
+              { text: '.relatedRulesFor', link: '/api/Guantr/relatedRulesFor' },
+              { text: '.can', link: '/api/Guantr/can' },
+              { text: '.cannot', link: '/api/Guantr/cannot'  }
             ]
           },
         ]
