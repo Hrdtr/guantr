@@ -101,6 +101,10 @@ const toPrismaWhereClause = (condition: GuantrAnyPermission['condition']) => {
           clause[key] = { every: toPrismaWhereClause(operand as never) };
           break;
         }
+        case 'none': {
+          clause[key] = { none: toPrismaWhereClause(operand as never) };
+          break;
+        }
         default: {
           throw new Error(`Unsupported operator: ${operator}`);
         }
@@ -115,7 +119,7 @@ const toPrismaWhereClause = (condition: GuantrAnyPermission['condition']) => {
              * to check if the array is empty for now.
              */
             ...(typeof rest.length[1] === 'number' && rest.length[1] < 1 ? { none: {} } : { some: {} }),
-            ...($expr ? toPrismaWhereClause({[key]: $expr})[key] : {}),
+            ...($expr ? toPrismaWhereClause({ [key]: $expr })[key] : {}),
           }
         : toPrismaWhereClause(nestedConditionOrExpression);
     }
@@ -142,7 +146,7 @@ export const isValidConditionExpression = (maybeExpression: unknown): maybeExpre
 
 ```ts
 // We use applyConditionContextualOperands here to get the actual contextual operands value
-const rules = guantr.getRelatedRules('read', 'post', { applyConditionContextualOperands: true })
+const rules = guantr.relatedRulesFor('read', 'post', { applyConditionContextualOperands: true })
 const where = prisma(rules)
 // Result:
 // {
