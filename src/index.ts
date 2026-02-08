@@ -16,6 +16,11 @@ export type {
   GuantrAnyRule,
 } from './types'
 
+// Extract commonly used type patterns to reduce repetition
+type ExtractResourceKeys<Meta> = Meta extends GuantrMeta<infer U> ? keyof U : string;
+type ExtractResourceAction<Meta, K> = Meta extends GuantrMeta<infer U> ? U[K & keyof U]['action'] : string;
+type ExtractResourceModel<Meta, K> = Meta extends GuantrMeta<infer U> ? U[K & keyof U]['model'] : Record<string, unknown>;
+
 export class Guantr<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
   Context extends Record<string, unknown> = Record<string, unknown>
@@ -88,14 +93,14 @@ export class Guantr<
   /**
    * Filters rules based on the provided action and resource.
    *
-   * @param {Meta extends GuantrMeta<infer _, infer Action> ? Action : string} action - The action to filter rules.
+   * @param {ExtractResourceAction<Meta, ResourceKey>} action - The action to filter rules.
    * @param {ResourceKey} resource - The resource key to filter rules.
    * @param {Object} options - An optional object containing the applyConditionContextualOperands flag.
    * @param {boolean} options.applyConditionContextualOperands - A flag indicating whether to apply contextual operands to each rules condition.
    * @return {GuantrAnyRule[]} The filtered rules based on the action and resource.
    */
-  async relatedRulesFor<ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string)>(
-    action: Meta extends GuantrMeta<infer U> ? U[ResourceKey]['action'] : string,
+  async relatedRulesFor<ResourceKey extends ExtractResourceKeys<Meta>>(
+    action: ExtractResourceAction<Meta, ResourceKey>,
     resource: ResourceKey,
     options?: { applyConditionContextualOperands?: boolean }
   ): Promise<GuantrAnyRule[]> {
@@ -114,15 +119,15 @@ export class Guantr<
    *
    * @template ResourceKey - The type of the resource key.
    * @template Resource - The type of the resource.
-   * @param {Meta extends GuantrMeta<infer _, infer Action> ? Action : string} action - The action to check rule for.
+   * @param {ExtractResourceAction<Meta, ResourceKey>} action - The action to check rule for.
    * @param {ResourceKey | [ResourceKey, Resource]} resource - The resource to check rule for. If a string is provided, it is treated as the resource key. If an array is provided, the first element is treated as the resource key and the second element is the resource itself.
    * @return {boolean} Returns `true` if the user has rule, `false` otherwise.
    */
   async can<
-    ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string),
-    Resource extends (Meta extends GuantrMeta<infer U> ? U[ResourceKey]['model'] : Record<string, unknown>)
+    ResourceKey extends ExtractResourceKeys<Meta>,
+    Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<Meta, ResourceKey>
   >(
-    action: Meta extends GuantrMeta<infer U> ? U[ResourceKey]['action'] : string,
+    action: ExtractResourceAction<Meta, ResourceKey>,
     resource: ResourceKey | [ResourceKey, Resource]
   ): Promise<boolean> {
     const context = await this._getContext()
@@ -195,15 +200,15 @@ export class Guantr<
    *
    * @template ResourceKey - The type of the resource key.
    * @template Resource - The type of the resource.
-   * @param {Meta extends GuantrMeta<infer _, infer Action> ? Action : string} action - The action to check rule for.
+   * @param {ExtractResourceAction<Meta, ResourceKey>} action - The action to check rule for.
    * @param {ResourceKey | [ResourceKey, Resource]} resource - The resource to check rule for. If a string is provided, it is treated as the resource key. If an array is provided, the first element is treated as the resource key and the second element is the resource itself.
    * @return {boolean} Returns `true` if the user does not have rule, `false` otherwise.
    */
   async cannot<
-    ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string),
-    Resource extends (Meta extends GuantrMeta<infer U> ? U[ResourceKey]['model'] : Record<string, unknown>)
+    ResourceKey extends ExtractResourceKeys<Meta>,
+    Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<Meta, ResourceKey>
   >(
-    action: Meta extends GuantrMeta<infer U> ? U[ResourceKey]['action'] : string,
+    action: ExtractResourceAction<Meta, ResourceKey>,
     resource: ResourceKey | [ResourceKey, Resource]
   ): Promise<boolean> {
     return !(await this.can(action, resource))
@@ -226,8 +231,6 @@ export class Guantr<
         : (await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey));
       if (cachedResult != null) {
         return cachedResult;
-
-
       }
     }
     const trySetCache = async <T>(result: T): Promise<T> => {
@@ -268,14 +271,14 @@ type SetRulesCallback<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
   Context extends Record<string, unknown> = Record<string, unknown>
 > = (
-  can: <ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string)>(
+  can: <ResourceKey extends ExtractResourceKeys<Meta>>(
     action: GuantrRule<Meta, Context, ResourceKey>['action'],
     resource: GuantrRule<Meta, Context, ResourceKey>['resource'] | [
       GuantrRule<Meta, Context, ResourceKey>['resource'],
       GuantrRule<Meta, Context, ResourceKey>['condition']
     ],
   ) => void,
-  cannot: <ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string)>(
+  cannot: <ResourceKey extends ExtractResourceKeys<Meta>>(
     action: GuantrRule<Meta, Context, ResourceKey>['action'],
     resource: GuantrRule<Meta, Context, ResourceKey>['resource'] | [
       GuantrRule<Meta, Context, ResourceKey>['resource'],
