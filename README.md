@@ -26,13 +26,13 @@ npm install guantr
 yarn add guantr
 
 # pnpm
-pnpm install guantr
+pnpm add guantr
 
 # bun
 bun install guantr
 
 # deno
-deno install guantr
+deno install npm:guantr
 ```
 
 <!-- /automd -->
@@ -53,7 +53,7 @@ import { createGuantr } from "guantr";
 const { createGuantr } = require("guantr");
 ```
 
-**CDN** (Deno, Bun and Browsers)
+**CDN** (Deno and Browsers)
 
 ```js
 import { createGuantr } from "https://esm.sh/guantr";
