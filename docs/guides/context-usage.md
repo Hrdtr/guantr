@@ -151,7 +151,7 @@ await guantr.setRules<MyAppMeta>(async (allow, deny) => {
   allow('view', [
     'report',
     {
-      minAccessLevel: ['lte', '$ctx.userClearanceLevel'], // Compare using 'lte'
+      minAccessLevel: ['gte', '$ctx.userClearanceLevel'], // Compare using 'gte'
     },
   ]);
 

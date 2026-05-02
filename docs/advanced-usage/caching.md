@@ -12,8 +12,8 @@ Guantr incorporates an optional caching layer to enhance performance, particular
 
 If the default in-memory cache isn't sufficient (e.g., you need persistence, shared caching via Redis/Memcached, or specific eviction policies like Time-To-Live (TTL) or Least Recently Used (LRU)), you have two main options:
 
-1.  **Implement a Custom Storage Adapter:** Create a class that fully implements the `Storage` interface from `guantr/storage/types`, including the `cache` property with your desired logic (e.g., interacting with Redis).
-2.  **Extend `InMemoryStorage`:** If you only need to modify the caching behavior of the default storage, you can extend `InMemoryStorage` and override its `cache` property.
+1.  **Implement a Custom Storage Adapter:** Create a class that fully implements the `Storage` interface from `guantr/storage`. Optionally provide a `cache` implementation (e.g., backed by Redis) only if you need caching.
+2.  **Extend `InMemoryStorage`:** If you only need to modify the caching behavior of the default storage, you can extend `InMemoryStorage` and, if desired, override its optional `cache` property.
 
 ### Example: Extending InMemoryStorage with Custom Logic
 
@@ -29,7 +29,7 @@ import type { Storage } from 'guantr/storage'; // Import the interface type
 
 class LoggingCacheStorage extends InMemoryStorage {
   // Override the 'cache' property defined in the Storage interface
-  override cache: Required<Storage['cache']> = {
+  override cache: Required<NonNullable<Storage['cache']>> = {
     // Use the parent class's underlying map for storage
     // Or replace with your own Map, Redis client, etc.
 
@@ -77,7 +77,7 @@ initialize();
 **Explanation:**
 
 - We extend `InMemoryStorage`.
-- We use `override cache: Required<Storage['cache']>` to explicitly override the `cache` property defined in the `Storage` interface, ensuring we provide all required cache methods (`set`, `get`, `clear`, and optionally `has`).
+- We use `override cache: Required<NonNullable<Storage['cache']>>` to explicitly override the optional `cache` property defined in the `Storage` interface, ensuring we provide all required cache methods (`set`, `get`, `clear`, and `has`).
 - Inside our custom methods (`set`, `get`, `has`, `clear`), we add `console.log` statements.
 - We still call `super.cache.set/get/has/clear` to leverage the base class's actual storage mechanism (the `Map`). In a more complex scenario (like adding TTL), you would replace these calls with your custom storage and retrieval logic.
 - Finally, an instance of `LoggingCacheStorage` is passed to `createGuantr`.
@@ -85,7 +85,7 @@ initialize();
 ## Important Considerations
 
 - **Eviction Policies (TTL, LRU):** Guantr itself **does not** implement cache eviction logic like Time-To-Live (TTL) or Least Recently Used (LRU). If you need such policies, they must be implemented within your custom `cache` methods in your storage adapter.
-- **Cache Invalidation:** Be mindful of cache invalidation. If underlying rules or context data changes frequently, a long-lived cache might serve stale permissions. Guantr typically clears relevant cache entries when `setRules` is called, but external context changes might require manual cache clearing via `storage.cache.clear()` or more granular removal if your adapter supports it.
+- **Cache Invalidation:** Be mindful of cache invalidation. If underlying rules or context data changes frequently, a long-lived cache might serve stale permissions. When `setRules` is called, Guantr clears **all** cache entries via `this._storage.cache?.clear()` (see [`Guantr.prototype.setRules` in `src/index.ts`](https://github.com/hrdtr/guantr/blob/main/src/index.ts)). Guantr uses cache keys prefixed with `can/` (for permission check results) and `applyContextualOperands/` (for resolved condition operands). No key-level invalidation is performed — the entire cache is purged on every `setRules` call. External context changes that do not pass through `setRules` might therefore require manual cache clearing via `storage.cache.clear()`, or more granular removal if your adapter supports it.
 - **Interface Compliance:** Ensure your custom `cache` implementation adheres to the method signatures defined in the `Storage['cache']` interface.
 
 By understanding Guantr's caching mechanism and how to customize it via the storage adapter, you can optimize permission check performance for your specific application needs.

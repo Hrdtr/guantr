@@ -6,7 +6,13 @@ The `relatedRulesFor` method retrieves all stored permission rules that match a 
 
 ```ts
 interface Guantr<Meta, Context> {
-  relatedRulesFor(action: string, resource: string): Promise<GuantrAnyRule[]>;
+  relatedRulesFor(
+    action: string,
+    resource: string,
+    options?: {
+      applyConditionContextualOperands?: boolean;
+    },
+  ): Promise<GuantrAnyRule[]>;
 }
 ```
 

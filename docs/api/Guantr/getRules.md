@@ -6,7 +6,7 @@ The `getRules` method retrieves all permission rules currently registered in the
 
 ```ts
 interface Guantr<Meta, Context> {
-  getRules(): Promise<GuantrAnyRule[]>;
+  getRules(): Promise<ReadonlyArray<GuantrAnyRule>>;
 }
 ```
 
@@ -16,7 +16,7 @@ This method takes no parameters.
 
 ## Returns
 
-- `Promise<GuantrAnyRule[]>`: A promise that resolves to an array containing all `GuantrAnyRule` objects currently stored by the configured storage adapter. The array will be empty if no rules are stored.
+- `Promise<ReadonlyArray<GuantrAnyRule>>`: A promise that resolves to an array containing all `GuantrAnyRule` objects currently stored by the configured storage adapter. (The returned value is typed as `ReadonlyArray` in TypeScript, but immutability is **not** enforced at runtime — the underlying storage adapter returns a plain mutable `GuantrAnyRule[]` and the array is not frozen. If you require true runtime immutability, clone or `Object.freeze` the array yourself.) The array will be empty if no rules are stored.
 
 ## Usage
 

@@ -26,7 +26,7 @@ const guantr = await createGuantr();
 
 await guantr.setRules((can, cannot) => {
   can('read', 'post'); // Allow reading any post
-  cannot('read', ['post', { archived: true }]); // Deny reading archived posts
+  cannot('read', ['post', { archived: ['eq', true] }]); // Deny reading archived posts
 });
 ```
 
@@ -50,13 +50,12 @@ const contextGuantr = await createGuantr({ getContext: () => ({ userId: '123' })
 
 // Set rules using context
 await contextGuantr.setRules((can, cannot) => {
-  // Allow deleting posts only if the ownerId matches the context's userId
-  cannot('delete', ['post', { ownerId: ['eq', '$ctx.userId'] }]);
+  can('delete', 'post'); // Allow deleting posts in general
+  cannot('delete', ['post', { ownerId: ['eq', '$ctx.userId'] }]); // Deny if owner
 });
-
 // Check permission for a specific post
 const post = { id: 1, title: 'My Post', ownerId: '123' };
-const canDelete = await contextGuantr.can('delete', ['post', post]); // true, because ownerId matches ctx.userId
+const canDelete = await contextGuantr.can('delete', ['post', post]); // false, because ownerId matches ctx.userId
 ```
 
 ## Why Choose Guantr?
