@@ -2,7 +2,7 @@ node_modules
 coverage
 dist
 cache
-.husky
+.husky/_
 .DS_Store
 *.log*
 *.env*

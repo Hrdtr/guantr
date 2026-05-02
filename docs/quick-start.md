@@ -17,10 +17,13 @@ npm install guantr
 yarn add guantr
 
 # pnpm
-pnpm install guantr
+pnpm add guantr
 
 # bun
 bun install guantr
+
+# deno
+deno install npm:guantr
 ```
 
 This command adds Guantr to your project's dependencies.
