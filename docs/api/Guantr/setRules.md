@@ -11,7 +11,7 @@ There are two ways to call `setRules`:
 ```ts
 interface Guantr<Meta, Context> {
   setRules(
-    rules: GuantrRule<Meta, Context>[] // Array of rule objects
+    rules: GuantrRule<Meta, Context>[], // Array of rule objects
   ): Promise<void>;
 }
 ```
@@ -33,21 +33,21 @@ interface Guantr<Meta, Context> {
 
 ## Parameters
 
-* `rules`: (Array Method) An array of `GuantrRule` (or `GuantrAnyRule`) objects. Each object must have `effect` (`'allow'` or `'deny'`), `action` (string), `resource` (string), and optional `condition` (object or null).
-* `callback`: (Callback Method) An asynchronous function that receives two arguments:
-    * `allow`: A function used to define permission grants. Call it as `allow(action, resource)` or `allow(action, [resourceKey, condition])`.
-    * `deny`: A function used to define permission restrictions. Call it as `deny(action, resource)` or `deny(action, [resourceKey, condition])`.
+- `rules`: (Array Method) An array of `GuantrRule` (or `GuantrAnyRule`) objects. Each object must have `effect` (`'allow'` or `'deny'`), `action` (string), `resource` (string), and optional `condition` (object or null).
+- `callback`: (Callback Method) An asynchronous function that receives two arguments:
+  - `allow`: A function used to define permission grants. Call it as `allow(action, resource)` or `allow(action, [resourceKey, condition])`.
+  - `deny`: A function used to define permission restrictions. Call it as `deny(action, resource)` or `deny(action, [resourceKey, condition])`.
     The callback signature for `allow`/`deny` is:
     `(action: string, resource: string | [resourceKey: string, condition: GuantrRuleCondition | null]) => void`
 
 ## Returns
 
-* `Promise<void>`: A promise that resolves when the rules have been successfully processed and stored by the storage adapter.
+- `Promise<void>`: A promise that resolves when the rules have been successfully processed and stored by the storage adapter.
 
 ## Important Behavior
 
-* **Replacement:** Calling `setRules` **replaces all previously stored rules**. It does not append rules.
-* **Storage Interaction:** This method calls the `setRules` method of the configured storage adapter.
+- **Replacement:** Calling `setRules` **replaces all previously stored rules**. It does not append rules.
+- **Storage Interaction:** This method calls the `setRules` method of the configured storage adapter.
 
 ## Examples
 

@@ -16,7 +16,7 @@ This method takes no parameters.
 
 ## Returns
 
-* `Promise<GuantrAnyRule[]>`: A promise that resolves to an array containing all `GuantrAnyRule` objects currently stored by the configured storage adapter. The array will be empty if no rules are stored.
+- `Promise<GuantrAnyRule[]>`: A promise that resolves to an array containing all `GuantrAnyRule` objects currently stored by the configured storage adapter. The array will be empty if no rules are stored.
 
 ## Usage
 

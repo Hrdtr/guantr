@@ -6,8 +6,8 @@ Role-Based Access Control (RBAC) is a common authorization strategy where permis
 
 First, identify the roles within your application and the permissions tied to each. For this example, let's define rules for two roles: `admin` and `user`.
 
-* **Admin:** Can read, create, update, and delete articles.
-* **User:** Can only read articles.
+- **Admin:** Can read, create, update, and delete articles.
+- **User:** Can only read articles.
 
 We can create a function that configures a Guantr instance with the appropriate rules based on a given role.
 
@@ -57,11 +57,12 @@ async function setupGuantrForRole(role: string) {
 // const userGuantr = await setupGuantrForRole(ROLE_USER);
 ```
 
-**Important Note:** This basic RBAC example defines different rule sets based on the role *outside* of Guantr's condition logic. It does not use the `condition` parameter within the `allow`/`deny` rules themselves. For examples using conditions (Attribute-Based logic, which can also model roles), please see the [ABAC Guide](./example-abac.md).
+**Important Note:** This basic RBAC example defines different rule sets based on the role _outside_ of Guantr's condition logic. It does not use the `condition` parameter within the `allow`/`deny` rules themselves. For examples using conditions (Attribute-Based logic, which can also model roles), please see the [ABAC Guide](./example-abac.md).
 
 ## Checking Permissions in Your Application
 
 In your application logic (e.g., API route handlers, service methods), you would typically:
+
 1.  Determine the current user's role.
 2.  Obtain a Guantr instance configured with the rules for that role (often done per-request).
 3.  Use the `.can()` or `.cannot()` methods to check permissions before performing actions.

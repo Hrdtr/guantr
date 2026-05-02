@@ -8,23 +8,23 @@ The `can` method checks if a specific action is permitted on a given resource, a
 interface Guantr<Meta, Context> {
   can(
     action: string, // Or specific action type from Meta
-    resource: string | [resourceKey: string, resourceInstance: object] // Or typed resource key/instance from Meta
+    resource: string | [resourceKey: string, resourceInstance: object], // Or typed resource key/instance from Meta
   ): Promise<boolean>;
 }
 ```
 
 ## Parameters
 
-* `action`: (`string`) The action being attempted (e.g., `'read'`, `'update'`).
-* `resource`: (`string` | `[string, object]`) The resource being acted upon.
-    * If a `string` (e.g., `'post'`) is provided, it checks rules defined for the general resource type *without* evaluating instance-specific conditions.
-    * If a tuple `[resourceKey: string, resourceInstance: object]` (e.g., `['post', { id: 1, status: 'draft' }]`) is provided, it checks rules for the `resourceKey` and evaluates any conditions against the properties of the `resourceInstance` and the current context.
+- `action`: (`string`) The action being attempted (e.g., `'read'`, `'update'`).
+- `resource`: (`string` | `[string, object]`) The resource being acted upon.
+  - If a `string` (e.g., `'post'`) is provided, it checks rules defined for the general resource type _without_ evaluating instance-specific conditions.
+  - If a tuple `[resourceKey: string, resourceInstance: object]` (e.g., `['post', { id: 1, status: 'draft' }]`) is provided, it checks rules for the `resourceKey` and evaluates any conditions against the properties of the `resourceInstance` and the current context.
 
 ## Returns
 
-* `Promise<boolean>`: A promise that resolves to:
-    * `true` if the action is allowed (at least one matching `allow` rule exists and no matching `deny` rule exists).
-    * `false` if the action is denied (either no matching `allow` rule exists, or a matching `deny` rule overrides any `allow` rule).
+- `Promise<boolean>`: A promise that resolves to:
+  - `true` if the action is allowed (at least one matching `allow` rule exists and no matching `deny` rule exists).
+  - `false` if the action is denied (either no matching `allow` rule exists, or a matching `deny` rule overrides any `allow` rule).
 
 ## How it Works
 

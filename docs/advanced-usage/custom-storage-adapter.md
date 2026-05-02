@@ -8,14 +8,14 @@ To create a custom adapter, you need to implement the `Storage` interface define
 
 **Required Methods:**
 
-* `setRules(rules: GuantrAnyRule[]): Promise<void>`: Replaces all existing rules with the provided array. Should handle storing the rules persistently.
-* `getRules(): Promise<GuantrAnyRule[]>`: Retrieves all currently stored rules.
-* `queryRules(action: string, resource: string): Promise<GuantrAnyRule[]>`: Retrieves only the rules matching a specific action and resource key. Implementing this efficiently (filtering at the source) is crucial for performance with large rule sets.
-* `clearRules(): Promise<void>`: Deletes all stored rules.
+- `setRules(rules: GuantrAnyRule[]): Promise<void>`: Replaces all existing rules with the provided array. Should handle storing the rules persistently.
+- `getRules(): Promise<GuantrAnyRule[]>`: Retrieves all currently stored rules.
+- `queryRules(action: string, resource: string): Promise<GuantrAnyRule[]>`: Retrieves only the rules matching a specific action and resource key. Implementing this efficiently (filtering at the source) is crucial for performance with large rule sets.
+- `clearRules(): Promise<void>`: Deletes all stored rules.
 
 **Optional Property:**
 
-* `cache?: { set, get, has, clear }`: An optional object implementing caching logic. See the [Caching Guide](./caching.md) for details.
+- `cache?: { set, get, has, clear }`: An optional object implementing caching logic. See the [Caching Guide](./caching.md) for details.
 
 ## Example Implementations
 
@@ -39,7 +39,7 @@ class LocalStorageAdapter implements Storage {
       // Store the entire rules array as a single stringified entry
       localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
     } catch (error) {
-      console.error("Error setting Guantr rules in LocalStorage:", error);
+      console.error('Error setting Guantr rules in LocalStorage:', error);
       // Handle potential errors (e.g., storage quota exceeded)
     }
   }
@@ -49,7 +49,7 @@ class LocalStorageAdapter implements Storage {
       const storedRules = localStorage.getItem(STORAGE_KEY);
       return storedRules ? JSON.parse(storedRules) : [];
     } catch (error) {
-      console.error("Error getting Guantr rules from LocalStorage:", error);
+      console.error('Error getting Guantr rules from LocalStorage:', error);
       return []; // Return empty array on error
     }
   }
@@ -58,7 +58,7 @@ class LocalStorageAdapter implements Storage {
   // This can be inefficient for very large rule sets compared to DB filtering.
   async queryRules(action: string, resource: string): Promise<GuantrAnyRule[]> {
     const allRules = await this.getRules();
-    return allRules.filter(rule => rule.action === action && rule.resource === resource);
+    return allRules.filter((rule) => rule.action === action && rule.resource === resource);
   }
 
   async clearRules(): Promise<void> {
@@ -97,7 +97,7 @@ class RedisStorage implements Storage {
   // for more efficient querying with very large rule sets.
   async queryRules(action: string, resource: string): Promise<GuantrAnyRule[]> {
     const allRules = await this.getRules();
-    return allRules.filter(rule => rule.action === action && rule.resource === resource);
+    return allRules.filter((rule) => rule.action === action && rule.resource === resource);
   }
 
   async clearRules(): Promise<void> {
@@ -131,14 +131,13 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_rules_action_resource ON rules (action, 
 
 // --- Prepared Statements ---
 const insertStmt = db.prepare<[string, string, string | null, string]>(
-  'INSERT OR REPLACE INTO rules (action, resource, condition, effect) VALUES (?, ?, ?, ?)'
+  'INSERT OR REPLACE INTO rules (action, resource, condition, effect) VALUES (?, ?, ?, ?)',
 );
 const queryStmt = db.prepare<[string, string]>(
-  'SELECT action, resource, condition, effect FROM rules WHERE action = ? AND resource = ?'
+  'SELECT action, resource, condition, effect FROM rules WHERE action = ? AND resource = ?',
 );
 const getAllStmt = db.prepare('SELECT action, resource, condition, effect FROM rules');
 const clearStmt = db.prepare('DELETE FROM rules');
-
 
 // --- Storage Class ---
 class SQLiteStorage implements Storage {
@@ -151,15 +150,20 @@ class SQLiteStorage implements Storage {
           rule.action,
           rule.resource,
           rule.condition ? JSON.stringify(rule.condition) : null,
-          rule.effect
+          rule.effect,
         );
       }
     })(rules);
   }
 
   async getRules(): Promise<GuantrAnyRule[]> {
-    const rows = getAllStmt.all() as Array<{ action: string, resource: string, condition: string | null, effect: 'allow' | 'deny' }>;
-    return rows.map(row => ({
+    const rows = getAllStmt.all() as Array<{
+      action: string;
+      resource: string;
+      condition: string | null;
+      effect: 'allow' | 'deny';
+    }>;
+    return rows.map((row) => ({
       ...row,
       condition: row.condition ? JSON.parse(row.condition) : null,
     }));
@@ -167,8 +171,13 @@ class SQLiteStorage implements Storage {
 
   async queryRules(action: string, resource: string): Promise<GuantrAnyRule[]> {
     // This query efficiently filters at the database level
-    const rows = queryStmt.all(action, resource) as Array<{ action: string, resource: string, condition: string | null, effect: 'allow' | 'deny' }>;
-     return rows.map(row => ({
+    const rows = queryStmt.all(action, resource) as Array<{
+      action: string;
+      resource: string;
+      condition: string | null;
+      effect: 'allow' | 'deny';
+    }>;
+    return rows.map((row) => ({
       ...row,
       condition: row.condition ? JSON.parse(row.condition) : null,
     }));
@@ -215,11 +224,11 @@ class PrismaStorage implements Storage {
 
       if (rules.length > 0) {
         // Prepare data for createMany, ensuring compatibility
-        const dataToCreate = rules.map(rule => ({
+        const dataToCreate = rules.map((rule) => ({
           action: rule.action,
           resource: rule.resource,
           // Prisma handles JSON serialization for the 'condition' field
-          condition: rule.condition as Prisma.JsonValue ?? Prisma.DbNull,
+          condition: (rule.condition as Prisma.JsonValue) ?? Prisma.DbNull,
           effect: rule.effect,
         }));
         await tx.rule.createMany({ data: dataToCreate });
@@ -230,7 +239,7 @@ class PrismaStorage implements Storage {
   async getRules(): Promise<GuantrAnyRule[]> {
     const rules = await prisma.rule.findMany();
     // Map Prisma result to GuantrAnyRule, handling potential null condition
-    return rules.map(rule => ({
+    return rules.map((rule) => ({
       ...rule,
       condition: rule.condition as GuantrAnyRuleCondition | null, // Cast JsonValue back
     }));
@@ -239,9 +248,9 @@ class PrismaStorage implements Storage {
   async queryRules(action: string, resource: string): Promise<GuantrAnyRule[]> {
     // Efficiently filters at the database level
     const rules = await prisma.rule.findMany({
-      where: { action, resource }
+      where: { action, resource },
     });
-     return rules.map(rule => ({
+    return rules.map((rule) => ({
       ...rule,
       condition: rule.condition as GuantrAnyRuleCondition | null,
     }));

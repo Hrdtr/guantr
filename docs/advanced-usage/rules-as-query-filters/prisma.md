@@ -15,25 +15,25 @@ export const prisma = (rules: GuantrAnyRule[]) => {
   const query = {
     OR: [] as Record<string, any>[],
     AND: [] as Record<string, any>[],
-  }
+  };
 
   for (const rule of rules) {
-    if (!rule.condition) continue
+    if (!rule.condition) continue;
 
-    const clause = toPrismaWhereClause(rule.condition)
+    const clause = toPrismaWhereClause(rule.condition);
 
     if (rule.effect === 'deny') {
-      query.AND.push({ NOT: clause })
+      query.AND.push({ NOT: clause });
     } else {
-      query.OR.push(clause)
+      query.OR.push(clause);
     }
   }
 
-  if (query.OR.length === 0) delete query.OR
-  if (query.AND.length === 0) delete query.AND
+  if (query.OR.length === 0) delete query.OR;
+  if (query.AND.length === 0) delete query.AND;
 
-  return query
-}
+  return query;
+};
 ```
 
 ## Condition Transformer
@@ -49,7 +49,10 @@ Create a helper `toPrismaWhereClause` to handle the condition object recursively
 const toPrismaWhereClause = (condition: GuantrAnyPermission['condition']) => {
   const clause = {} as Record<string, any>;
 
-  const processCondition = (key: string, nestedConditionOrExpression: GuantrAnyConditionExpression | GuantrAnyCondition) => {
+  const processCondition = (
+    key: string,
+    nestedConditionOrExpression: GuantrAnyConditionExpression | GuantrAnyCondition,
+  ) => {
     if (isValidConditionExpression(nestedConditionOrExpression)) {
       const [operator, operand, options] = nestedConditionOrExpression;
       switch (operator) {
@@ -110,18 +113,21 @@ const toPrismaWhereClause = (condition: GuantrAnyPermission['condition']) => {
         }
       }
     } else if (typeof nestedConditionOrExpression === 'object') {
-      const { $expr, ...rest } = nestedConditionOrExpression
-      clause[key] = 'length' in rest
-        ? {
-            /**
-             * When there is condition to checking length of an array,
-             * we only able to generate Prisma where clause for `some` and `none` operators
-             * to check if the array is empty for now.
-             */
-            ...(typeof rest.length[1] === 'number' && rest.length[1] < 1 ? { none: {} } : { some: {} }),
-            ...($expr ? toPrismaWhereClause({ [key]: $expr })[key] : {}),
-          }
-        : toPrismaWhereClause(nestedConditionOrExpression);
+      const { $expr, ...rest } = nestedConditionOrExpression;
+      clause[key] =
+        'length' in rest
+          ? {
+              /**
+               * When there is condition to checking length of an array,
+               * we only able to generate Prisma where clause for `some` and `none` operators
+               * to check if the array is empty for now.
+               */
+              ...(typeof rest.length[1] === 'number' && rest.length[1] < 1
+                ? { none: {} }
+                : { some: {} }),
+              ...($expr ? toPrismaWhereClause({ [key]: $expr })[key] : {}),
+            }
+          : toPrismaWhereClause(nestedConditionOrExpression);
     }
   };
 
@@ -130,7 +136,7 @@ const toPrismaWhereClause = (condition: GuantrAnyPermission['condition']) => {
   }
 
   return clause;
-}
+};
 ```
 
 ## Utility
@@ -138,22 +144,26 @@ const toPrismaWhereClause = (condition: GuantrAnyPermission['condition']) => {
 Use this type guard to differentiate condition expressions:
 
 ```ts
-export const isValidConditionExpression = (maybeExpression: unknown): maybeExpression is GuantrAnyRuleConditionExpression =>
-  Array.isArray(maybeExpression) && maybeExpression.length >= 2 && typeof maybeExpression[0] === 'string'
+export const isValidConditionExpression = (
+  maybeExpression: unknown,
+): maybeExpression is GuantrAnyRuleConditionExpression =>
+  Array.isArray(maybeExpression) &&
+  maybeExpression.length >= 2 &&
+  typeof maybeExpression[0] === 'string';
 ```
 
 ## Example
 
 ```ts
 // We use applyConditionContextualOperands here to get the actual contextual operands value
-const rules = guantr.relatedRulesFor('read', 'post', { applyConditionContextualOperands: true })
-const where = prisma(rules)
+const rules = guantr.relatedRulesFor('read', 'post', { applyConditionContextualOperands: true });
+const where = prisma(rules);
 // Result:
 // {
 //   OR: [{ published: { equals: true } }],
 //   AND: [{ NOT: { tags: { none: {}, has: 'banned' } } }]
 // }
-const posts = await prisma.post.findFirst({ where })
+const posts = await prisma.post.findFirst({ where });
 // Combining with other filters:
 // const posts = await prisma.post.findMany({ where: { AND: [where, { published: true }] } })
 ```

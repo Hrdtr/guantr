@@ -2,10 +2,16 @@
   "name": "guantr",
   "version": "1.0.1",
   "description": "Flexible, type-safe JavaScript library for efficient authorization and permission checking",
-  "repository": "Hrdtr/guantr",
   "license": "MIT",
-  "sideEffects": false,
+  "repository": "Hrdtr/guantr",
+  "files": [
+    "dist"
+  ],
   "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -18,50 +24,46 @@
       "require": "./dist/storage/index.cjs"
     }
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "unbuild",
     "dev": "vitest dev --typecheck",
-    "lint": "eslint .",
-    "lint:fix": "automd && eslint . --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "typecheck": "tsc --noEmit",
     "prepack": "pnpm build",
     "prepare": "husky && echo \"pnpm lint-staged\" > .husky/pre-commit && echo \"pnpm commitlint --edit ${1}\" > .husky/commit-msg",
     "play": "jiti playground",
     "release": "pnpm test && changelogen --release && npm publish && git push --follow-tags",
     "release:rc": "pnpm test && changelogen --release --prerelease rc && npm publish && git push --follow-tags",
     "test": "pnpm lint && pnpm typecheck && vitest run",
-    "typecheck": "tsc --noEmit --skipLibCheck",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
-    "@commitlint/config-conventional": "^20.4.1",
-    "@commitlint/types": "^20.4.0",
-    "@types/node": "^25.2.1",
-    "@vitest/coverage-v8": "^4.0.18",
-    "automd": "^0.4.0",
-    "changelogen": "^0.6.1",
-    "commitlint": "^20.4.1",
-    "eslint": "^10.0.0",
-    "eslint-config-unjs": "^0.6.2",
+    "@commitlint/config-conventional": "^20.5.3",
+    "@commitlint/types": "^20.5.0",
+    "@types/node": "^25.6.0",
+    "@vitest/coverage-v8": "^4.1.5",
+    "automd": "^0.4.3",
+    "changelogen": "^0.6.2",
+    "commitlint": "^20.5.3",
     "husky": "^9.1.7",
-    "jiti": "^2.4.2",
-    "lint-staged": "^16.2.7",
-    "typescript": "^5.8.3",
-    "unbuild": "^3.5.0",
-    "vitepress": "^1.6.3",
-    "vitest": "^4.0.18"
+    "jiti": "^2.6.1",
+    "lint-staged": "^16.4.0",
+    "oxfmt": "^0.47.0",
+    "oxlint": "^1.62.0",
+    "typescript": "^6.0.3",
+    "unbuild": "^3.6.1",
+    "vitepress": "^1.6.4",
+    "vitest": "^4.1.5"
   },
-  "packageManager": "pnpm@10.28.2",
   "lint-staged": {
     "**/*.{ts,js,mjs,vue,html,json,yml}": [
       "pnpm lint:fix"
     ]
-  }
+  },
+  "packageManager": "pnpm@10.33.2"
 }

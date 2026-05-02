@@ -4,9 +4,9 @@ Guantr incorporates an optional caching layer to enhance performance, particular
 
 ## How Caching Works
 
-* **Purpose:** Caching aims to reduce redundant computations by storing the results of certain operations, such as resolving contextual operands or the outcomes of specific `can`/`cannot` checks.
-* **Integration:** The caching mechanism is integrated as an optional part of the `Storage` interface. Any storage adapter provided to `createGuantr` *can* include a `cache` property implementing methods for setting (`set`), getting (`get`), checking existence (`has`), and clearing (`clear`) cache entries.
-* **Default Behavior:** Guantr's default `InMemoryStorage` includes a basic, in-memory cache implementation using a simple JavaScript `Map`. This provides caching out-of-the-box without external dependencies but lacks persistence or advanced eviction strategies (like TTL or LRU).
+- **Purpose:** Caching aims to reduce redundant computations by storing the results of certain operations, such as resolving contextual operands or the outcomes of specific `can`/`cannot` checks.
+- **Integration:** The caching mechanism is integrated as an optional part of the `Storage` interface. Any storage adapter provided to `createGuantr` _can_ include a `cache` property implementing methods for setting (`set`), getting (`get`), checking existence (`has`), and clearing (`clear`) cache entries.
+- **Default Behavior:** Guantr's default `InMemoryStorage` includes a basic, in-memory cache implementation using a simple JavaScript `Map`. This provides caching out-of-the-box without external dependencies but lacks persistence or advanced eviction strategies (like TTL or LRU).
 
 ## Custom Cache Implementation
 
@@ -48,16 +48,16 @@ class LoggingCacheStorage extends InMemoryStorage {
     },
 
     async has(key: string): Promise<boolean> {
-       console.log(`CACHE HAS: Key="${key}"`);
-       // Call the original implementation
-       return super.cache.has ? await super.cache.has(key) : false; // Default InMemoryStorage might not have 'has' explicitly separate from get
+      console.log(`CACHE HAS: Key="${key}"`);
+      // Call the original implementation
+      return super.cache.has ? await super.cache.has(key) : false; // Default InMemoryStorage might not have 'has' explicitly separate from get
     },
 
     async clear(): Promise<void> {
       console.log('CACHE CLEAR: Clearing all cache entries');
       // Call the original implementation
       await super.cache.clear();
-    }
+    },
   };
 }
 
@@ -76,16 +76,16 @@ initialize();
 
 **Explanation:**
 
-* We extend `InMemoryStorage`.
-* We use `override cache: Required<Storage['cache']>` to explicitly override the `cache` property defined in the `Storage` interface, ensuring we provide all required cache methods (`set`, `get`, `clear`, and optionally `has`).
-* Inside our custom methods (`set`, `get`, `has`, `clear`), we add `console.log` statements.
-* We still call `super.cache.set/get/has/clear` to leverage the base class's actual storage mechanism (the `Map`). In a more complex scenario (like adding TTL), you would replace these calls with your custom storage and retrieval logic.
-* Finally, an instance of `LoggingCacheStorage` is passed to `createGuantr`.
+- We extend `InMemoryStorage`.
+- We use `override cache: Required<Storage['cache']>` to explicitly override the `cache` property defined in the `Storage` interface, ensuring we provide all required cache methods (`set`, `get`, `clear`, and optionally `has`).
+- Inside our custom methods (`set`, `get`, `has`, `clear`), we add `console.log` statements.
+- We still call `super.cache.set/get/has/clear` to leverage the base class's actual storage mechanism (the `Map`). In a more complex scenario (like adding TTL), you would replace these calls with your custom storage and retrieval logic.
+- Finally, an instance of `LoggingCacheStorage` is passed to `createGuantr`.
 
 ## Important Considerations
 
-* **Eviction Policies (TTL, LRU):** Guantr itself **does not** implement cache eviction logic like Time-To-Live (TTL) or Least Recently Used (LRU). If you need such policies, they must be implemented within your custom `cache` methods in your storage adapter.
-* **Cache Invalidation:** Be mindful of cache invalidation. If underlying rules or context data changes frequently, a long-lived cache might serve stale permissions. Guantr typically clears relevant cache entries when `setRules` is called, but external context changes might require manual cache clearing via `storage.cache.clear()` or more granular removal if your adapter supports it.
-* **Interface Compliance:** Ensure your custom `cache` implementation adheres to the method signatures defined in the `Storage['cache']` interface.
+- **Eviction Policies (TTL, LRU):** Guantr itself **does not** implement cache eviction logic like Time-To-Live (TTL) or Least Recently Used (LRU). If you need such policies, they must be implemented within your custom `cache` methods in your storage adapter.
+- **Cache Invalidation:** Be mindful of cache invalidation. If underlying rules or context data changes frequently, a long-lived cache might serve stale permissions. Guantr typically clears relevant cache entries when `setRules` is called, but external context changes might require manual cache clearing via `storage.cache.clear()` or more granular removal if your adapter supports it.
+- **Interface Compliance:** Ensure your custom `cache` implementation adheres to the method signatures defined in the `Storage['cache']` interface.
 
 By understanding Guantr's caching mechanism and how to customize it via the storage adapter, you can optimize permission check performance for your specific application needs.

@@ -44,19 +44,19 @@ Import:
 **ESM** (Node.js, Bun, Deno)
 
 ```js
-import { createGuantr } from "guantr";
+import { createGuantr } from 'guantr';
 ```
 
 **CommonJS** (Legacy Node.js)
 
 ```js
-const { createGuantr } = require("guantr");
+const { createGuantr } = require('guantr');
 ```
 
 **CDN** (Deno, Bun and Browsers)
 
 ```js
-import { createGuantr } from "https://esm.sh/guantr";
+import { createGuantr } from 'https://esm.sh/guantr';
 ```
 
 <!-- /automd -->
@@ -64,58 +64,57 @@ import { createGuantr } from "https://esm.sh/guantr";
 Initialize:
 
 ```ts
-const guantr = await createGuantr()
+const guantr = await createGuantr();
 
 // With Typescript Meta:
 type Meta = GuantrMeta<{
   post: {
-    action: 'create' | 'read' | 'update' | 'delete'
+    action: 'create' | 'read' | 'update' | 'delete';
     model: {
-      id: number,
-      title: string,
-      published: boolean
-    }
-  }
+      id: number;
+      title: string;
+      published: boolean;
+    };
+  };
 }>;
 
-const guantr = await createGuantr<Meta>()
+const guantr = await createGuantr<Meta>();
 
 // Contextual
 const user = {
   id: number,
   name: 'John Doe',
-  roles: ['admin']
-}
+  roles: ['admin'],
+};
 const guantrWithContext = await createGuantr<Meta, { user: typeof user }>({
-  getContext: () => ({ user })
-})
-
+  getContext: () => ({ user }),
+});
 ```
 
 Setting rules:
 
 ```js
 await guantr.setRules((can, cannot) => {
-  can('read', 'post')
-  cannot('read', ['post', { published: ['eq', false] }])
-})
+  can('read', 'post');
+  cannot('read', ['post', { published: ['eq', false] }]);
+});
 // Or
 await guantr.setRules([
   {
     resource: 'post',
     action: 'read',
     condition: null,
-    effect: 'allow'
+    effect: 'allow',
   },
   {
     resource: 'post',
     action: 'read',
     condition: {
-      published: ['eq', false]
+      published: ['eq', false],
     },
-    effect: 'deny'
-  }
-])
+    effect: 'deny',
+  },
+]);
 ```
 
 Rules also can be set on instance creation:
@@ -126,25 +125,24 @@ const guantr = await createGuantr<Meta>([
     resource: 'post',
     action: 'read',
     condition: {
-      published: ['eq', false]
+      published: ['eq', false],
     },
-    effect: 'deny'
-  }
-])
+    effect: 'deny',
+  },
+]);
 ```
 
 Authorize:
 
 ```js
-await guantr.can('read', 'post') // true
+await guantr.can('read', 'post'); // true
 
 const post = {
   id: 1,
   title: 'Hello World',
-  published: false
-}
-await guantr.can('read', ['post', post]) // false
-
+  published: false,
+};
+await guantr.can('read', ['post', post]); // false
 ```
 
 ## Development

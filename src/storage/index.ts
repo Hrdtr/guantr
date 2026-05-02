@@ -1,16 +1,16 @@
-import { GuantrAnyRule } from "../types";
-import { Storage } from "./types";
+import { GuantrAnyRule } from '../types';
+import { Storage } from './types';
 
-export type { Storage } from './types'
+export type { Storage } from './types';
 
 export class InMemoryStorage implements Storage {
   private storage = {
     // Two-level index: Map<action, Map<resource, GuantrAnyRule[]>>
     rules: new Map<string, Map<string, GuantrAnyRule[]>>(),
     cache: new Map<string, unknown>(),
-  }
+  };
 
- /**
+  /**
    * Bulk sets rules by clearing the current index and adding new rules.
    * @param rules - Array of rules to set.
    */
@@ -79,6 +79,6 @@ export class InMemoryStorage implements Storage {
 
     clear: async () => {
       this.storage.cache.clear();
-    }
-  }
+    },
+  };
 }

@@ -1,6 +1,5 @@
 # Changelog
 
-
 ## v1.0.0-rc.8
 
 [compare changes](https://github.com/Hrdtr/guantr/compare/v1.0.0-rc.7...v1.0.0-rc.8)
@@ -79,11 +78,11 @@
 
 ### 💅 Refactors
 
-- ⚠️  Per-resource action definition ([cf593ec](https://github.com/Hrdtr/guantr/commit/cf593ec))
+- ⚠️ Per-resource action definition ([cf593ec](https://github.com/Hrdtr/guantr/commit/cf593ec))
 
 #### ⚠️ Breaking Changes
 
-- ⚠️  Per-resource action definition ([cf593ec](https://github.com/Hrdtr/guantr/commit/cf593ec))
+- ⚠️ Per-resource action definition ([cf593ec](https://github.com/Hrdtr/guantr/commit/cf593ec))
 
 ### ❤️ Contributors
 
@@ -107,11 +106,11 @@
 
 ### 🩹 Fixes
 
-- ⚠️  Temporary drop ability to generate query filter ([141b541](https://github.com/Hrdtr/guantr/commit/141b541))
+- ⚠️ Temporary drop ability to generate query filter ([141b541](https://github.com/Hrdtr/guantr/commit/141b541))
 
 ### 💅 Refactors
 
-- ⚠️  Remove support for dot-notation condition field ([02ceda1](https://github.com/Hrdtr/guantr/commit/02ceda1))
+- ⚠️ Remove support for dot-notation condition field ([02ceda1](https://github.com/Hrdtr/guantr/commit/02ceda1))
 
 ### 📖 Documentation
 
@@ -124,15 +123,14 @@
 
 #### ⚠️ Breaking Changes
 
-- ⚠️  Temporary drop ability to generate query filter ([141b541](https://github.com/Hrdtr/guantr/commit/141b541))
-- ⚠️  Remove support for dot-notation condition field ([02ceda1](https://github.com/Hrdtr/guantr/commit/02ceda1))
+- ⚠️ Temporary drop ability to generate query filter ([141b541](https://github.com/Hrdtr/guantr/commit/141b541))
+- ⚠️ Remove support for dot-notation condition field ([02ceda1](https://github.com/Hrdtr/guantr/commit/02ceda1))
 
 ### ❤️ Contributors
 
 - Herdi Tr. ([@Hrdtr](http://github.com/Hrdtr))
 
 ## v1.0.0-rc.1
-
 
 ### 🚀 Enhancements
 
@@ -163,4 +161,3 @@
 ### ❤️ Contributors
 
 - Herdi Tr. ([@Hrdtr](http://github.com/Hrdtr))
-

@@ -1,4 +1,4 @@
-import { GuantrAnyRule } from "../types"
+import { GuantrAnyRule } from '../types';
 
 /**
  * Interface representing a storage mechanism for managing rules and cache.

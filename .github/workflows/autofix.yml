@@ -3,7 +3,7 @@ name: autofix.ci # needed to securely identify the workflow
 on:
   pull_request:
   push:
-    branches: ["main"]
+    branches: ['main']
 
 permissions:
   contents: read
@@ -16,10 +16,10 @@ jobs:
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: "pnpm"
+          node-version: 24
+          cache: 'pnpm'
       - run: pnpm install
       - run: pnpm lint:fix
       - uses: autofix-ci/action@ff86a557419858bb967097bfc916833f5647fa8c
         with:
-          commit-message: "chore: apply automated updates"
+          commit-message: 'chore: apply automated updates'

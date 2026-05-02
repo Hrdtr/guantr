@@ -3,8 +3,8 @@
 layout: home
 
 hero:
-  name: "Guantr"
-  text: "Flexible, type-safe"
+  name: 'Guantr'
+  text: 'Flexible, type-safe'
   tagline: JavaScript library for efficient authorization and permission checking
   actions:
     - theme: brand

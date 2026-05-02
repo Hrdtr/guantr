@@ -55,7 +55,7 @@ An authorization model where permissions are determined based on the relationshi
 
 ## **Resource**
 
-The entity or type of entity being acted upon (e.g., an article, a user profile, settings). In rule definitions (`GuantrRule`), the `resource` property typically refers to the string *key* or *type name* (e.g., `'article'`). `GuantrMeta` further defines the allowed `action`s and data `model` for each resource type.
+The entity or type of entity being acted upon (e.g., an article, a user profile, settings). In rule definitions (`GuantrRule`), the `resource` property typically refers to the string _key_ or _type name_ (e.g., `'article'`). `GuantrMeta` further defines the allowed `action`s and data `model` for each resource type.
 
 ## **Rule**
 

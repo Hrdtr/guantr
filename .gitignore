@@ -4,7 +4,6 @@ dist
 cache
 .husky
 .DS_Store
-.eslintcache
 *.log*
 *.env*
 documentation.md

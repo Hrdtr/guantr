@@ -1,4 +1,10 @@
-import { ConditionOperator, ConditionOptions, GuantrAnyRuleCondition, GuantrAnyRuleConditionExpression, GuantrAnyRule } from "./types"
+import {
+  ConditionOperator,
+  ConditionOptions,
+  GuantrAnyRuleCondition,
+  GuantrAnyRuleConditionExpression,
+  GuantrAnyRule,
+} from './types';
 
 /**
  * Checks if the given path is a string and starts with either '$ctx.' or 'ctx.'.
@@ -7,7 +13,7 @@ import { ConditionOperator, ConditionOptions, GuantrAnyRuleCondition, GuantrAnyR
  * @return {boolean} - Returns true if the path is a string and starts with either '$ctx.' or 'ctx.', otherwise returns false.
  */
 export const isContextualOperand = (path: unknown): path is string =>
-  typeof path === 'string' && (path.startsWith('$ctx.') || path.startsWith('ctx.'))
+  typeof path === 'string' && (path.startsWith('$ctx.') || path.startsWith('ctx.'));
 
 /**
  * Type guard for checking if a value is a string
@@ -43,7 +49,7 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
  * @return {boolean} - Returns true if the value is an array where every item is either a string or a number, otherwise returns false.
  */
 const isStringOrNumberArray = (value: unknown): value is (string | number)[] =>
-  Array.isArray(value) && value.every(item => isString(item) || isNumber(item));
+  Array.isArray(value) && value.every((item) => isString(item) || isNumber(item));
 
 /**
  * Type guard for checking if a value is an array of plain objects.
@@ -54,7 +60,7 @@ const isStringOrNumberArray = (value: unknown): value is (string | number)[] =>
  * A plain object is an object that is not null, is an object, and is not an array.
  */
 const isObjectArray = (value: unknown): value is Record<string, unknown>[] =>
-  Array.isArray(value) && value.every(item => isPlainObject(item));
+  Array.isArray(value) && value.every((item) => isPlainObject(item));
 
 /**
  * Type guard for checking if a value is a valid condition expression.
@@ -66,8 +72,12 @@ const isObjectArray = (value: unknown): value is Record<string, unknown>[] =>
  * @param {unknown} maybeExpression - The value to check.
  * @return {maybeExpression is GuantrAnyRuleConditionExpression} - Returns true if the value is a valid condition expression, otherwise returns false.
  */
-export const isValidConditionExpression = (maybeExpression: unknown): maybeExpression is GuantrAnyRuleConditionExpression =>
-  Array.isArray(maybeExpression) && maybeExpression.length >= 2 && typeof maybeExpression[0] === 'string'
+export const isValidConditionExpression = (
+  maybeExpression: unknown,
+): maybeExpression is GuantrAnyRuleConditionExpression =>
+  Array.isArray(maybeExpression) &&
+  maybeExpression.length >= 2 &&
+  typeof maybeExpression[0] === 'string';
 
 /**
  * Retrieves a value from a context object using a dot-notation path
@@ -78,14 +88,15 @@ export const isValidConditionExpression = (maybeExpression: unknown): maybeExpre
  * @param {string} path - The dot-separated path to the value.
  * @return {U | undefined} The value at the specified path, or undefined if not found.
  */
-export const getContextValue = <T extends Record<string, unknown>, U>(context: T, path: string): U => {
+export const getContextValue = <T extends Record<string, unknown>, U>(
+  context: T,
+  path: string,
+): U => {
   if (!context) {
-    return undefined as U
-  };
+    return undefined as U;
+  }
 
-  const normalizedPath = path
-    .replace(/^(\$?ctx\.)/, '')
-    .replaceAll('?.', '.');
+  const normalizedPath = path.replace(/^(\$?ctx\.)/, '').replaceAll('?.', '.');
 
   let current: any = context;
   for (const part of normalizedPath.split('.')) {
@@ -110,37 +121,37 @@ export function validateValueType(
   value: unknown,
   allowedTypes: Array<'string' | 'number' | 'boolean' | 'array' | 'object' | 'null' | 'undefined'>,
   operator: string,
-  customValidator?: (value: unknown) => boolean
+  customValidator?: (value: unknown) => boolean,
 ) {
   // Always allow null and undefined
   if (value === null || value === undefined) return;
 
   // Check if type is allowed
-  const typeMatches = allowedTypes.some(type => {
+  const typeMatches = allowedTypes.some((type) => {
     switch (type) {
       case 'string': {
-        return isString(value)
+        return isString(value);
       }
       case 'number': {
-        return isNumber(value)
+        return isNumber(value);
       }
       case 'boolean': {
-        return typeof value === 'boolean'
+        return typeof value === 'boolean';
       }
       case 'array': {
-        return Array.isArray(value)
+        return Array.isArray(value);
       }
       case 'object': {
-        return isPlainObject(value)
+        return isPlainObject(value);
       }
       case 'null': {
-        return value === null
+        return value === null;
       }
       case 'undefined': {
-        return value === undefined
+        return value === undefined;
       }
       default: {
-        return false
+        return false;
       }
     }
   });
@@ -148,12 +159,17 @@ export function validateValueType(
   // Check custom validator if provided
   const customValidation = customValidator ? customValidator(value) : true;
   if (!typeMatches || !customValidation) {
-    throw new TypeError(`Unexpected value type for ${operator} operator. Expected: ${allowedTypes.join(' | ')}`);
+    throw new TypeError(
+      `Unexpected value type for ${operator} operator. Expected: ${allowedTypes.join(' | ')}`,
+    );
   }
 }
 
 // Define specialized handlers for each operator
-const conditionHandlers: Record<ConditionOperator, (value: unknown, operand: unknown, options?: ConditionOptions) => boolean> = {
+const conditionHandlers: Record<
+  ConditionOperator,
+  (value: unknown, operand: unknown, options?: ConditionOptions) => boolean
+> = {
   // Equals operator: checks if value equals operand
   eq: (value, operand, options) => {
     validateValueType(value, ['string', 'number', 'boolean', 'null', 'undefined'], 'eq');
@@ -170,16 +186,18 @@ const conditionHandlers: Record<ConditionOperator, (value: unknown, operand: unk
   in: (value, operand, options) => {
     validateValueType(value, ['string', 'number', 'null', 'undefined'], 'in');
     if (!isStringOrNumberArray(operand)) {
-      throw new TypeError(`The operand for condition with in operator must be an array of strings or numbers.`);
+      throw new TypeError(
+        `The operand for condition with in operator must be an array of strings or numbers.`,
+      );
     }
 
     if (value === null || value === undefined) {
-      return false
-    };
+      return false;
+    }
 
     // Handle case-insensitive comparison
     if (options?.caseInsensitive && isString(value)) {
-      return operand.some(item => isString(item) && item.toLowerCase() === value.toLowerCase());
+      return operand.some((item) => isString(item) && item.toLowerCase() === value.toLowerCase());
     }
     return operand.includes(value as string | number);
   },
@@ -192,8 +210,8 @@ const conditionHandlers: Record<ConditionOperator, (value: unknown, operand: unk
     }
 
     if (value === null || value === undefined) {
-      return false
-    };
+      return false;
+    }
 
     // Handle case-insensitive comparison
     if (options?.caseInsensitive) {
@@ -210,8 +228,8 @@ const conditionHandlers: Record<ConditionOperator, (value: unknown, operand: unk
     }
 
     if (value === null || value === undefined) {
-      return false
-    };
+      return false;
+    }
 
     // Handle case-insensitive comparison
     if (options?.caseInsensitive) {
@@ -228,8 +246,8 @@ const conditionHandlers: Record<ConditionOperator, (value: unknown, operand: unk
     }
 
     if (value === null || value === undefined) {
-      return false
-    };
+      return false;
+    }
 
     // Handle case-insensitive comparison
     if (options?.caseInsensitive) {
@@ -246,8 +264,8 @@ const conditionHandlers: Record<ConditionOperator, (value: unknown, operand: unk
     }
 
     if (value === null || value === undefined) {
-      return false
-    };
+      return false;
+    }
 
     return (value as number) > operand;
   },
@@ -260,133 +278,164 @@ const conditionHandlers: Record<ConditionOperator, (value: unknown, operand: unk
     }
 
     if (value === null || value === undefined) {
-      return false
-    };
+      return false;
+    }
 
     return (value as number) >= operand;
   },
 
   // Has operator: checks if array value has operand
   has: (value, operand, options) => {
-    validateValueType(value, ['array', 'null', 'undefined'], 'has', item => isStringOrNumberArray(item));
+    validateValueType(value, ['array', 'null', 'undefined'], 'has', (item) =>
+      isStringOrNumberArray(item),
+    );
     if (!isString(operand) && !isNumber(operand)) {
-      throw new TypeError(`The operand for condition with has operator must be a string or number.`);
+      throw new TypeError(
+        `The operand for condition with has operator must be a string or number.`,
+      );
     }
 
     if (value === null || value === undefined) {
-      return false
-    };
+      return false;
+    }
 
     // Handle case-insensitive comparison
     if (options?.caseInsensitive && isString(operand)) {
-      return (value as (string | number)[]).some(item => isString(item) && item.toLowerCase() === operand.toLowerCase());
+      return (value as (string | number)[]).some(
+        (item) => isString(item) && item.toLowerCase() === operand.toLowerCase(),
+      );
     }
     return (value as (string | number)[]).includes(operand);
   },
 
   // HasSome operator: checks if array value has some of operand array
   hasSome: (value, operand, options) => {
-    validateValueType(value, ['array', 'null', 'undefined'], 'hasSome', item => isStringOrNumberArray(item));
+    validateValueType(value, ['array', 'null', 'undefined'], 'hasSome', (item) =>
+      isStringOrNumberArray(item),
+    );
     if (!isStringOrNumberArray(operand)) {
-      throw new TypeError(`The operand for condition with hasSome operator must be an array of strings or numbers.`);
+      throw new TypeError(
+        `The operand for condition with hasSome operator must be an array of strings or numbers.`,
+      );
     }
 
     if (value === null || value === undefined) {
-      return false
-    };
+      return false;
+    }
 
     // Handle case-insensitive comparison
     if (options?.caseInsensitive) {
-      return operand.some(op => (value as (string | number)[])
-        .some(val => (isString(op) && isString(val) && op.toLowerCase() === val.toLowerCase()) || op === val)
+      return operand.some((op) =>
+        (value as (string | number)[]).some(
+          (val) =>
+            (isString(op) && isString(val) && op.toLowerCase() === val.toLowerCase()) || op === val,
+        ),
       );
     }
-    return operand.some(op => (value as (string | number)[]).includes(op));
+    return operand.some((op) => (value as (string | number)[]).includes(op));
   },
 
   // HasEvery operator: checks if array value has every operand array item
   hasEvery: (value, operand, options) => {
-    validateValueType(value, ['array', 'null', 'undefined'], 'hasEvery', item => isStringOrNumberArray(item));
+    validateValueType(value, ['array', 'null', 'undefined'], 'hasEvery', (item) =>
+      isStringOrNumberArray(item),
+    );
     if (!isStringOrNumberArray(operand)) {
-      throw new TypeError(`The operand for condition with hasEvery operator must be an array of strings or numbers.`);
+      throw new TypeError(
+        `The operand for condition with hasEvery operator must be an array of strings or numbers.`,
+      );
     }
 
     if (value === null || value === undefined) {
-      return false
-    };
+      return false;
+    }
 
     // Handle case-insensitive comparison
     if (options?.caseInsensitive) {
-      return operand.every(op => (value as (string | number)[])
-        .some(val => (isString(op) && isString(val) && op.toLowerCase() === val.toLowerCase()) || op === val)
+      return operand.every((op) =>
+        (value as (string | number)[]).some(
+          (val) =>
+            (isString(op) && isString(val) && op.toLowerCase() === val.toLowerCase()) || op === val,
+        ),
       );
     }
-    return operand.every(op => (value as (string | number)[]).includes(op));
+    return operand.every((op) => (value as (string | number)[]).includes(op));
   },
 
   // Some operator: checks if some array items match condition
   some: (value, operand) => {
-    validateValueType(value, ['array', 'null', 'undefined'], 'some', item => isObjectArray(item));
+    validateValueType(value, ['array', 'null', 'undefined'], 'some', (item) => isObjectArray(item));
     if (!isPlainObject(operand)) {
       throw new TypeError(`The operand for condition with some operator must be an object.`);
     }
 
     if (value === null || value === undefined) {
-      return false
-    };
-    return (value as Record<string, unknown>[]).some(item => checkComplexCondition(item, operand));
+      return false;
+    }
+    return (value as Record<string, unknown>[]).some((item) =>
+      checkComplexCondition(item, operand),
+    );
   },
 
   // Every operator: checks if every array item matches condition
   every: (value, operand) => {
-    validateValueType(value, ['array', 'null', 'undefined'], 'every', item => isObjectArray(item));
+    validateValueType(value, ['array', 'null', 'undefined'], 'every', (item) =>
+      isObjectArray(item),
+    );
     if (!isPlainObject(operand)) {
       throw new TypeError(`The operand for condition with every operator must be an object.`);
     }
 
     if (value === null || value === undefined || (value as any[]).length === 0) {
-      return false
-    };
-    return (value as Record<string, unknown>[]).every(item => checkComplexCondition(item, operand));
+      return false;
+    }
+    return (value as Record<string, unknown>[]).every((item) =>
+      checkComplexCondition(item, operand),
+    );
   },
 
   // None operator: checks if no array items match condition
   none: (value, operand) => {
-    validateValueType(value, ['array', 'null', 'undefined'], 'none', item => isObjectArray(item));
+    validateValueType(value, ['array', 'null', 'undefined'], 'none', (item) => isObjectArray(item));
     if (!isPlainObject(operand)) {
       throw new TypeError(`The operand for condition with none operator must be an object.`);
     }
 
     if (value === null || value === undefined || (value as any[]).length === 0) {
-      return true
-    };
-    return (value as Record<string, unknown>[]).every(item => !checkComplexCondition(item, operand));
-  }
+      return true;
+    }
+    return (value as Record<string, unknown>[]).every(
+      (item) => !checkComplexCondition(item, operand),
+    );
+  },
 };
 
 /**
  * Helper function to check complex conditions for object array items
  */
-function checkComplexCondition(item: Record<string, unknown>, operand: Record<string, unknown>): boolean {
+function checkComplexCondition(
+  item: Record<string, unknown>,
+  operand: Record<string, unknown>,
+): boolean {
   return Object.entries(operand).every(([key, expressionOrNestedCondition]) => {
     if (isValidConditionExpression(expressionOrNestedCondition)) {
       return matchConditionExpression({
         value: item[key],
         expression: expressionOrNestedCondition,
       });
-    }
-    else if (isPlainObject(expressionOrNestedCondition)) {
+    } else if (isPlainObject(expressionOrNestedCondition)) {
       if (!isPlainObject(item[key])) {
-        return false
-      };
+        return false;
+      }
 
       return matchRuleCondition(
         item[key] as Record<string, unknown>,
         expressionOrNestedCondition as GuantrAnyRuleCondition,
       );
-    }
-    else {
-      throw new TypeError(`Unexpected expression value type: ${typeof expressionOrNestedCondition}`);
+    } else {
+      throw new TypeError(
+        `Unexpected expression value type: ${typeof expressionOrNestedCondition}`,
+      );
     }
   });
 }
@@ -398,15 +447,13 @@ function checkComplexCondition(item: Record<string, unknown>, operand: Record<st
  * @param {GuantrAnyRule & { condition: NonNullable<GuantrAnyRule['condition']> }} condition - The condition to match.
  * @returns {boolean} Returns true if the model matches the rule condition, false otherwise.
  */
-export const matchRuleCondition = <
-  Model extends Record<string, unknown>,
->(
+export const matchRuleCondition = <Model extends Record<string, unknown>>(
   model: Model,
   condition: NonNullable<GuantrAnyRule['condition']>,
 ): boolean => {
   if (!model) {
-    return false
-  };
+    return false;
+  }
 
   return Object.entries(condition).every(([key, expressionOrNestedCondition]) => {
     const modelValue = model[key];
@@ -416,26 +463,28 @@ export const matchRuleCondition = <
         value: modelValue,
         expression: expressionOrNestedCondition,
       });
-    }
-    else if (isPlainObject(expressionOrNestedCondition)) {
+    } else if (isPlainObject(expressionOrNestedCondition)) {
       if (!isPlainObject(modelValue) && !Array.isArray(modelValue)) {
         return false;
       }
 
       const { $expr, ...nestedCondition } = expressionOrNestedCondition;
-      const exprResult = $expr ? (
-        isValidConditionExpression($expr)
-            ? matchConditionExpression({ value: modelValue, expression: $expr })
-            : false
-      ) : true;
+      const exprResult = $expr
+        ? isValidConditionExpression($expr)
+          ? matchConditionExpression({ value: modelValue, expression: $expr })
+          : false
+        : true;
 
-      return exprResult && matchRuleCondition(modelValue as Record<string, unknown>, nestedCondition);
-    }
-    else {
-      throw new TypeError(`Unexpected expression value type: ${typeof expressionOrNestedCondition}`);
+      return (
+        exprResult && matchRuleCondition(modelValue as Record<string, unknown>, nestedCondition)
+      );
+    } else {
+      throw new TypeError(
+        `Unexpected expression value type: ${typeof expressionOrNestedCondition}`,
+      );
     }
   });
-}
+};
 
 /**
  * Evaluates a condition expression against a given value and ctx.
@@ -447,16 +496,19 @@ export const matchRuleCondition = <
  * @throws {TypeError} If the model value type is unexpected or the operand type is invalid.
  */
 export const matchConditionExpression = (data: {
-  value: unknown
-  expression: Extract<NonNullable<GuantrAnyRule['condition']>[keyof NonNullable<GuantrAnyRule['condition']>], Array<any>>
+  value: unknown;
+  expression: Extract<
+    NonNullable<GuantrAnyRule['condition']>[keyof NonNullable<GuantrAnyRule['condition']>],
+    Array<any>
+  >;
 }): boolean => {
   const { value, expression } = data;
   if (!expression || expression.length < 2) {
-    return false
-  };
+    return false;
+  }
 
   const [operator, operand, options] = expression;
   const handler = conditionHandlers[operator as ConditionOperator];
 
   return handler ? handler(value, operand, options) : false;
-}
+};

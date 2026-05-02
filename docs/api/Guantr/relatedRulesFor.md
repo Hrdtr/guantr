@@ -6,23 +6,20 @@ The `relatedRulesFor` method retrieves all stored permission rules that match a 
 
 ```ts
 interface Guantr<Meta, Context> {
-  relatedRulesFor(
-    action: string,
-    resource: string
-  ): Promise<GuantrAnyRule[]>;
+  relatedRulesFor(action: string, resource: string): Promise<GuantrAnyRule[]>;
 }
 ```
 
 ## Parameters
 
-* `action`: (`string`) The specific action to filter rules by (e.g., `'read'`).
-* `resource`: (`string`) The specific resource key to filter rules by (e.g., `'article'`).
-* `options`: (`object`) Optional configuration options for the query.
-* `options.applyConditionContextualOperands`: (`boolean`) A flag indicating whether to apply contextual operands to each rules condition.
+- `action`: (`string`) The specific action to filter rules by (e.g., `'read'`).
+- `resource`: (`string`) The specific resource key to filter rules by (e.g., `'article'`).
+- `options`: (`object`) Optional configuration options for the query.
+- `options.applyConditionContextualOperands`: (`boolean`) A flag indicating whether to apply contextual operands to each rules condition.
 
 ## Returns
 
-* `Promise<GuantrAnyRule[]>`: A promise that resolves to an array containing only the `GuantrAnyRule` objects from storage that exactly match the provided `action` and `resource` key. This array includes both `allow` and `deny` rules matching the criteria. It will be empty if no matching rules are found.
+- `Promise<GuantrAnyRule[]>`: A promise that resolves to an array containing only the `GuantrAnyRule` objects from storage that exactly match the provided `action` and `resource` key. This array includes both `allow` and `deny` rules matching the criteria. It will be empty if no matching rules are found.
 
 ## Usage
 

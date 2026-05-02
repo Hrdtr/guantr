@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest"
-import { matchConditionExpression } from "../../src/utils"
+import { describe, expect, it } from 'vitest';
+import { matchConditionExpression } from '../../src/utils';
 
 describe('matchConditionExpression - equals operator', () => {
   const testCases = [
@@ -26,29 +26,29 @@ describe('matchConditionExpression - equals operator', () => {
     { value: false, operand: false, expected: true },
     { value: true, operand: false, expected: false },
     { value: false, operand: true, expected: false },
-  ]
+  ];
 
   for (const [idx, { value, operand, options, expected }] of testCases.entries()) {
     it(`should return ${expected} for case #${idx + 1}`, () => {
-      const expression = ['eq', operand, options] as any
-      const result = matchConditionExpression({ value, expression })
-      expect(result).toBe(expected)
-    })
+      const expression = ['eq', operand, options] as any;
+      const result = matchConditionExpression({ value, expression });
+      expect(result).toBe(expected);
+    });
   }
 
   // Edge case: invalid resource value type
   it('should throw TypeError for unexpected resource value type', () => {
-    const value = { key: 'value' }
-    const operand = 'test'
-    const expression = ['eq', operand] as any
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
-  })
+    const value = { key: 'value' };
+    const operand = 'test';
+    const expression = ['eq', operand] as any;
+    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  });
 
   // Edge case: invalid operand type
   it('should throw TypeError for invalid operand type', () => {
-    const value = 'test'
-    const operand = { key: 'value' }
-    const expression = ['eq', operand] as any
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
-  })
-})
+    const value = 'test';
+    const operand = { key: 'value' };
+    const expression = ['eq', operand] as any;
+    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  });
+});

@@ -6,10 +6,10 @@ Attribute-Based Access Control (ABAC) is a highly flexible authorization model w
 
 In ABAC, access decisions can depend on attributes of:
 
-* **Subject/User:** Who is trying to access the resource? (e.g., user ID, roles, department, clearance level)
-* **Resource:** What is being accessed? (e.g., resource type, status, owner, sensitivity, creation date)
-* **Action:** What operation is being attempted? (e.g., 'read', 'edit', 'delete', 'approve')
-* **Environment/Context:** What are the circumstances of the access attempt? (e.g., time of day, location, device security)
+- **Subject/User:** Who is trying to access the resource? (e.g., user ID, roles, department, clearance level)
+- **Resource:** What is being accessed? (e.g., resource type, status, owner, sensitivity, creation date)
+- **Action:** What operation is being attempted? (e.g., 'read', 'edit', 'delete', 'approve')
+- **Environment/Context:** What are the circumstances of the access attempt? (e.g., time of day, location, device security)
 
 ## Implementing ABAC with Guantr Conditions
 

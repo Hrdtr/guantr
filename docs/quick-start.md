@@ -32,7 +32,7 @@ Once installed, import the necessary functions from Guantr:
 **ESM** (Node.js, Bun)
 
 ```js
-import { createGuantr } from "guantr";
+import { createGuantr } from 'guantr';
 // For defining typed rules (optional but recommended with TypeScript)
 // import type { GuantrRule, GuantrMeta } from "guantr";
 ```
@@ -40,13 +40,13 @@ import { createGuantr } from "guantr";
 **CommonJS** (Legacy Node.js)
 
 ```js
-const { createGuantr } = require("guantr");
+const { createGuantr } = require('guantr');
 ```
 
 **CDN** (Deno, Bun and Browsers)
 
 ```js
-import { createGuantr } from "https://esm.sh/guantr";
+import { createGuantr } from 'https://esm.sh/guantr';
 ```
 
 ## Initializing Guantr
@@ -68,12 +68,14 @@ import type { GuantrMeta, GuantrRule } from 'guantr';
 
 // Define your application's specific actions, resources, models, and context
 type MyMeta = GuantrMeta<
-  { // ResourceMap
-    post: { action: 'read' | 'edit', model: { id: number, archived: boolean, ownerId: string } },
-    comment: { action: 'read' | 'create', model: { id: number, postId: number } }
+  {
+    // ResourceMap
+    post: { action: 'read' | 'edit'; model: { id: number; archived: boolean; ownerId: string } };
+    comment: { action: 'read' | 'create'; model: { id: number; postId: number } };
   },
-  { // Context
-    userId: string | null
+  {
+    // Context
+    userId: string | null;
   }
 >;
 
@@ -91,9 +93,9 @@ const contextualGuantr = await createGuantr({
     // In a real app, fetch user data, session info, etc.
     const currentUser = await getCurrentUser();
     return {
-      userId: currentUser?.id || null
+      userId: currentUser?.id || null,
     };
-  }
+  },
 });
 ```
 
@@ -133,20 +135,23 @@ type ResourceKey = 'post';
 type Post = { archived: boolean };
 type Context = {}; // Empty if not needed for these rules
 
-const rules: GuantrRule<{ ResourceMap: { post: { action: Action, model: Post }}, Context: Context}>[] = [
+const rules: GuantrRule<{
+  ResourceMap: { post: { action: Action; model: Post } };
+  Context: Context;
+}>[] = [
   {
     effect: 'allow',
     action: 'read',
     resource: 'post',
-    condition: null // No condition for general read access
+    condition: null, // No condition for general read access
   },
   {
-    effect: 'deny',  // Use 'deny', not 'cannot'
+    effect: 'deny', // Use 'deny', not 'cannot'
     action: 'read',
     resource: 'post',
     // Condition format: { field: [operator, value] }
-    condition: { archived: ['eq', true] }
-  }
+    condition: { archived: ['eq', true] },
+  },
 ];
 
 await guantr.setRules(rules);
@@ -176,10 +181,10 @@ console.log('Can read the active post?', canReadActive); // Expected: true (allo
 
 You've now installed, initialized, set rules for, and checked permissions with Guantr! Explore further topics:
 
-* **Guides:** Dive deeper into [Defining Rules](./guides/defining-rules.md), [Basic RBAC](./guides/example-basic-rbac.md), and [Basic ABAC](./guides/example-abac.md).
-* **Advanced Usage:** Learn about [Caching](./advanced-usage/caching.md) and creating a custom [Storage Adapter](./advanced-usage/custom-storage-adapter.md).
-* **API Reference:** Consult the detailed [API documentation](./api/createGuantr.md).
-* **GitHub:** Explore the [source code](https://github.com/Hrdtr/guantr) and contribute.
-* **Discussions:** Ask questions and share ideas in the [community forums](https://github.com/Hrdtr/guantr/discussions).
+- **Guides:** Dive deeper into [Defining Rules](./guides/defining-rules.md), [Basic RBAC](./guides/example-basic-rbac.md), and [Basic ABAC](./guides/example-abac.md).
+- **Advanced Usage:** Learn about [Caching](./advanced-usage/caching.md) and creating a custom [Storage Adapter](./advanced-usage/custom-storage-adapter.md).
+- **API Reference:** Consult the detailed [API documentation](./api/createGuantr.md).
+- **GitHub:** Explore the [source code](https://github.com/Hrdtr/guantr) and contribute.
+- **Discussions:** Ask questions and share ideas in the [community forums](https://github.com/Hrdtr/guantr/discussions).
 
 Happy coding!

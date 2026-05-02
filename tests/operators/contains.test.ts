@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest"
-import { matchConditionExpression } from "../../src/utils"
+import { describe, expect, it } from 'vitest';
+import { matchConditionExpression } from '../../src/utils';
 
 describe('matchConditionExpression - contains operator', () => {
   const testCases = [
@@ -14,8 +14,18 @@ describe('matchConditionExpression - contains operator', () => {
     { value: 'code review', operand: 'debug', expected: false },
 
     // Case-insensitive comparisons
-    { value: 'Case Insensitive Test', operand: 'case', options: { caseInsensitive: true }, expected: true },
-    { value: 'JavaScript is Fun', operand: 'javascript', options: { caseInsensitive: true }, expected: true },
+    {
+      value: 'Case Insensitive Test',
+      operand: 'case',
+      options: { caseInsensitive: true },
+      expected: true,
+    },
+    {
+      value: 'JavaScript is Fun',
+      operand: 'javascript',
+      options: { caseInsensitive: true },
+      expected: true,
+    },
 
     // Null and undefined values
     { value: null, operand: 'null', expected: false },
@@ -29,29 +39,29 @@ describe('matchConditionExpression - contains operator', () => {
     // Edge case with special characters
     { value: 'special*characters*test', operand: 'characters', expected: true },
     { value: 'a!@#$%^&*()b', operand: '@#$%', expected: true },
-  ]
+  ];
 
   for (const [idx, { value, operand, options, expected }] of testCases.entries()) {
     it(`should return ${expected} for case #${idx + 1}`, () => {
-      const expression = ['contains', operand, options] as any
-      const result = matchConditionExpression({ value, expression })
-      expect(result).toBe(expected)
-    })
+      const expression = ['contains', operand, options] as any;
+      const result = matchConditionExpression({ value, expression });
+      expect(result).toBe(expected);
+    });
   }
 
   // Edge case: invalid resource value type
   it('should throw TypeError for unexpected resource value type', () => {
-    const value = 123 // Invalid type for 'contains' operator
-    const operand = 'test'
-    const expression = ['contains', operand] as any
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
-  })
+    const value = 123; // Invalid type for 'contains' operator
+    const operand = 'test';
+    const expression = ['contains', operand] as any;
+    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  });
 
   // Edge case: invalid operand type
   it('should throw TypeError for invalid operand type', () => {
-    const value = 'test'
-    const operand = 123 // Operand must be a string
-    const expression = ['contains', operand] as any
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
-  })
-})
+    const value = 'test';
+    const operand = 123; // Operand must be a string
+    const expression = ['contains', operand] as any;
+    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  });
+});

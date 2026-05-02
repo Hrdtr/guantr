@@ -6,10 +6,10 @@ Guantr is designed with TypeScript first, offering powerful type safety features
 
 While Guantr works perfectly well in plain JavaScript, using it with TypeScript and defining a `GuantrMeta` type provides significant advantages:
 
-* **Type Safety:** Catch errors at compile time instead of runtime. Prevent typos in action names, resource keys, model properties within conditions, and context properties.
-* **Autocompletion:** Get intelligent suggestions for actions, resource keys, model properties, and context properties directly in your editor.
-* **Refactoring Confidence:** Rename actions, resources, or model properties, and TypeScript will help you find all the places they need updating within your Guantr rules.
-* **Improved Readability:** Explicitly defining your authorization model makes the code easier to understand.
+- **Type Safety:** Catch errors at compile time instead of runtime. Prevent typos in action names, resource keys, model properties within conditions, and context properties.
+- **Autocompletion:** Get intelligent suggestions for actions, resource keys, model properties, and context properties directly in your editor.
+- **Refactoring Confidence:** Rename actions, resources, or model properties, and TypeScript will help you find all the places they need updating within your Guantr rules.
+- **Improved Readability:** Explicitly defining your authorization model makes the code easier to understand.
 
 ## Core Concept: The `GuantrMeta` Type
 
@@ -18,11 +18,16 @@ The `GuantrMeta` type acts as a central definition for your application's author
 It takes two generic type arguments:
 
 ```ts
-import type { GuantrMeta, GuantrResourceMap, GuantrResourceAction, GuantrResourceModel } from 'guantr';
+import type {
+  GuantrMeta,
+  GuantrResourceMap,
+  GuantrResourceAction,
+  GuantrResourceModel,
+} from 'guantr';
 
 type MyMeta = GuantrMeta<
   MyResourceMap, // 1. Defines your resources, actions, and models
-  MyContext      // 2. Defines the shape of your context object
+  MyContext // 2. Defines the shape of your context object
 >;
 ```
 
@@ -34,8 +39,8 @@ The `ResourceMap` is an object type where each key is a string representing a **
 
 A `GuantrResource` has two properties:
 
-* `action`: A union type of **string literals** representing all possible actions for this resource (e.g., `'read' | 'create' | 'delete'`).
-* `model`: The TypeScript interface or type defining the data structure of the resource instance (e.g., `interface ArticleModel { ... }`).
+- `action`: A union type of **string literals** representing all possible actions for this resource (e.g., `'read' | 'create' | 'delete'`).
+- `model`: The TypeScript interface or type defining the data structure of the resource instance (e.g., `interface ArticleModel { ... }`).
 
 ```ts
 import type { GuantrResourceMap, GuantrResourceAction, GuantrResourceModel } from 'guantr';
@@ -80,7 +85,7 @@ type MyResourceMap = GuantrResourceMap<{
   adminPanel: {
     action: 'access';
     model: {}; // Model can be empty if no specific instance data is checked
-  }
+  };
 }>;
 ```
 
@@ -91,9 +96,9 @@ The `Context` type defines the shape of the object returned by the `getContext` 
 ```ts
 // Define the shape of your application's context
 interface MyContext {
-  userId: string | null;       // ID of the logged-in user, or null if anonymous
+  userId: string | null; // ID of the logged-in user, or null if anonymous
   userRoles: Array<'admin' | 'editor' | 'viewer'>; // Roles assigned to the user
-  ipAddress?: string;         // Example environmental attribute
+  ipAddress?: string; // Example environmental attribute
 }
 ```
 
@@ -127,7 +132,7 @@ const guantr = await createGuantr<MyAppMeta, MyContext>({
       userRoles: user?.roles ?? [],
       // ipAddress: request?.ip // Example for environmental context
     };
-  }
+  },
   // Optionally provide storage adapter
 });
 ```
@@ -146,9 +151,9 @@ const rules: GuantrRule<MyAppMeta, MyContext>[] = [
     resource: 'article', // Autocompletes/validated against resource keys
     condition: {
       // 'authorId' autocompletes/validated against ArticleModel properties
-      authorId: ['eq', '$ctx.userId'] // '$ctx.userId' validated against MyContext
-    }
-  }
+      authorId: ['eq', '$ctx.userId'], // '$ctx.userId' validated against MyContext
+    },
+  },
 ];
 
 await guantr.setRules(rules);
@@ -170,16 +175,19 @@ await guantr.setRules(async (allow, deny) => {
   // Error: 'update' is not a defined action for 'article' (based on MyResourceMap)
   // allow('update', 'article'); // TypeScript Error!
 
-  allow('edit', ['article', {
-    // Correct: 'status' is a property of ArticleModel
-    status: ['eq', 'draft'],
+  allow('edit', [
+    'article',
+    {
+      // Correct: 'status' is a property of ArticleModel
+      status: ['eq', 'draft'],
 
-    // Error: 'ownerId' is not a property of ArticleModel (it's authorId)
-    // ownerId: ['eq', '$ctx.userId'] // TypeScript Error!
+      // Error: 'ownerId' is not a property of ArticleModel (it's authorId)
+      // ownerId: ['eq', '$ctx.userId'] // TypeScript Error!
 
-    // Correct: 'authorId' is a property of ArticleModel, '$ctx.userId' is in MyContext
-    authorId: ['eq', '$ctx.userId']
-  }]);
+      // Correct: 'authorId' is a property of ArticleModel, '$ctx.userId' is in MyContext
+      authorId: ['eq', '$ctx.userId'],
+    },
+  ]);
 
   // Error: 'nonExistentResource' is not defined in MyResourceMap
   // allow('read', 'nonExistentResource'); // TypeScript Error!

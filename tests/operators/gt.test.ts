@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest"
-import { matchConditionExpression } from "../../src/utils"
+import { describe, expect, it } from 'vitest';
+import { matchConditionExpression } from '../../src/utils';
 
 describe('matchConditionExpression - gt operator', () => {
   const testCases = [
@@ -12,29 +12,29 @@ describe('matchConditionExpression - gt operator', () => {
     // Handling null and undefined
     { value: null, operand: 10, expected: false }, // null is not greater than 10
     { value: undefined, operand: 10, expected: false }, // undefined is not greater than 10
-  ]
+  ];
 
   for (const [idx, { value, operand, expected }] of testCases.entries()) {
     it(`should return ${expected} for case #${idx + 1}`, () => {
-      const expression = ['gt', operand] as any
-      const result = matchConditionExpression({ value, expression })
-      expect(result).toBe(expected)
-    })
+      const expression = ['gt', operand] as any;
+      const result = matchConditionExpression({ value, expression });
+      expect(result).toBe(expected);
+    });
   }
 
   // Edge case: invalid resource value type
   it('should throw TypeError for unexpected resource value type', () => {
-    const value = { key: 'value' } // Invalid type for 'gt' operator
-    const operand = 10
-    const expression = ['gt', operand] as any
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
-  })
+    const value = { key: 'value' }; // Invalid type for 'gt' operator
+    const operand = 10;
+    const expression = ['gt', operand] as any;
+    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  });
 
   // Edge case: invalid operand type
   it('should throw TypeError for unexpected operand type', () => {
-    const value = 10
-    const operand = { key: 'value' } // Invalid type for 'gt' operand
-    const expression = ['gt', operand] as any
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError)
-  })
-})
+    const value = 10;
+    const operand = { key: 'value' }; // Invalid type for 'gt' operand
+    const expression = ['gt', operand] as any;
+    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  });
+});

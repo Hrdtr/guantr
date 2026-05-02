@@ -1,6 +1,6 @@
 # Using Context Effectively in Guantr
 
-Guantr's authorization decisions often need to consider more than just the properties of the resource being accessed. They might depend on *who* is making the request, *when* they are making it, or other environmental factors. This dynamic information is provided to Guantr through **Context**.
+Guantr's authorization decisions often need to consider more than just the properties of the resource being accessed. They might depend on _who_ is making the request, _when_ they are making it, or other environmental factors. This dynamic information is provided to Guantr through **Context**.
 
 ## What is Context?
 
@@ -8,9 +8,9 @@ Context is an object containing data relevant to the current permission check, m
 
 Context allows you to implement:
 
-* **Attribute-Based Access Control (ABAC):** Rules depend on user attributes (e.g., allow if `$ctx.userRole` is 'admin').
-* **Relationship-Based Access Control (ReBAC):** Rules depend on the relationship between the user and the resource (e.g., allow if `resource.ownerId` equals `$ctx.userId`).
-* **Environment-Based Rules:** Rules depend on context like location or time (e.g., deny if `$ctx.ipAddress` is outside a specific range).
+- **Attribute-Based Access Control (ABAC):** Rules depend on user attributes (e.g., allow if `$ctx.userRole` is 'admin').
+- **Relationship-Based Access Control (ReBAC):** Rules depend on the relationship between the user and the resource (e.g., allow if `resource.ownerId` equals `$ctx.userId`).
+- **Environment-Based Rules:** Rules depend on context like location or time (e.g., deny if `$ctx.ipAddress` is outside a specific range).
 
 ## Providing Context: The `getContext` Function
 
@@ -33,9 +33,9 @@ This function takes no arguments and should return (or resolve with) an object m
 
 In web applications (Express, NestJS, Next.js, Koa, etc.), authorization checks usually happen within the scope of an incoming request. The most common pattern is to:
 
-1.  Authenticate the user and fetch their data (e.g., in middleware) *before* the permission check.
+1.  Authenticate the user and fetch their data (e.g., in middleware) _before_ the permission check.
 2.  Attach user data to the request object (e.g., `request.user`).
-3.  Initialize Guantr *within the request handler or a request-scoped service*.
+3.  Initialize Guantr _within the request handler or a request-scoped service_.
 4.  Provide a `getContext` function that simply reads the user data from the request object.
 
 ```ts
@@ -46,7 +46,6 @@ import type { Request, Response, NextFunction } from 'express';
 // Assume authMiddleware populates req.user
 
 async function permissionCheckMiddleware(req: Request, res: Response, next: NextFunction) {
-
   // Initialize Guantr *per request*
   const guantr = await createGuantr<MyMeta, MyContext>({
     // getContext simply returns user data already attached to the request
@@ -62,7 +61,7 @@ async function permissionCheckMiddleware(req: Request, res: Response, next: Next
   const article = await fetchArticle(articleId); // Fetch resource if needed for conditions
 
   if (await guantr.cannot('edit', ['article', article])) {
-     return res.status(403).send('Forbidden');
+    return res.status(403).send('Forbidden');
   }
 
   next(); // Permission granted, proceed to next handler
@@ -92,11 +91,11 @@ const guantr = await createGuantr<MyMeta, MyContext>({
         // Potentially more async calls if needed
       };
     } catch (error) {
-      console.error("Error fetching context:", error);
+      console.error('Error fetching context:', error);
       // Return a default/unauthenticated context on error
       return { userId: null, userRoles: [] };
     }
-  }
+  },
 });
 ```
 
@@ -109,46 +108,60 @@ const guantr = await createGuantr({
   // Context is fixed for this instance
   getContext: () => ({
     systemRole: 'batch-processor',
-    processId: 'proc-123'
-  })
+    processId: 'proc-123',
+  }),
 });
 ```
 
 ## Using Context in Rules: The `$ctx` Prefix
 
-Inside your rule conditions, you access properties from the context object using the `$ctx.` prefix within the *operand* part of a condition expression (`[operator, operand]`).
+Inside your rule conditions, you access properties from the context object using the `$ctx.` prefix within the _operand_ part of a condition expression (`[operator, operand]`).
 
-* **Accessing Properties:** Use dot notation for nested properties (e.g., `$ctx.user.id`, `$ctx.session.ip`). Guantr uses the `getContextValue` utility internally to resolve these paths.
-* **Type Safety:** If using `GuantrMeta`, TypeScript will validate that the properties you access via `$ctx.` exist on your defined `Context` type.
+- **Accessing Properties:** Use dot notation for nested properties (e.g., `$ctx.user.id`, `$ctx.session.ip`). Guantr uses the `getContextValue` utility internally to resolve these paths.
+- **Type Safety:** If using `GuantrMeta`, TypeScript will validate that the properties you access via `$ctx.` exist on your defined `Context` type.
 
 ```ts
 await guantr.setRules<MyAppMeta>(async (allow, deny) => {
-
   // Example 1: Ownership check (ReBAC pattern)
-  allow('edit', ['article', {
-    authorId: ['eq', '$ctx.userId'] // Compare article's authorId to context's userId
-  }]);
+  allow('edit', [
+    'article',
+    {
+      authorId: ['eq', '$ctx.userId'], // Compare article's authorId to context's userId
+    },
+  ]);
 
   // Example 2: Role check
-  allow('access', ['adminPanel', {
-    requiredRole: ['in', '$ctx.userRoles'] // Check if requiredRole is in user's roles array from context
-  }]);
+  allow('access', [
+    'adminPanel',
+    {
+      requiredRole: ['in', '$ctx.userRoles'], // Check if requiredRole is in user's roles array from context
+    },
+  ]);
 
   // Example 3: Combining resource and context attributes
-  allow('publish', ['article', {
-    status: ['eq', 'approved'],       // Resource attribute check
-    authorId: ['eq', '$ctx.userId']  // Context attribute check
-  }]);
+  allow('publish', [
+    'article',
+    {
+      status: ['eq', 'approved'], // Resource attribute check
+      authorId: ['eq', '$ctx.userId'], // Context attribute check
+    },
+  ]);
 
   // Example 4: Using context with other operators
-  allow('view', ['report', {
-    minAccessLevel: ['lte', '$ctx.userClearanceLevel'] // Compare using 'lte'
-  }]);
+  allow('view', [
+    'report',
+    {
+      minAccessLevel: ['lte', '$ctx.userClearanceLevel'], // Compare using 'lte'
+    },
+  ]);
 
   // Example 5: Nested context properties
-  allow('debug', ['system', {
-    environment: ['eq', '$ctx.env.name'] // Accessing nested property
-  }]);
+  allow('debug', [
+    'system',
+    {
+      environment: ['eq', '$ctx.env.name'], // Accessing nested property
+    },
+  ]);
 });
 ```
 
@@ -158,10 +171,10 @@ The `getContext` function might be called whenever Guantr needs to evaluate a ru
 
 **Therefore, it's crucial that your `getContext` function is efficient.**
 
-* **Slow `getContext` = Slow Checks:** If `getContext` performs slow operations (like database queries or external API calls), every permission check relying on context will inherit that latency.
-* **Recommendation: Fetch Once Per Request:** In web frameworks, the best practice is usually to fetch user/session data *once* early in the request lifecycle (e.g., in authentication middleware) and attach it to the request object. Your `getContext` function should then simply *read* this pre-fetched data, making it very fast.
-* **Caching within `getContext`:** If you absolutely must fetch data within `getContext`, consider implementing caching *within* that function (using application-level caching like Redis, Memcached, or a simple in-memory cache with TTL) to avoid refetching the same data repeatedly across different permission checks *within the same request* (if Guantr instance lives for the request).
-* **Guantr's Internal Cache:** Guantr's own optional caching mechanism (part of the Storage interface) primarily helps cache the *results* of permission checks or resolved operands. While it might reduce the *number* of times `getContext` is called for identical checks, it won't speed up the execution *of* `getContext` itself if it's inherently slow.
+- **Slow `getContext` = Slow Checks:** If `getContext` performs slow operations (like database queries or external API calls), every permission check relying on context will inherit that latency.
+- **Recommendation: Fetch Once Per Request:** In web frameworks, the best practice is usually to fetch user/session data _once_ early in the request lifecycle (e.g., in authentication middleware) and attach it to the request object. Your `getContext` function should then simply _read_ this pre-fetched data, making it very fast.
+- **Caching within `getContext`:** If you absolutely must fetch data within `getContext`, consider implementing caching _within_ that function (using application-level caching like Redis, Memcached, or a simple in-memory cache with TTL) to avoid refetching the same data repeatedly across different permission checks _within the same request_ (if Guantr instance lives for the request).
+- **Guantr's Internal Cache:** Guantr's own optional caching mechanism (part of the Storage interface) primarily helps cache the _results_ of permission checks or resolved operands. While it might reduce the _number_ of times `getContext` is called for identical checks, it won't speed up the execution _of_ `getContext` itself if it's inherently slow.
 
 ## Conclusion
 
