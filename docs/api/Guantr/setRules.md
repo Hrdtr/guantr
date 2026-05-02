@@ -47,6 +47,7 @@ interface Guantr<Meta, Context> {
 ## Important Behavior
 
 - **Replacement:** Calling `setRules` **replaces all previously stored rules**. It does not append rules.
+- **Clearing Rules:** Since `setRules` always replaces existing rules, passing an empty array `setRules([])` or an empty callback `setRules(() => {})` is a supported way to **clear all rules** from the instance.
 - **Storage Interaction:** This method calls the `setRules` method of the configured storage adapter.
 
 ## Examples

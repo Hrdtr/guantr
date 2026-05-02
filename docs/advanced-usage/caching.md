@@ -12,7 +12,7 @@ Guantr incorporates an optional caching layer to enhance performance, particular
 
 If the default in-memory cache isn't sufficient (e.g., you need persistence, shared caching via Redis/Memcached, or specific eviction policies like Time-To-Live (TTL) or Least Recently Used (LRU)), you have two main options:
 
-1.  **Implement a Custom Storage Adapter:** Create a class that fully implements the `Storage` interface from `guantr/storage/types`, including the `cache` property with your desired logic (e.g., interacting with Redis).
+1.  **Implement a Custom Storage Adapter:** Create a class that fully implements the `Storage` interface from `guantr/storage`, including the `cache` property with your desired logic (e.g., interacting with Redis).
 2.  **Extend `InMemoryStorage`:** If you only need to modify the caching behavior of the default storage, you can extend `InMemoryStorage` and override its `cache` property.
 
 ### Example: Extending InMemoryStorage with Custom Logic
