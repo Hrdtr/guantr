@@ -18,33 +18,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Build job
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0 # Not needed if lastUpdated is not enabled
-      - uses: pnpm/action-setup@v3
-      # - uses: oven-sh/setup-bun@v1 # Bun
-      - name: Setup Node
-        uses: actions/setup-node@v6
+      - uses: actions/checkout@v6
+      - run: corepack enable
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: pnpm # pnpm / yarn
-      - name: Setup Pages
-        uses: actions/configure-pages@v6
-      - name: Install dependencies
-        run: pnpm i --frozen-lockfile # npm ci / yarn install / bun install
-      - name: Build with VitePress
-        run: pnpm docs:build # npm run docs:build / yarn docs:build / bun run docs:build
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v5
+          cache: 'pnpm'
+      - uses: actions/configure-pages@v6
+      - run: pnpm i --frozen-lockfile
+      - run: pnpm docs:build
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: docs/.vitepress/dist
 
-  # Deployment job
   deploy:
     environment:
       name: github-pages
@@ -53,6 +42,5 @@ jobs:
     runs-on: ubuntu-latest
     name: Deploy
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
+      - id: deployment
         uses: actions/deploy-pages@v5
