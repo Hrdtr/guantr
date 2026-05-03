@@ -340,10 +340,11 @@ export class Guantr<
         if (!Guantr._stringModeWarnedKeys.has(warnKey)) {
           Guantr._stringModeWarnedKeys.add(warnKey);
           console.warn(
-            `[guantr] String-mode permission check deprecated: can('${action as string}', '${resource as string}'). ` +
+            `[guantr] String-mode permission check deprecated: ` +
+              `can/cannot('${action as string}', '${resource as string}'). ` +
               `This only checks for any allow rule's existence — conditions and deny rules are NOT evaluated. ` +
               `For abstract checks: use can.abstract() / cannot.abstract(). ` +
-              `For full evaluation: use can('${action as string}', ['${resource as string}', instance]).`,
+              `For full evaluation: use can/cannot('${action as string}', ['${resource as string}', instance]).`,
           );
         }
       }
