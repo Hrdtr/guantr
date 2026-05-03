@@ -1,6 +1,6 @@
 import type { UserConfig } from '@commitlint/types';
 
-const Configuration: UserConfig = {
+export default {
   extends: ['@commitlint/config-conventional'],
   rules: {
     'type-enum': [
@@ -21,6 +21,4 @@ const Configuration: UserConfig = {
       ],
     ],
   },
-};
-
-module.exports = Configuration;
+} satisfies UserConfig;
