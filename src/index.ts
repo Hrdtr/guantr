@@ -36,6 +36,8 @@ export type {
   GuantrAnyRule,
 } from './types';
 
+export { isContextualOperand, matchConditionExpression, matchRuleCondition } from './utils';
+
 // Extract commonly used type patterns to reduce repetition
 type ExtractResourceKeys<Meta> = Meta extends GuantrMeta<infer U> ? keyof U : string;
 type ExtractResourceAction<Meta, K> =
@@ -234,13 +236,13 @@ export class Guantr<
    * @param {Function} callback.can - The function to set rules when allowed.
    * @param {Function} callback.cannot - The function to set rules when denied.
    */
-  setRules(callback: SetRulesCallback<Meta, Context>): Promise<void>;
+  async setRules(callback: SetRulesCallback<Meta, Context>): Promise<void>;
   /**
    * Sets the rules for the Guantr instance.
    *
    * @param {GuantrRule<Meta, Context>[]} rules - The array of rules to set.
    */
-  setRules(rules: GuantrRule<Meta, Context>[]): Promise<void>;
+  async setRules(rules: GuantrRule<Meta, Context>[]): Promise<void>;
   async setRules(
     callbackOrRules: SetRulesCallback<Meta, Context> | GuantrRule<Meta, Context>[],
   ): Promise<void> {

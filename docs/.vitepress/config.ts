@@ -77,6 +77,7 @@ export default defineConfig({
             ],
           },
           { text: 'Error Classes', link: '/api/error-classes' },
+          { text: 'Utilities', link: '/api/utilities' },
         ],
       },
     ],
