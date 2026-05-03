@@ -298,8 +298,25 @@ export class Guantr<
    *
    * @return {Promise<ReadonlyArray<GuantrAnyRule>>} The rules of the Guantr instance.
    */
-  getRules(): Promise<ReadonlyArray<GuantrAnyRule>> {
-    return this._storage.getRules();
+  async getRules(): Promise<ReadonlyArray<GuantrAnyRule>> {
+    const cacheKey = 'getRules';
+    if (this._storage.cache) {
+      let cached: ReadonlyArray<GuantrAnyRule> | undefined;
+      try {
+        cached = this._storage.cache.has
+          ? (await this._storage.cache.has(cacheKey))
+            ? await this._storage.cache.get<ReadonlyArray<GuantrAnyRule>>(cacheKey)
+            : undefined
+          : await this._storage.cache.get<ReadonlyArray<GuantrAnyRule>>(cacheKey);
+      } catch {
+        // Swallow cache adapter errors and treat as cache miss
+        cached = undefined;
+      }
+      if (cached !== undefined) return cached;
+    }
+    const rules = await this._storage.getRules();
+    await this._storage.cache?.set(cacheKey, rules);
+    return rules;
   }
 
   /**
@@ -339,13 +356,16 @@ export class Guantr<
     resource: ResourceKey | [ResourceKey, Resource],
   ): Promise<boolean> {
     const context = await this._getContext();
+    // Compute serialized context once so it can be reused in both the _can cache key
+    // and the inner applyContextualOperands cache key without a second stringify call.
+    const serializedContext = this._storage.cache ? JSON.stringify(context) : undefined;
 
     let cacheKey: string | null = null;
     if (this._storage.cache) {
       cacheKey =
         typeof resource === 'string'
-          ? `can/${action}:${resource}:${JSON.stringify(context)}`
-          : `can/${action}:${resource[0]}:${JSON.stringify(resource[1])}:${JSON.stringify(context)}`;
+          ? `can/${action}:${resource}:${serializedContext}`
+          : `can/${action}:${resource[0]}:${JSON.stringify(resource[1])}:${serializedContext}`;
 
       let cachedResult: boolean | undefined = undefined;
       try {
@@ -389,15 +409,20 @@ export class Guantr<
 
     // Retrieve all rules for the given action and resource key & apply condition contextual operand replacement.
     const rawRules = await this._storage.queryRules(action as string, resource[0] as string);
+    if (rawRules.length === 0) {
+      return await trySetCache(false);
+    }
+    // Early exit: an unconditional deny (condition: null, effect: 'deny') guarantees a false
+    // result regardless of every other rule, so we can skip all further processing.
+    if (rawRules.some((rule) => rule.condition === null && rule.effect === 'deny')) {
+      return await trySetCache(false);
+    }
     const rules = await Promise.all(
       rawRules.map(async (rule) => ({
         ...rule,
-        condition: await this.applyContextualOperands(rule.condition, context),
+        condition: await this.applyContextualOperands(rule.condition, context, serializedContext),
       })),
     );
-    if (rules.length === 0) {
-      return await trySetCache(false);
-    }
 
     const allowed: boolean[] = [];
     const denied: boolean[] = [];
@@ -414,8 +439,12 @@ export class Guantr<
       }
       // If no condition is set, consider it as a direct allow/deny.
       if (!rule.condition) {
-        if (rule.effect === 'allow') allowed.push(true);
-        else denied.push(false);
+        if (rule.effect === 'allow') {
+          allowed.push(true);
+        } else {
+          // Unconditional deny → result is guaranteed false; no need to evaluate further.
+          return await trySetCache(false);
+        }
         continue;
       }
       // Evaluate the condition using the matching utility.
@@ -490,6 +519,8 @@ export class Guantr<
   private async applyContextualOperands(
     condition: GuantrAnyRule['condition'],
     context?: Context,
+    /** Pre-serialized context string, forwarded from the caller to avoid a redundant stringify. */
+    serializedContext?: string,
   ): Promise<GuantrAnyRule['condition']> {
     if (condition == null) {
       return null;
@@ -499,7 +530,9 @@ export class Guantr<
 
     let cacheKey: string | null = null;
     if (this._storage.cache) {
-      cacheKey = `applyContextualOperands/${JSON.stringify(condition)}:${JSON.stringify(resolvedContext)}`;
+      // Reuse the pre-serialized context from the caller when available.
+      const serializedCtx = serializedContext ?? JSON.stringify(resolvedContext);
+      cacheKey = `applyContextualOperands/${JSON.stringify(condition)}:${serializedCtx}`;
       let cachedResult: GuantrAnyRule['condition'] | undefined = undefined;
       try {
         cachedResult = this._storage.cache.has
