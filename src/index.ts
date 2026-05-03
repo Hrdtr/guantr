@@ -163,9 +163,9 @@ export class Guantr<
       const cachedResult = this._storage.cache.has
         ? (await this._storage.cache.has(cacheKey))
           ? await this._storage.cache.get<boolean>(cacheKey)
-          : null
+          : undefined
         : await this._storage.cache.get<boolean>(cacheKey);
-      if (cachedResult != null) {
+      if (cachedResult !== undefined) {
         return cachedResult;
       }
     }
@@ -263,9 +263,9 @@ export class Guantr<
       const cachedResult = this._storage.cache.has
         ? (await this._storage.cache.has(cacheKey))
           ? await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey)
-          : null
+          : undefined
         : await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey);
-      if (cachedResult != null) {
+      if (cachedResult !== undefined) {
         return cachedResult;
       }
     }

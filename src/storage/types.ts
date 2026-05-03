@@ -46,14 +46,17 @@ export interface Storage {
     /**
      * Retrieves a value from the cache.
      * @param key - The key associated with the value.
-     * @returns A promise that resolves to the cached value, or null/undefined if not found.
+     * @returns A promise that resolves to the cached value, or undefined if not found.
      */
-    get: <T>(key: string) => Promise<T> | null | undefined;
+    get: <T>(key: string) => Promise<T | undefined>;
 
     /**
      * Checks if a key exists in the cache.
+     *
      * @param key - The key to check for existence in the cache.
      * @returns A promise that resolves to true if the key exists, false otherwise.
+     * @remarks If implemented, this method is used to check cache hits. If not implemented,
+     * the `get` method is used directly, and it must return `undefined` for cache misses.
      */
     has?: (key: string) => Promise<boolean>;
 
