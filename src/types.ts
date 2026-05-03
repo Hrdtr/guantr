@@ -3,6 +3,12 @@ import { Storage } from './storage';
 export type GuantrOptions<Context extends Record<string, unknown> = Record<string, unknown>> = {
   getContext?: () => Context | PromiseLike<Context>;
   storage?: Storage;
+  /**
+   * Maximum number of rule iterations before the circuit breaker trips.
+   * When exceeded, a `GuantrCircuitBreakerError` is thrown instead of silently returning `false`.
+   * @default 1000
+   */
+  maxRuleIterations?: number;
 };
 
 export type GuantrMeta<
