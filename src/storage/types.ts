@@ -5,7 +5,7 @@ import { GuantrAnyRule } from '../types';
  */
 export interface Storage {
   /**
-   * Bulk sets rules by replacing existing ones with the provided array.
+   * Appends rules to the storage index. Called after clearRules() by the Guantr class.
    * @param rule - Array of rules to set.
    * @returns A promise that resolves when the rules are set.
    */
