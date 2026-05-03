@@ -374,3 +374,142 @@ describe('Guantr.can (strict: true) — evaluation-time throw', () => {
     expect(await guantr.can('read', ['post', draft])).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Guantr.can / cannot — unrecognized operators (full pipeline)
+// ---------------------------------------------------------------------------
+describe('Guantr.can / cannot — unrecognized operators (full pipeline)', () => {
+  // 1. non-strict: unknown operator returns false (fail-closed)
+  it('non-strict: unknown operator returns false (fail-closed)', async () => {
+    const storage = new InMemoryStorage();
+    await storage.setRules([
+      {
+        effect: 'allow',
+        action: 'read',
+        resource: 'post',
+        condition: { title: ['badOp' as any, 'hello'] },
+      },
+    ]);
+    const guantr = new Guantr({ strict: false, storage });
+
+    const post: MockPost = { id: 1, title: 'hello', published: true, tags: [], comments: [] };
+    expect(await guantr.can('read', ['post', post])).toBe(false);
+  });
+
+  // 2. non-strict: cannot() with unknown operator returns true
+  it('non-strict: cannot() with unknown operator returns true', async () => {
+    const storage = new InMemoryStorage();
+    await storage.setRules([
+      {
+        effect: 'allow',
+        action: 'read',
+        resource: 'post',
+        condition: { title: ['badOp' as any, 'hello'] },
+      },
+    ]);
+    const guantr = new Guantr({ strict: false, storage });
+
+    const post: MockPost = { id: 1, title: 'hello', published: true, tags: [], comments: [] };
+    // can() → false (fail-closed), so cannot() → true
+    expect(await guantr.cannot('read', ['post', post])).toBe(true);
+  });
+
+  // 3. strict: unknown operator in nested some operand throws at evaluation time
+  it('strict: unknown operator in nested some/every/none operand throws at evaluation time', async () => {
+    const storage = new InMemoryStorage();
+    await storage.setRules([
+      {
+        effect: 'allow',
+        action: 'read',
+        resource: 'post',
+        condition: { comments: ['some', { authorId: ['badOp' as any, 1] }] },
+      },
+    ]);
+    const guantr = new Guantr({ strict: true, storage });
+
+    const post: MockPost = {
+      id: 1,
+      title: 'hello',
+      published: true,
+      tags: [],
+      comments: [{ authorId: 1, body: 'test' }],
+    };
+    await expect(guantr.can('read', ['post', post])).rejects.toThrowError(
+      GuantrInvalidConditionOperatorError,
+    );
+  });
+
+  // 4. non-strict: unknown operator in nested some operand returns false
+  it('non-strict: unknown operator in nested some operand returns false', async () => {
+    const storage = new InMemoryStorage();
+    await storage.setRules([
+      {
+        effect: 'allow',
+        action: 'read',
+        resource: 'post',
+        condition: { comments: ['some', { authorId: ['badOp' as any, 1] }] },
+      },
+    ]);
+    const guantr = new Guantr({ strict: false, storage });
+
+    const post: MockPost = {
+      id: 1,
+      title: 'hello',
+      published: true,
+      tags: [],
+      comments: [{ authorId: 1, body: 'test' }],
+    };
+    // badOp returns false → some() → false → can() → false
+    expect(await guantr.can('read', ['post', post])).toBe(false);
+  });
+
+  // 5. non-strict: can() respects other valid allow rules even when one has an unknown operator
+  it('non-strict: valid allow rule still grants access even when another rule has an unknown operator', async () => {
+    const storage = new InMemoryStorage();
+    await storage.setRules([
+      // Rule 1: valid — matches when published is true
+      {
+        effect: 'allow',
+        action: 'read',
+        resource: 'post',
+        condition: { published: ['eq', true] },
+      },
+      // Rule 2: invalid operator — will always produce false (fail-closed)
+      {
+        effect: 'allow',
+        action: 'read',
+        resource: 'post',
+        condition: { title: ['badOp' as any, 'hello'] },
+      },
+    ]);
+    const guantr = new Guantr({ strict: false, storage });
+
+    // Rule 1 matches (published: true) → allowed.push(true) → can() true
+    const post1: MockPost = { id: 1, title: 'hello', published: true, tags: [], comments: [] };
+    expect(await guantr.can('read', ['post', post1])).toBe(true);
+
+    // Rule 1 does NOT match (published: false), Rule 2 has bad operator → both push false → can() false
+    const post2: MockPost = { id: 2, title: 'hello', published: false, tags: [], comments: [] };
+    expect(await guantr.can('read', ['post', post2])).toBe(false);
+  });
+
+  // 6. sanity: strict mode evaluates valid operators correctly when rules are pre-populated via storage
+  it('strict mode evaluates known operators correctly when storage is pre-populated', async () => {
+    const storage = new InMemoryStorage();
+    await storage.setRules([
+      {
+        effect: 'allow',
+        action: 'read',
+        resource: 'post',
+        condition: { title: ['contains', 'hello'] },
+      },
+    ]);
+    const guantr = new Guantr({ strict: true, storage });
+
+    const post: MockPost = { id: 1, title: 'hello world', published: true, tags: [], comments: [] };
+    expect(await guantr.can('read', ['post', post])).toBe(true);
+
+    const noMatch: MockPost = { id: 2, title: 'goodbye', published: true, tags: [], comments: [] };
+    expect(await guantr.can('read', ['post', noMatch])).toBe(false);
+  });
+});

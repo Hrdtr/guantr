@@ -90,6 +90,16 @@ describe('matchConditionExpression - every operator', () => {
     });
   }
 
+  it('should return false for an empty array', () => {
+    const expression = ['every', { value: ['gt', 10] }] as any;
+    expect(matchConditionExpression({ value: [], expression })).toBe(false);
+  });
+
+  it('should return false for an empty array even with a trivially-true condition', () => {
+    const expression = ['every', { id: ['gte', 0] }] as any;
+    expect(matchConditionExpression({ value: [], expression })).toBe(false);
+  });
+
   // Edge case: invalid resource value type
   it('should throw TypeError for unexpected resource value type', () => {
     const value = { key: 'value' }; // Invalid type for 'every' operator
