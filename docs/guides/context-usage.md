@@ -119,6 +119,15 @@ Inside your rule conditions, you access properties from the context object using
 
 - **Accessing Properties:** Use dot notation for nested properties (e.g., `$ctx.user.id`, `$ctx.session.ip`). Guantr uses the `getContextValue` utility internally to resolve these paths.
 - **Type Safety:** If using `GuantrMeta`, TypeScript will validate that the properties you access via `$ctx.` exist on your defined `Context` type.
+- **`ctx.` alias:** Guantr also accepts the `ctx.` prefix (without the `$`) as a shorthand. Both `$ctx.userId` and `ctx.userId` are functionally identical at runtime:
+
+  ```ts
+  // Both forms are equivalent:
+  allow('edit', ['article', { authorId: ['eq', '$ctx.userId'] }]);
+  allow('edit', ['article', { authorId: ['eq', 'ctx.userId'] }]);
+  ```
+
+  > **Note:** While `ctx.` works at runtime, using `$ctx.` is recommended because it provides full TypeScript autocompletion and type-checking when using `GuantrMeta`. The `ctx.` prefix does not benefit from the same type-level validation.
 
 ```ts
 await guantr.setRules<MyAppMeta>(async (allow, deny) => {
