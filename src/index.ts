@@ -167,7 +167,7 @@ export class Guantr<
             ? await this._storage.cache.get<boolean>(cacheKey)
             : undefined
           : await this._storage.cache.get<boolean>(cacheKey);
-      } catch (error) {
+      } catch {
         // Swallow cache adapter errors and treat as cache miss
         cachedResult = undefined;
       }
@@ -273,7 +273,7 @@ export class Guantr<
             ? await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey)
             : undefined
           : await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey);
-      } catch (error) {
+      } catch {
         // Swallow cache adapter errors and treat as cache miss
         cachedResult = undefined;
       }
