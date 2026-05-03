@@ -11,6 +11,8 @@ import { getContextValue, isContextualOperand, matchRuleCondition } from './util
 
 export type {
   GuantrMeta,
+  GuantrOptions,
+  ConditionOperator,
   GuantrResource,
   GuantrResourceAction,
   GuantrResourceModel,
