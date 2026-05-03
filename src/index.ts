@@ -31,6 +31,101 @@ type ExtractResourceAction<Meta, K> =
 type ExtractResourceModel<Meta, K> =
   Meta extends GuantrMeta<infer U> ? U[K & keyof U]['model'] : Record<string, unknown>;
 
+/**
+ * Typed callable for `guantr.can`. Supports two call signatures and a nested `.abstract()` sub-method.
+ */
+type CanMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
+  /**
+   * @deprecated String-mode does NOT evaluate conditions or deny rules — only checks if any allow rule exists.
+   * Use `can.abstract()` for this behavior, or `can(action, [resourceKey, instance])` for full evaluation.
+   */
+  <ResourceKey extends ExtractResourceKeys<Meta>>(
+    action: ExtractResourceAction<Meta, ResourceKey>,
+    resource: ResourceKey,
+  ): Promise<boolean>;
+
+  /**
+   * Checks if the user has permission to perform the specified action on the given resource instance.
+   * Evaluates all matching conditions and deny rules.
+   *
+   * @template ResourceKey - The type of the resource key.
+   * @template Resource - The type of the resource model.
+   * @param action - The action to check.
+   * @param resource - A tuple of `[resourceKey, resourceInstance]`.
+   * @returns `true` if at least one allow rule matches and no deny rule matches.
+   */
+  <
+    ResourceKey extends ExtractResourceKeys<Meta>,
+    Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<
+      Meta,
+      ResourceKey
+    >,
+  >(
+    action: ExtractResourceAction<Meta, ResourceKey>,
+    resource: [ResourceKey, Resource],
+  ): Promise<boolean>;
+
+  /**
+   * Abstract permission check.
+   * Returns `true` if ANY allow rule exists for the given action + resource pair.
+   * Does NOT evaluate conditions or deny rules.
+   *
+   * Use for UI hints (e.g. "should I show the Edit button?"), NOT for access control decisions.
+   * For full evaluation against a resource instance, use `can(action, [resourceKey, instance])`.
+   */
+  abstract<ResourceKey extends ExtractResourceKeys<Meta>>(
+    action: ExtractResourceAction<Meta, ResourceKey>,
+    resource: ResourceKey,
+  ): Promise<boolean>;
+};
+
+/**
+ * Typed callable for `guantr.cannot`. Logical negation of `CanMethod`.
+ */
+type CannotMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
+  /**
+   * @deprecated String-mode does NOT evaluate conditions or deny rules — only checks if any allow rule exists.
+   * Use `cannot.abstract()` for this behavior, or `cannot(action, [resourceKey, instance])` for full evaluation.
+   */
+  <ResourceKey extends ExtractResourceKeys<Meta>>(
+    action: ExtractResourceAction<Meta, ResourceKey>,
+    resource: ResourceKey,
+  ): Promise<boolean>;
+
+  /**
+   * Checks if the user does NOT have permission to perform the specified action on the given resource instance.
+   * Evaluates all matching conditions and deny rules.
+   *
+   * @template ResourceKey - The type of the resource key.
+   * @template Resource - The type of the resource model.
+   * @param action - The action to check.
+   * @param resource - A tuple of `[resourceKey, resourceInstance]`.
+   * @returns `true` if no allow rule matches, or a deny rule matches.
+   */
+  <
+    ResourceKey extends ExtractResourceKeys<Meta>,
+    Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<
+      Meta,
+      ResourceKey
+    >,
+  >(
+    action: ExtractResourceAction<Meta, ResourceKey>,
+    resource: [ResourceKey, Resource],
+  ): Promise<boolean>;
+
+  /**
+   * Abstract permission check (negated).
+   * Returns `true` if NO allow rule exists for the given action + resource pair.
+   * Does NOT evaluate conditions or deny rules.
+   *
+   * Use for UI hints (e.g. "should I hide the Delete button?"), NOT for access control decisions.
+   */
+  abstract<ResourceKey extends ExtractResourceKeys<Meta>>(
+    action: ExtractResourceAction<Meta, ResourceKey>,
+    resource: ResourceKey,
+  ): Promise<boolean>;
+};
+
 export class Guantr<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
   Context extends Record<string, unknown> = Record<string, unknown>,
@@ -38,6 +133,34 @@ export class Guantr<
   private _storage: Storage;
   private _getContext: () => Context | PromiseLike<Context>;
   private static readonly MAX_ITERATIONS = 1000;
+
+  /**
+   * Controls whether deprecation warnings are emitted for string-mode `can()` usage.
+   * Automatically enabled in non-production environments. Can be disabled via `Guantr.devWarnings = false`.
+   */
+  static devWarnings: boolean =
+    (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV !==
+    'production';
+
+  private static readonly _stringModeWarnedKeys = new Set<string>();
+
+  /**
+   * Check whether an action is permitted on a resource.
+   *
+   * - `can(action, resourceKey)` — *(deprecated)* abstract check; ignores conditions and deny rules.
+   * - `can(action, [resourceKey, instance])` — full evaluation against the resource instance.
+   * - `can.abstract(action, resourceKey)` — explicit abstract check for UI hints.
+   */
+  readonly can!: CanMethod<Meta>;
+
+  /**
+   * Check whether an action is denied on a resource. Logical negation of `can`.
+   *
+   * - `cannot(action, resourceKey)` — *(deprecated)* abstract check; ignores conditions and deny rules.
+   * - `cannot(action, [resourceKey, instance])` — full evaluation against the resource instance.
+   * - `cannot.abstract(action, resourceKey)` — explicit abstract check for UI hints.
+   */
+  readonly cannot!: CannotMethod<Meta>;
 
   /**
    * Initializes a new instance of the Guantr class with an optional ctx.
@@ -49,6 +172,44 @@ export class Guantr<
   constructor(options?: GuantrOptions<Context>) {
     this._storage = options?.storage || new InMemoryStorage();
     this._getContext = options?.getContext || (() => Promise.resolve({} as Context));
+
+    this.can = Object.assign(
+      <
+        ResourceKey extends ExtractResourceKeys<Meta>,
+        Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<
+          Meta,
+          ResourceKey
+        >,
+      >(
+        action: ExtractResourceAction<Meta, ResourceKey>,
+        resource: ResourceKey | [ResourceKey, Resource],
+      ) => this._can(action, resource),
+      {
+        abstract: <ResourceKey extends ExtractResourceKeys<Meta>>(
+          action: ExtractResourceAction<Meta, ResourceKey>,
+          resource: ResourceKey,
+        ) => this._canAbstract(action, resource),
+      },
+    ) as CanMethod<Meta>;
+
+    this.cannot = Object.assign(
+      <
+        ResourceKey extends ExtractResourceKeys<Meta>,
+        Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<
+          Meta,
+          ResourceKey
+        >,
+      >(
+        action: ExtractResourceAction<Meta, ResourceKey>,
+        resource: ResourceKey | [ResourceKey, Resource],
+      ) => this._cannot(action, resource),
+      {
+        abstract: <ResourceKey extends ExtractResourceKeys<Meta>>(
+          action: ExtractResourceAction<Meta, ResourceKey>,
+          resource: ResourceKey,
+        ) => this._cannotAbstract(action, resource),
+      },
+    ) as CannotMethod<Meta>;
   }
 
   /**
@@ -132,16 +293,7 @@ export class Guantr<
     return rules;
   }
 
-  /**
-   * Checks if the user has rule to perform the specified action on the given resource.
-   *
-   * @template ResourceKey - The type of the resource key.
-   * @template Resource - The type of the resource.
-   * @param {ExtractResourceAction<Meta, ResourceKey>} action - The action to check rule for.
-   * @param {ResourceKey | [ResourceKey, Resource]} resource - The resource to check rule for. If a string is provided, it is treated as the resource key. If an array is provided, the first element is treated as the resource key and the second element is the resource itself.
-   * @return {boolean} Returns `true` if the user has rule, `false` otherwise.
-   */
-  async can<
+  private async _can<
     ResourceKey extends ExtractResourceKeys<Meta>,
     Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<
       Meta,
@@ -183,6 +335,18 @@ export class Guantr<
     };
 
     if (typeof resource === 'string') {
+      if (Guantr.devWarnings) {
+        const warnKey = `${action as string}:${resource as string}`;
+        if (!Guantr._stringModeWarnedKeys.has(warnKey)) {
+          Guantr._stringModeWarnedKeys.add(warnKey);
+          console.warn(
+            `[guantr] String-mode permission check deprecated: can('${action as string}', '${resource as string}'). ` +
+              `This only checks for any allow rule's existence — conditions and deny rules are NOT evaluated. ` +
+              `For abstract checks: use can.abstract() / cannot.abstract(). ` +
+              `For full evaluation: use can('${action as string}', ['${resource as string}', instance]).`,
+          );
+        }
+      }
       const rules = await this._storage.queryRules(action as string, resource as string);
       return await trySetCache(rules.some((item) => item.effect === 'allow'));
     }
@@ -231,16 +395,39 @@ export class Guantr<
     return await trySetCache(result);
   }
 
-  /**
-   * Checks if the user does not have rule to perform the specified action on the given resource.
-   *
-   * @template ResourceKey - The type of the resource key.
-   * @template Resource - The type of the resource.
-   * @param {ExtractResourceAction<Meta, ResourceKey>} action - The action to check rule for.
-   * @param {ResourceKey | [ResourceKey, Resource]} resource - The resource to check rule for. If a string is provided, it is treated as the resource key. If an array is provided, the first element is treated as the resource key and the second element is the resource itself.
-   * @return {boolean} Returns `true` if the user does not have rule, `false` otherwise.
-   */
-  async cannot<
+  private async _canAbstract<ResourceKey extends ExtractResourceKeys<Meta>>(
+    action: ExtractResourceAction<Meta, ResourceKey>,
+    resource: ResourceKey,
+  ): Promise<boolean> {
+    let cacheKey: string | null = null;
+    if (this._storage.cache) {
+      cacheKey = `can.abstract/${action as string}:${resource as string}`;
+      let cachedResult: boolean | undefined = undefined;
+      try {
+        cachedResult = this._storage.cache.has
+          ? (await this._storage.cache.has(cacheKey))
+            ? await this._storage.cache.get<boolean>(cacheKey)
+            : undefined
+          : await this._storage.cache.get<boolean>(cacheKey);
+      } catch {
+        cachedResult = undefined;
+      }
+      if (cachedResult !== undefined) {
+        return cachedResult;
+      }
+    }
+    const trySetCache = async <T>(result: T): Promise<T> => {
+      if (cacheKey) {
+        await this._storage.cache?.set(cacheKey, result);
+      }
+      return result as T;
+    };
+
+    const rules = await this._storage.queryRules(action as string, resource as string);
+    return await trySetCache(rules.some((item) => item.effect === 'allow'));
+  }
+
+  private async _cannot<
     ResourceKey extends ExtractResourceKeys<Meta>,
     Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<
       Meta,
@@ -250,7 +437,14 @@ export class Guantr<
     action: ExtractResourceAction<Meta, ResourceKey>,
     resource: ResourceKey | [ResourceKey, Resource],
   ): Promise<boolean> {
-    return !(await this.can(action, resource));
+    return !(await this._can(action, resource));
+  }
+
+  private async _cannotAbstract<ResourceKey extends ExtractResourceKeys<Meta>>(
+    action: ExtractResourceAction<Meta, ResourceKey>,
+    resource: ResourceKey,
+  ): Promise<boolean> {
+    return !(await this._canAbstract(action, resource));
   }
 
   private async applyContextualOperands(
