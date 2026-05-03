@@ -60,7 +60,7 @@ declare function createGuantr<
   - `storage`: An instance implementing the `Storage` interface (from `guantr/storage`). Defaults to `InMemoryStorage`.
   - `getContext`: An asynchronous function `() => Context | PromiseLike<Context>` that returns the context object used when evaluating rules with `$ctx` operands. Defaults to a function returning an empty object.
   - `strict`: A `boolean` that enables strict validation mode. When `true`, `setRules` validates every condition at definition time and throws `GuantrInvalidConditionError` for unknown operators or malformed expressions; `can`/`cannot` throw `GuantrInvalidConditionOperatorError` instead of silently returning `false` for unrecognized operators. Defaults to `false`. See [Strict Mode](../advanced-usage/strict-mode) for a full guide.
-  - `maxRuleIterations`: A `number` that sets the maximum rule iterations before the circuit breaker trips. Defaults to `1000`.
+  - `maxRuleIterations`: A `number` that sets the maximum rule iterations before the circuit breaker trips. When this limit is exceeded, a [`GuantrCircuitBreakerError`](./error-classes#guantrcircuitbreakererror) is thrown by `can`/`cannot`. Defaults to `1000`. This is a safety mechanism to prevent runaway evaluation in instances with many rules.
 
 ## Returns
 

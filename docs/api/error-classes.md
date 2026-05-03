@@ -1,11 +1,15 @@
 # API: Error Classes
 
-Guantr exports two error classes that are thrown when [strict mode](../advanced-usage/strict-mode) is enabled. Both extend the built-in `Error` class and carry extra metadata so you can programmatically inspect what went wrong.
+Guantr exports three error classes that extend the built-in `Error` class and carry extra metadata so you can programmatically inspect what went wrong. Two of them (`GuantrInvalidConditionError` and `GuantrInvalidConditionOperatorError`) are thrown when [strict mode](../advanced-usage/strict-mode) is enabled, while `GuantrCircuitBreakerError` is thrown when the rule iteration limit is exceeded.
 
 ## Importing
 
 ```ts
-import { GuantrInvalidConditionError, GuantrInvalidConditionOperatorError } from 'guantr';
+import {
+  GuantrCircuitBreakerError,
+  GuantrInvalidConditionError,
+  GuantrInvalidConditionOperatorError,
+} from 'guantr';
 ```
 
 ---
@@ -216,3 +220,85 @@ function validateRulesFromDatabase(rules: unknown[]) {
 | ----------- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `condition` | `GuantrAnyRule['condition']` | The condition object to validate (`null` and `undefined` are no-ops).                                   |
 | `_path`     | `string` (optional)          | Dot-notation prefix for error messages. Used internally during recursion; you rarely need to pass this. |
+
+---
+
+## `GuantrCircuitBreakerError`
+
+Thrown by `can`/`cannot` when the number of rules evaluated for a single permission check exceeds the configured `maxRuleIterations` limit — effectively a circuit breaker that prevents runaway evaluation.
+
+### Class Definition
+
+```ts
+class GuantrCircuitBreakerError extends Error {
+  /** The action being checked when the circuit breaker tripped. */
+  action: string;
+  /** The resource key being checked when the circuit breaker tripped. */
+  resource: string;
+  /** The configured iteration limit that was exceeded. */
+  limit: number;
+
+  constructor(action: string, resource: string, limit: number);
+}
+```
+
+### Properties
+
+| Property   | Type     | Description                                                       |
+| ---------- | -------- | ----------------------------------------------------------------- |
+| `name`     | `string` | Always `"GuantrCircuitBreakerError"`.                             |
+| `message`  | `string` | Human-readable description including action, resource, and limit. |
+| `action`   | `string` | The action being checked when the circuit breaker tripped.        |
+| `resource` | `string` | The resource key being checked when the circuit breaker tripped.  |
+| `limit`    | `number` | The configured `maxRuleIterations` value that was exceeded.       |
+
+### When It Is Thrown
+
+- A call to `can` or `cannot` iterates through more rules than the `maxRuleIterations` limit (default: `1000`).
+- This acts as a safety mechanism to prevent excessive rule evaluation, which could otherwise cause performance degradation or infinite loops.
+
+### Tuning the Limit
+
+The iteration limit is configurable via the `maxRuleIterations` option when creating a Guantr instance:
+
+```ts
+const guantr = await createGuantr({
+  maxRuleIterations: 5000, // Increase the limit for instances with many rules
+});
+```
+
+See the [`createGuantr`](./createGuantr) API reference for more details.
+
+### Example
+
+```ts
+import { createGuantr, GuantrCircuitBreakerError } from 'guantr';
+import type { GuantrAnyRule } from 'guantr';
+
+const guantr = await createGuantr({ maxRuleIterations: 100 });
+
+// Create enough rules to trip the breaker
+const rules: GuantrAnyRule[] = [];
+for (let i = 0; i < 150; i++) {
+  rules.push({
+    effect: 'allow',
+    action: 'read',
+    resource: 'post',
+    condition: { id: ['eq', i] },
+  });
+}
+
+await guantr.setRules(rules);
+
+try {
+  await guantr.can('read', ['post', { id: 1 }]);
+} catch (e) {
+  if (e instanceof GuantrCircuitBreakerError) {
+    console.error(e.message);
+    // '[guantr] Circuit breaker tripped: rule iteration limit (100) exceeded...'
+    console.error(e.action); // 'read'
+    console.error(e.resource); // 'post'
+    console.error(e.limit); // 100
+  }
+}
+```
