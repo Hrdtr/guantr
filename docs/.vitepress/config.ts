@@ -31,6 +31,7 @@ export default defineConfig({
             ],
           },
           { text: 'Context Usage', link: '/guides/context-usage' },
+          { text: 'Abstract vs Resource-Aware Checks', link: '/guides/abstract-vs-resource-aware' },
           { text: 'Typescript', link: '/guides/typescript-integration' },
           { text: 'Example: Basic RBAC', link: '/guides/example-basic-rbac' },
           { text: 'Example: ABAC', link: '/guides/example-abac' },
@@ -41,6 +42,7 @@ export default defineConfig({
         items: [
           { text: 'Custom Storage Adapter', link: '/advanced-usage/custom-storage-adapter' },
           { text: 'Caching', link: '/advanced-usage/caching' },
+          { text: 'Strict Mode', link: '/advanced-usage/strict-mode' },
           {
             text: 'Rules as Query Filters',
             items: [{ text: 'Prisma', link: '/advanced-usage/rules-as-query-filters/prisma' }],
@@ -65,13 +67,18 @@ export default defineConfig({
           {
             text: 'Guantr',
             items: [
+              { text: 'constructor', link: '/api/Guantr/constructor' },
               { text: '.setRules', link: '/api/Guantr/setRules' },
               { text: '.getRules', link: '/api/Guantr/getRules' },
               { text: '.relatedRulesFor', link: '/api/Guantr/relatedRulesFor' },
               { text: '.can', link: '/api/Guantr/can' },
               { text: '.cannot', link: '/api/Guantr/cannot' },
+              { text: '.can.abstract', link: '/api/Guantr/can.abstract' },
+              { text: '.cannot.abstract', link: '/api/Guantr/cannot.abstract' },
             ],
           },
+          { text: 'Error Classes', link: '/api/error-classes' },
+          { text: 'Utilities', link: '/api/utilities' },
         ],
       },
     ],
@@ -79,7 +86,7 @@ export default defineConfig({
     footer: {
       message:
         'Released under the <a href="https://github.com/Hrdtr/guantr/blob/main/LICENSE">MIT License</a>.',
-      copyright: 'Copyright © 2024 <a href="https://github.com/Hrdtr">Herdi Tr.</a>',
+      copyright: 'Copyright © 2026 <a href="https://github.com/Hrdtr">Herdi Tr.</a>',
     },
 
     socialLinks: [

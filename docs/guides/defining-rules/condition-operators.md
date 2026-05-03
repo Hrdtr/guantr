@@ -6,6 +6,32 @@ Condition expressions typically follow the format `[operator, operand, options?]
 
 ## Available Operators
 
+## Condition Options
+
+Some operators accept an optional third element in the condition expression tuple: an **options object**. This is currently used to enable **case-insensitive** string comparisons.
+
+```ts
+// Options object shape
+interface ConditionOptions {
+  caseInsensitive?: boolean; // Default: false
+}
+
+// Usage: [operator, operand, { caseInsensitive: true }]
+```
+
+When `caseInsensitive` is `true`, string comparisons are performed in a case-insensitive manner (using `.toLowerCase()`). The following operators support this option:
+
+- `eq`
+- `in`
+- `contains`
+- `startsWith`
+- `endsWith`
+- `has`
+- `hasSome`
+- `hasEvery`
+
+---
+
 Here are the operators you can use in Guantr condition expressions:
 
 ---
@@ -13,9 +39,10 @@ Here are the operators you can use in Guantr condition expressions:
 ### `eq`
 
 - **Description:** Checks for strict equality (`===`) between the resource/context value and the operand.
-- **Signature:** `['eq', operand]`
+- **Signature:** `['eq', operand, options?]`
 - **Operand Type:** Any literal value (string, number, boolean, null, undefined).
-- **Behavior:** Performs a strict equality check (`value === operand`).
+- **Options:** `{ caseInsensitive?: boolean }` (Default: `false`)
+- **Behavior:** Performs a strict equality check (`value === operand`). When `caseInsensitive` is `true` and both `value` and `operand` are strings, comparison is case-insensitive.
 - **Examples:**
 
   ```ts
@@ -30,6 +57,9 @@ Here are the operators you can use in Guantr condition expressions:
 
   // Check for null value
   allow('access', ['resource', { deletedAt: ['eq', null] }]);
+
+  // Case-insensitive string comparison
+  allow('read', ['document', { category: ['eq', 'Reports', { caseInsensitive: true }] }]);
   ```
 
 ---
@@ -37,9 +67,10 @@ Here are the operators you can use in Guantr condition expressions:
 ### `in`
 
 - **Description:** Checks if the resource/context value exists within the provided array operand (using strict equality `===` for comparison).
-- **Signature:** `['in', operand]`
+- **Signature:** `['in', operand, options?]`
 - **Operand Type:** An array (`Array<any>`).
-- **Behavior:** Returns `true` if the `operand` is an array and contains an element strictly equal to the `value`. Returns `false` if the `operand` is not an array or the `value` is not found.
+- **Options:** `{ caseInsensitive?: boolean }` (Default: `false`)
+- **Behavior:** Returns `true` if the `operand` is an array and contains an element strictly equal to the `value`. Returns `false` if the `operand` is not an array or the `value` is not found. When `caseInsensitive` is `true` and `value` is a string, the comparison is case-insensitive.
 - **Examples:**
 
   ```ts
@@ -48,6 +79,9 @@ Here are the operators you can use in Guantr condition expressions:
 
   // Allow if product category ID is in the allowed list
   allow('view', ['product', { categoryId: ['in', [10, 25, 42]] }]);
+
+  // Case-insensitive membership check
+  allow('access', ['feature', { code: ['in', ['ALPHA', 'BETA'], { caseInsensitive: true }] }]);
 
   // Edge Case: Value not found
   // { userRole: ['in', ['viewer']] } will be false if userRole is 'editor'
@@ -158,9 +192,10 @@ Here are the operators you can use in Guantr condition expressions:
 ### `has`
 
 - **Description:** Checks if the resource/context value (an array) includes the operand (using strict equality `===`). Note: This checks `value.includes(operand)`.
-- **Signature:** `['has', operand]`
-- **Operand Type:** Any literal value.
-- **Behavior:** Returns `true` if the `value` is an array and contains an element strictly equal to the `operand`. Returns `false` if the `value` is not an array or the `operand` is not found within it.
+- **Signature:** `['has', operand, options?]`
+- **Operand Type:** Any literal value (string or number).
+- **Options:** `{ caseInsensitive?: boolean }` (Default: `false`)
+- **Behavior:** Returns `true` if the `value` is an array and contains an element strictly equal to the `operand`. Returns `false` if the `value` is not an array or the `operand` is not found within it. When `caseInsensitive` is `true` and `operand` is a string, the comparison is case-insensitive.
 - **Examples:**
 
   ```ts
@@ -169,6 +204,9 @@ Here are the operators you can use in Guantr condition expressions:
 
   // Allow if article tags include 'featured'
   allow('promote', ['article', { tags: ['has', 'featured'] }]);
+
+  // Case-insensitive array membership
+  allow('access', ['adminPanel', { roles: ['has', 'Admin', { caseInsensitive: true }] }]);
 
   // Edge Case: Value is not an array
   // { roles: ['has', 'admin'] } -> false if roles is undefined or string
@@ -179,9 +217,10 @@ Here are the operators you can use in Guantr condition expressions:
 ### `hasSome`
 
 - **Description:** Checks if the resource/context value (an array) contains _at least one_ element that is also present in the operand (an array). Uses strict equality (`===`) for comparison.
-- **Signature:** `['hasSome', operand]`
+- **Signature:** `['hasSome', operand, options?]`
 - **Operand Type:** An array (`Array<any>`).
-- **Behavior:** Returns `true` if both `value` and `operand` are arrays, and they share at least one common element. Returns `false` otherwise.
+- **Options:** `{ caseInsensitive?: boolean }` (Default: `false`)
+- **Behavior:** Returns `true` if both `value` and `operand` are arrays, and they share at least one common element. Returns `false` otherwise. When `caseInsensitive` is `true`, string elements are compared case-insensitively.
 - **Examples:**
 
   ```ts
@@ -190,6 +229,12 @@ Here are the operators you can use in Guantr condition expressions:
 
   // Allow if article has at least one of the specified tags
   allow('viewSpecial', ['article', { tags: ['hasSome', ['urgent', 'internal']] }]);
+
+  // Case-insensitive overlap check
+  allow('access', [
+    'project',
+    { userGroups: ['hasSome', ['Engineering', 'Product'], { caseInsensitive: true }] },
+  ]);
   ```
 
 ---
@@ -197,9 +242,10 @@ Here are the operators you can use in Guantr condition expressions:
 ### `hasEvery`
 
 - **Description:** Checks if the resource/context value (an array) contains _all_ of the elements present in the operand (an array). Uses strict equality (`===`) for comparison.
-- **Signature:** `['hasEvery', operand]`
+- **Signature:** `['hasEvery', operand, options?]`
 - **Operand Type:** An array (`Array<any>`).
-- **Behavior:** Returns `true` if both `value` and `operand` are arrays, and every element in the `operand` is also present in the `value`. Returns `false` otherwise. Order doesn't matter.
+- **Options:** `{ caseInsensitive?: boolean }` (Default: `false`)
+- **Behavior:** Returns `true` if both `value` and `operand` are arrays, and every element in the `operand` is also present in the `value`. Returns `false` otherwise. Order doesn't matter. When `caseInsensitive` is `true`, string elements are compared case-insensitively.
 - **Examples:**
 
   ```ts
@@ -208,6 +254,12 @@ Here are the operators you can use in Guantr condition expressions:
 
   // Allow if product includes all necessary components
   allow('ship', ['product', { components: ['hasEvery', ['powerSupply', 'cpu', 'ram']] }]);
+
+  // Case-insensitive full coverage check
+  allow('deploy', [
+    'service',
+    { userPermissions: ['hasEvery', ['Build', 'Deploy'], { caseInsensitive: true }] },
+  ]);
   ```
 
 ---
@@ -293,6 +345,99 @@ Here are the operators you can use in Guantr condition expressions:
     },
   ]);
   ```
+
+---
+
+## Nullish Checks
+
+Guantr supports checking whether a value is `null` or `undefined` using the `eq` operator. This is useful for:
+
+- **Soft-delete patterns**: checking if `deletedAt` is `null` (meaning the record is active).
+- **Optional fields**: checking if an optional field has been set or is still empty.
+- **Nullable relationships**: checking if a related resource has been unlinked.
+
+**Examples:**
+
+```ts
+// Allow access only if the resource has NOT been deleted
+allow('read', ['resource', { deletedAt: ['eq', null] }]);
+
+// Allow if an optional moderation flag has not been set
+allow('publish', ['article', { moderationFlag: ['eq', undefined] }]);
+
+// Combining null checks with other conditions
+allow('edit', [
+  'article',
+  {
+    deletedAt: ['eq', null],
+    status: ['eq', 'draft'],
+  },
+]);
+```
+
+> **Note:** When a value in the resource is `null` or `undefined`, comparison operators (`gt`, `gte`, `contains`, `startsWith`, `endsWith`) and array operators (`has`, `hasSome`, `hasEvery`) will return `false` rather than throwing an error. The `eq` operator is the primary way to explicitly match against `null`/`undefined`.
+
+---
+
+## Combining Array Expressions with Nested Conditions (`$expr`)
+
+When a condition value is a plain object (not an array expression), Guantr interprets it as a **nested condition** — it recurses into the nested keys and matches them against the corresponding resource property. For example:
+
+```ts
+// nested condition: checks roles.length === 2
+roles: {
+  length: ['eq', 2],
+}
+```
+
+However, array properties like `roles` often need both:
+
+- A condition applied to the **array itself** (e.g., `['has', 'admin']` or `['some', { ... }]`)
+- Nested conditions on **properties of the array** (e.g., `.length`)
+
+This is where the **`$expr` key** comes in. Within a nested condition object, you can use `$expr` to specify a **condition expression** that is evaluated against the array (or object) itself, while the remaining keys are treated as nested conditions.
+
+```ts
+// Without $expr: only nested condition
+{
+  roles: {
+    length: ['gte', 1], // checks roles.length >= 1
+  }
+}
+
+// With $expr: combines array-level expression AND nested conditions
+{
+  roles: {
+    length: ['gte', 1],                                    // nested condition on roles object
+    $expr: ['some', { name: ['eq', 'admin'] }],             // array-level expression on roles array
+  }
+}
+// Both must evaluate to true for the rule to match.
+```
+
+**How it works:**
+
+1. `$expr` (if present) is extracted from the object and evaluated as a condition expression against the resource property value.
+2. The remaining keys are evaluated as a nested condition against the resource property value.
+3. Both results must be `true` for the overall condition to pass (AND logic).
+
+**Real-world example:**
+
+```ts
+// Allow reading a user if they have exactly 2 roles,
+// AND at least one of those roles is named 'User' (case-insensitive)
+allow('read', [
+  'user',
+  {
+    roles: {
+      length: ['eq', 2],
+      $expr: ['some', { name: ['eq', 'User', { caseInsensitive: true }] }],
+    },
+  },
+]);
+```
+
+`$expr` works with any array-level operator (`some`, `every`, `none`, `has`, `hasSome`, `hasEvery`) and also works with non-array values. It's also compatible with `length` or any other nested property checks on the same resource field.
 
 ---
 
