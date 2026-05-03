@@ -129,6 +129,11 @@ describe('matchConditionExpression - some operator', () => {
     expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
   });
 
+  it('should return false for an empty array', () => {
+    const expression = ['some', { value: ['gt', 10] }] as any;
+    expect(matchConditionExpression({ value: [], expression })).toBe(false);
+  });
+
   // Edge case: invalid operand type (not a plain object)
   it('should throw TypeError for unexpected operand type', () => {
     const value = [{ id: 1, value: 10 }];
