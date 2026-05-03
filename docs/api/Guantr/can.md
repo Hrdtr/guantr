@@ -2,6 +2,8 @@
 
 The `can` method checks if a specific action is permitted on a given resource, according to the rules defined in the Guantr instance. It considers both `allow` and `deny` rules, including any applicable conditions based on the resource instance and context.
 
+> For an abstract check that only tests whether any allow rule exists (without evaluating conditions or deny rules), see [`can.abstract`](./can.abstract).
+
 ## Signature
 
 ```ts
@@ -17,7 +19,7 @@ interface Guantr<Meta, Context> {
 
 - `action`: (`string`) The action being attempted (e.g., `'read'`, `'update'`).
 - `resource`: (`string` | `[string, object]`) The resource being acted upon.
-  - If a `string` (e.g., `'post'`) is provided, it checks rules defined for the general resource type _without_ evaluating instance-specific conditions.
+  - If a `string` (e.g., `'post'`) is provided, it checks rules defined for the general resource type _without_ evaluating instance-specific conditions. **Deprecated** — use [`can.abstract`](./can.abstract) instead for this behaviour.
   - If a tuple `[resourceKey: string, resourceInstance: object]` (e.g., `['post', { id: 1, status: 'draft' }]`) is provided, it checks rules for the `resourceKey` and evaluates any conditions against the properties of the `resourceInstance` and the current context.
 
 ## Returns

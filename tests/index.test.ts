@@ -744,3 +744,76 @@ describe('Guantr.can', () => {
     expect(await guantr.can('read', ['post', { ...post, published: false }])).toBe(false);
   });
 });
+
+describe('Guantr.can.abstract / cannot.abstract', () => {
+  it('can.abstract should return true if any allow rule exists (ignores deny rules)', async () => {
+    const guantr = await createGuantr<MockMeta>();
+    await guantr.setRules((can, cannot) => {
+      can('read', 'post');
+      cannot('read', ['post', { published: ['eq', false] }]);
+    });
+
+    // can.abstract only looks for the existence of an allow rule — deny is ignored
+    expect(await guantr.can.abstract('read', 'post')).toBe(true);
+  });
+
+  it('can.abstract should return false when no allow rule exists', async () => {
+    const guantr = await createGuantr<MockMeta>();
+    await guantr.setRules((can, cannot) => {
+      cannot('read', 'post');
+    });
+
+    expect(await guantr.can.abstract('read', 'post')).toBe(false);
+  });
+
+  it('can.abstract should return false when no rules exist at all', async () => {
+    const guantr = await createGuantr<MockMeta>([]);
+    expect(await guantr.can.abstract('read', 'post')).toBe(false);
+  });
+
+  it('can.abstract should return true even when only conditional allow rules exist', async () => {
+    const guantr = await createGuantr<MockMeta>();
+    await guantr.setRules((can) => {
+      can('read', ['post', { published: ['eq', true] }]);
+    });
+
+    // Abstract check doesn't evaluate conditions — just the existence of an allow rule
+    expect(await guantr.can.abstract('read', 'post')).toBe(true);
+  });
+
+  it('can.abstract should be resource-key scoped (does not bleed across resources)', async () => {
+    const guantr = await createGuantr<MockMeta>();
+    await guantr.setRules((can) => {
+      can('read', 'user');
+    });
+
+    expect(await guantr.can.abstract('read', 'post')).toBe(false);
+    expect(await guantr.can.abstract('read', 'user')).toBe(true);
+  });
+
+  it('cannotAbstract should return true when no allow rule exists', async () => {
+    const guantr = await createGuantr<MockMeta>([]);
+    expect(await guantr.cannot.abstract('read', 'post')).toBe(true);
+  });
+
+  it('cannotAbstract should return false when an allow rule exists', async () => {
+    const guantr = await createGuantr<MockMeta>();
+    await guantr.setRules((can, cannot) => {
+      can('read', 'post');
+      cannot('read', ['post', { published: ['eq', false] }]);
+    });
+
+    expect(await guantr.cannot.abstract('read', 'post')).toBe(false);
+  });
+
+  it('cannotAbstract is the logical negation of can.abstract', async () => {
+    const guantr = await createGuantr<MockMeta>();
+    await guantr.setRules((can) => {
+      can('read', 'post');
+    });
+
+    const abstract = await guantr.can.abstract('read', 'post');
+    const abstractNot = await guantr.cannot.abstract('read', 'post');
+    expect(abstract).toBe(!abstractNot);
+  });
+});
