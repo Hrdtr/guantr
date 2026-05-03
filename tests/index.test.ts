@@ -817,3 +817,173 @@ describe('Guantr.can.abstract / cannot.abstract', () => {
     expect(abstract).toBe(!abstractNot);
   });
 });
+
+describe('Guantr.setRules with async callback', () => {
+  test('should capture rules defined before await', async () => {
+    const guantr = await createGuantr<MockMeta>();
+    await guantr.setRules(async (can) => {
+      can('read', 'post');
+      await Promise.resolve();
+    });
+
+    const rules = await guantr.getRules();
+    expect(rules).toContainEqual({
+      action: 'read',
+      resource: 'post',
+      condition: null,
+      effect: 'allow',
+    });
+  });
+
+  test('should capture rules defined after await', async () => {
+    const guantr = await createGuantr<MockMeta>();
+    await guantr.setRules(async (can, cannot) => {
+      can('read', 'post');
+      await Promise.resolve();
+      cannot('delete', 'post');
+    });
+
+    const rules = await guantr.getRules();
+    expect(rules).toContainEqual({
+      action: 'read',
+      resource: 'post',
+      condition: null,
+      effect: 'allow',
+    });
+    expect(rules).toContainEqual({
+      action: 'delete',
+      resource: 'post',
+      condition: null,
+      effect: 'deny',
+    });
+  });
+
+  test('should capture rules with conditions defined after await', async () => {
+    const guantr = await createGuantr<MockMeta>();
+    await guantr.setRules(async (can) => {
+      can('read', 'post');
+      await Promise.resolve();
+      can('read', ['post', { published: ['eq', true] }]);
+    });
+
+    const rules = await guantr.getRules();
+    expect(rules).toHaveLength(2);
+    expect(rules).toContainEqual({
+      action: 'read',
+      resource: 'post',
+      condition: null,
+      effect: 'allow',
+    });
+    expect(rules).toContainEqual({
+      action: 'read',
+      resource: 'post',
+      condition: { published: ['eq', true] },
+      effect: 'allow',
+    });
+  });
+
+  test('should work with real async operations like fetch-like delays', async () => {
+    const guantr = await createGuantr<MockMeta>();
+
+    // Simulate fetching rules from an external source
+    const fetchUserPermissions = async () => {
+      // Simulate network delay
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return { canCreate: true, canDelete: false } as const;
+    };
+
+    await guantr.setRules(async (can, cannot) => {
+      can('read', 'post');
+      const permissions = await fetchUserPermissions();
+      if (permissions.canCreate) {
+        can('create', 'post');
+      }
+      if (!permissions.canDelete) {
+        cannot('delete', 'post');
+      }
+    });
+
+    const rules = await guantr.getRules();
+    expect(rules).toContainEqual({
+      action: 'read',
+      resource: 'post',
+      condition: null,
+      effect: 'allow',
+    });
+    expect(rules).toContainEqual({
+      action: 'create',
+      resource: 'post',
+      condition: null,
+      effect: 'allow',
+    });
+    expect(rules).toContainEqual({
+      action: 'delete',
+      resource: 'post',
+      condition: null,
+      effect: 'deny',
+    });
+  });
+
+  test('should work with sync callbacks unchanged', async () => {
+    const guantr = await createGuantr<MockMeta>();
+    await guantr.setRules((can, cannot) => {
+      can('read', 'post');
+      cannot('delete', 'post');
+    });
+
+    const rules = await guantr.getRules();
+    expect(rules).toHaveLength(2);
+    expect(rules).toContainEqual({
+      action: 'read',
+      resource: 'post',
+      condition: null,
+      effect: 'allow',
+    });
+    expect(rules).toContainEqual({
+      action: 'delete',
+      resource: 'post',
+      condition: null,
+      effect: 'deny',
+    });
+  });
+
+  test('should handle async callback that returns nothing (only await)', async () => {
+    const guantr = await createGuantr<MockMeta>();
+    await guantr.setRules(async (can) => {
+      can('read', 'post');
+      // Just awaiting something without defining more rules
+      await Promise.resolve();
+    });
+
+    const rules = await guantr.getRules();
+    expect(rules).toHaveLength(1);
+    expect(rules[0]).toMatchObject({
+      action: 'read',
+      resource: 'post',
+      effect: 'allow',
+    });
+  });
+
+  test('should clear rules and set new ones with async callback', async () => {
+    const guantr = await createGuantr<MockMeta>();
+
+    // Set initial rules
+    await guantr.setRules((can) => {
+      can('read', 'user');
+    });
+
+    // Replace with async callback
+    await guantr.setRules(async (can) => {
+      await Promise.resolve();
+      can('read', 'post');
+    });
+
+    const rules = await guantr.getRules();
+    expect(rules).toHaveLength(1);
+    expect(rules[0]).toMatchObject({
+      action: 'read',
+      resource: 'post',
+      effect: 'allow',
+    });
+  });
+});

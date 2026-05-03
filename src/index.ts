@@ -259,7 +259,7 @@ export class Guantr<
     }
 
     const rules: GuantrAnyRule[] = [];
-    callbackOrRules(
+    const result = callbackOrRules(
       (action, resource) =>
         rules.push({
           action,
@@ -277,6 +277,10 @@ export class Guantr<
           effect: 'deny',
         }),
     );
+
+    if (result && typeof result.then === 'function') {
+      await result;
+    }
 
     if (this._strict) {
       for (const rule of rules) {
@@ -567,7 +571,7 @@ type SetRulesCallback<
           GuantrRule<Meta, Context, ResourceKey>['condition'],
         ],
   ) => void,
-) => void;
+) => void | Promise<void>;
 
 export async function createGuantr<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
