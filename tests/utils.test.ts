@@ -71,35 +71,35 @@ describe('getContextValue', () => {
 
 describe('validateValueType', () => {
   it('should not throw an error if the value is null or undefined', () => {
-    expect(() => validateValueType(null, ['string'], 'eq')).not.toThrowError();
-    expect(() => validateValueType(undefined, ['string'], 'eq')).not.toThrowError();
+    expect(() => validateValueType(null, ['string'], 'eq', 'value')).not.toThrowError();
+    expect(() => validateValueType(undefined, ['string'], 'eq', 'value')).not.toThrowError();
   });
 
   it('should not throw an error if the value matches the allowed types', () => {
-    expect(() => validateValueType('string', ['string'], 'eq')).not.toThrowError();
-    expect(() => validateValueType(123, ['number'], 'eq')).not.toThrowError();
-    expect(() => validateValueType(true, ['boolean'], 'eq')).not.toThrowError();
-    expect(() => validateValueType([1, 2, 3], ['array'], 'eq')).not.toThrowError();
-    expect(() => validateValueType({ a: 1 }, ['object'], 'eq')).not.toThrowError();
+    expect(() => validateValueType('string', ['string'], 'eq', 'value')).not.toThrowError();
+    expect(() => validateValueType(123, ['number'], 'eq', 'value')).not.toThrowError();
+    expect(() => validateValueType(true, ['boolean'], 'eq', 'value')).not.toThrowError();
+    expect(() => validateValueType([1, 2, 3], ['array'], 'eq', 'value')).not.toThrowError();
+    expect(() => validateValueType({ a: 1 }, ['object'], 'eq', 'value')).not.toThrowError();
   });
 
   it('should throw a TypeError if the value does not match the allowed types', () => {
-    expect(() => validateValueType(123, ['string'], 'eq')).toThrowError(TypeError);
-    expect(() => validateValueType(true, ['number'], 'eq')).toThrowError(TypeError);
-    expect(() => validateValueType('string', ['boolean'], 'eq')).toThrowError(TypeError);
-    expect(() => validateValueType({ a: 1 }, ['array'], 'eq')).toThrowError(TypeError);
-    expect(() => validateValueType([1, 2, 3], ['object'], 'eq')).toThrowError(TypeError);
+    expect(() => validateValueType(123, ['string'], 'eq', 'value')).toThrowError(TypeError);
+    expect(() => validateValueType(true, ['number'], 'eq', 'value')).toThrowError(TypeError);
+    expect(() => validateValueType('string', ['boolean'], 'eq', 'value')).toThrowError(TypeError);
+    expect(() => validateValueType({ a: 1 }, ['array'], 'eq', 'value')).toThrowError(TypeError);
+    expect(() => validateValueType([1, 2, 3], ['object'], 'eq', 'value')).toThrowError(TypeError);
   });
 
   it('should not throw an error if the custom validator returns true', () => {
     expect(() =>
-      validateValueType('string', ['string'], 'eq', (value) => typeof value === 'string'),
+      validateValueType('string', ['string'], 'eq', 'value', (value) => typeof value === 'string'),
     ).not.toThrowError();
   });
 
   it('should throw a TypeError if the custom validator returns false', () => {
     expect(() =>
-      validateValueType('string', ['string'], 'eq', (value) => typeof value === 'number'),
+      validateValueType('string', ['string'], 'eq', 'value', (value) => typeof value === 'number'),
     ).toThrowError(TypeError);
   });
 });

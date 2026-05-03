@@ -11,6 +11,8 @@ import { getContextValue, isContextualOperand, matchRuleCondition } from './util
 
 export type {
   GuantrMeta,
+  GuantrOptions,
+  ConditionOperator,
   GuantrResource,
   GuantrResourceAction,
   GuantrResourceModel,
@@ -158,12 +160,18 @@ export class Guantr<
           ? `can/${action}:${resource}:${JSON.stringify(context)}`
           : `can/${action}:${resource[0]}:${JSON.stringify(resource[1])}:${JSON.stringify(context)}`;
 
-      const cachedResult = this._storage.cache.has
-        ? (await this._storage.cache.has(cacheKey))
-          ? await this._storage.cache.get<boolean>(cacheKey)
-          : null
-        : await this._storage.cache.get<boolean>(cacheKey);
-      if (cachedResult != null) {
+      let cachedResult: boolean | undefined = undefined;
+      try {
+        cachedResult = this._storage.cache.has
+          ? (await this._storage.cache.has(cacheKey))
+            ? await this._storage.cache.get<boolean>(cacheKey)
+            : undefined
+          : await this._storage.cache.get<boolean>(cacheKey);
+      } catch {
+        // Swallow cache adapter errors and treat as cache miss
+        cachedResult = undefined;
+      }
+      if (cachedResult !== undefined) {
         return cachedResult;
       }
     }
@@ -180,9 +188,13 @@ export class Guantr<
     }
 
     // Retrieve all rules for the given action and resource key & apply condition contextual operand replacement.
-    const rules = await this.relatedRulesFor(action, resource[0], {
-      applyConditionContextualOperands: true,
-    });
+    const rawRules = await this._storage.queryRules(action as string, resource[0] as string);
+    const rules = await Promise.all(
+      rawRules.map(async (rule) => ({
+        ...rule,
+        condition: await this.applyContextualOperands(rule.condition, context),
+      })),
+    );
     if (rules.length === 0) {
       return await trySetCache(false);
     }
@@ -243,22 +255,29 @@ export class Guantr<
 
   private async applyContextualOperands(
     condition: GuantrAnyRule['condition'],
+    context?: Context,
   ): Promise<GuantrAnyRule['condition']> {
     if (condition == null) {
       return null;
     }
 
-    const context = await this._getContext();
+    const resolvedContext = context ?? (await this._getContext());
 
     let cacheKey: string | null = null;
     if (this._storage.cache) {
-      cacheKey = `applyContextualOperands/${JSON.stringify(condition)}:${JSON.stringify(context)}`;
-      const cachedResult = this._storage.cache.has
-        ? (await this._storage.cache.has(cacheKey))
-          ? await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey)
-          : null
-        : await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey);
-      if (cachedResult != null) {
+      cacheKey = `applyContextualOperands/${JSON.stringify(condition)}:${JSON.stringify(resolvedContext)}`;
+      let cachedResult: GuantrAnyRule['condition'] | undefined = undefined;
+      try {
+        cachedResult = this._storage.cache.has
+          ? (await this._storage.cache.has(cacheKey))
+            ? await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey)
+            : undefined
+          : await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey);
+      } catch {
+        // Swallow cache adapter errors and treat as cache miss
+        cachedResult = undefined;
+      }
+      if (cachedResult !== undefined) {
         return cachedResult;
       }
     }
@@ -272,7 +291,7 @@ export class Guantr<
     // Recursive helper function to traverse and process the condition.
     const traverse = (obj: any): any => {
       if (isContextualOperand(obj)) {
-        return getContextValue(context, obj);
+        return getContextValue(resolvedContext, obj);
       }
 
       if (Array.isArray(obj)) {

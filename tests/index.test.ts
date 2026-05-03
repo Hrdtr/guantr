@@ -94,7 +94,7 @@ describe('Guantr', () => {
       },
     ];
 
-    guantr.setRules(rules);
+    await guantr.setRules(rules);
 
     expect(await guantr.getRules()).toEqual(rules);
   });
@@ -131,7 +131,7 @@ describe('Guantr', () => {
       },
     ];
 
-    guantr.setRules(newRules);
+    await guantr.setRules(newRules);
 
     expect(await guantr.getRules()).toEqual(newRules);
   });

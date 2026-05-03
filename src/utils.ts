@@ -114,6 +114,7 @@ export const getContextValue = <T extends Record<string, unknown>, U>(
  * @param {unknown} value - The value to validate.
  * @param {Array<'string' | 'number' | 'boolean' | 'array' | 'object' | 'null' | 'undefined'>} allowedTypes - The allowed types for the value.
  * @param {string} operator - The operator that is being validated.
+ * @param {string} label - A label describing what is being validated (e.g., 'value' or 'operand').
  * @param {(value: unknown) => boolean} [customValidator] - An optional custom validator that will be called with the value as an argument.
  * @throws {TypeError} If the value does not match the allowed types or the custom validator returns false.
  */
@@ -121,6 +122,7 @@ export function validateValueType(
   value: unknown,
   allowedTypes: Array<'string' | 'number' | 'boolean' | 'array' | 'object' | 'null' | 'undefined'>,
   operator: string,
+  label: string,
   customValidator?: (value: unknown) => boolean,
 ) {
   // Always allow null and undefined
@@ -160,7 +162,7 @@ export function validateValueType(
   const customValidation = customValidator ? customValidator(value) : true;
   if (!typeMatches || !customValidation) {
     throw new TypeError(
-      `Unexpected value type for ${operator} operator. Expected: ${allowedTypes.join(' | ')}`,
+      `Unexpected ${label} type for ${operator} operator. Expected: ${allowedTypes.join(' | ')}`,
     );
   }
 }
@@ -172,8 +174,13 @@ const conditionHandlers: Record<
 > = {
   // Equals operator: checks if value equals operand
   eq: (value, operand, options) => {
-    validateValueType(value, ['string', 'number', 'boolean', 'null', 'undefined'], 'eq');
-    validateValueType(operand, ['string', 'number', 'boolean', 'null', 'undefined'], 'eq');
+    validateValueType(value, ['string', 'number', 'boolean', 'null', 'undefined'], 'eq', 'value');
+    validateValueType(
+      operand,
+      ['string', 'number', 'boolean', 'null', 'undefined'],
+      'eq',
+      'operand',
+    );
 
     // Handle case-insensitive string comparison
     if (options?.caseInsensitive && isString(operand) && isString(value)) {
@@ -184,7 +191,7 @@ const conditionHandlers: Record<
 
   // In operator: checks if value is in operand array
   in: (value, operand, options) => {
-    validateValueType(value, ['string', 'number', 'null', 'undefined'], 'in');
+    validateValueType(value, ['string', 'number', 'null', 'undefined'], 'in', 'value');
     if (!isStringOrNumberArray(operand)) {
       throw new TypeError(
         `The operand for condition with in operator must be an array of strings or numbers.`,
@@ -204,7 +211,7 @@ const conditionHandlers: Record<
 
   // Contains operator: checks if string value contains string operand
   contains: (value, operand, options) => {
-    validateValueType(value, ['string', 'null', 'undefined'], 'contains');
+    validateValueType(value, ['string', 'null', 'undefined'], 'contains', 'value');
     if (!isString(operand)) {
       throw new TypeError(`The operand for condition with contains operator must be a string.`);
     }
@@ -222,7 +229,7 @@ const conditionHandlers: Record<
 
   // StartsWith operator: checks if string value starts with string operand
   startsWith: (value, operand, options) => {
-    validateValueType(value, ['string', 'null', 'undefined'], 'startsWith');
+    validateValueType(value, ['string', 'null', 'undefined'], 'startsWith', 'value');
     if (!isString(operand)) {
       throw new TypeError(`The operand for condition with startsWith operator must be a string.`);
     }
@@ -240,7 +247,7 @@ const conditionHandlers: Record<
 
   // EndsWith operator: checks if string value ends with string operand
   endsWith: (value, operand, options) => {
-    validateValueType(value, ['string', 'null', 'undefined'], 'endsWith');
+    validateValueType(value, ['string', 'null', 'undefined'], 'endsWith', 'value');
     if (!isString(operand)) {
       throw new TypeError(`The operand for condition with endsWith operator must be a string.`);
     }
@@ -258,7 +265,7 @@ const conditionHandlers: Record<
 
   // Greater than operator: checks if number value is greater than number operand
   gt: (value, operand) => {
-    validateValueType(value, ['number', 'null', 'undefined'], 'gt');
+    validateValueType(value, ['number', 'null', 'undefined'], 'gt', 'value');
     if (!isNumber(operand)) {
       throw new TypeError(`The operand for condition with gt operator must be a number.`);
     }
@@ -272,7 +279,7 @@ const conditionHandlers: Record<
 
   // Greater than or equal operator: checks if number value is greater than or equal to number operand
   gte: (value, operand) => {
-    validateValueType(value, ['number', 'null', 'undefined'], 'gte');
+    validateValueType(value, ['number', 'null', 'undefined'], 'gte', 'value');
     if (!isNumber(operand)) {
       throw new TypeError(`The operand for condition with gte operator must be a number.`);
     }
@@ -286,7 +293,7 @@ const conditionHandlers: Record<
 
   // Has operator: checks if array value has operand
   has: (value, operand, options) => {
-    validateValueType(value, ['array', 'null', 'undefined'], 'has', (item) =>
+    validateValueType(value, ['array', 'null', 'undefined'], 'has', 'value', (item) =>
       isStringOrNumberArray(item),
     );
     if (!isString(operand) && !isNumber(operand)) {
@@ -310,7 +317,7 @@ const conditionHandlers: Record<
 
   // HasSome operator: checks if array value has some of operand array
   hasSome: (value, operand, options) => {
-    validateValueType(value, ['array', 'null', 'undefined'], 'hasSome', (item) =>
+    validateValueType(value, ['array', 'null', 'undefined'], 'hasSome', 'value', (item) =>
       isStringOrNumberArray(item),
     );
     if (!isStringOrNumberArray(operand)) {
@@ -337,7 +344,7 @@ const conditionHandlers: Record<
 
   // HasEvery operator: checks if array value has every operand array item
   hasEvery: (value, operand, options) => {
-    validateValueType(value, ['array', 'null', 'undefined'], 'hasEvery', (item) =>
+    validateValueType(value, ['array', 'null', 'undefined'], 'hasEvery', 'value', (item) =>
       isStringOrNumberArray(item),
     );
     if (!isStringOrNumberArray(operand)) {
@@ -364,7 +371,9 @@ const conditionHandlers: Record<
 
   // Some operator: checks if some array items match condition
   some: (value, operand) => {
-    validateValueType(value, ['array', 'null', 'undefined'], 'some', (item) => isObjectArray(item));
+    validateValueType(value, ['array', 'null', 'undefined'], 'some', 'value', (item) =>
+      isObjectArray(item),
+    );
     if (!isPlainObject(operand)) {
       throw new TypeError(`The operand for condition with some operator must be an object.`);
     }
@@ -379,7 +388,7 @@ const conditionHandlers: Record<
 
   // Every operator: checks if every array item matches condition
   every: (value, operand) => {
-    validateValueType(value, ['array', 'null', 'undefined'], 'every', (item) =>
+    validateValueType(value, ['array', 'null', 'undefined'], 'every', 'value', (item) =>
       isObjectArray(item),
     );
     if (!isPlainObject(operand)) {
@@ -396,7 +405,9 @@ const conditionHandlers: Record<
 
   // None operator: checks if no array items match condition
   none: (value, operand) => {
-    validateValueType(value, ['array', 'null', 'undefined'], 'none', (item) => isObjectArray(item));
+    validateValueType(value, ['array', 'null', 'undefined'], 'none', 'value', (item) =>
+      isObjectArray(item),
+    );
     if (!isPlainObject(operand)) {
       throw new TypeError(`The operand for condition with none operator must be an object.`);
     }

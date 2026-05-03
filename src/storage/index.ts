@@ -69,8 +69,8 @@ export class InMemoryStorage implements Storage {
       this.storage.cache.set(key, value);
     },
 
-    get: async <T>(key: string): Promise<T> => {
-      return this.storage.cache.get(key) as T;
+    get: async <T>(key: string): Promise<T | undefined> => {
+      return this.storage.cache.get(key) as T | undefined;
     },
 
     has: async (key: string) => {
