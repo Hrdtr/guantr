@@ -476,7 +476,7 @@ describe('Guantr.can', () => {
   it('should handle circuit breaker in can method', async () => {
     const guantr = await createGuantr();
     const rules: GuantrAnyRule[] = [];
-    // change the loop to < 1000 should work as expected
+    // 1001 rules should trip the default circuit breaker (limit: 1000)
     for (let i = 0; i < 1001; i++) {
       rules.push({
         resource: 'post',
@@ -493,7 +493,7 @@ describe('Guantr.can', () => {
       lastUpdatedAt: null,
       tags: [],
     };
-    expect(await guantr.can('read', ['post', post])).toBe(false);
+    await expect(guantr.can('read', ['post', post])).rejects.toThrow('Circuit breaker tripped');
   });
 
   it('should be able to handle overlapping rules: general -> specific', async () => {

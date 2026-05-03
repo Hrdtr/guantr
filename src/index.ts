@@ -126,13 +126,38 @@ type CannotMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
   ): Promise<boolean>;
 };
 
+/**
+ * Error thrown when the circuit breaker trips due to excessive rule iterations.
+ * Indicates that the number of rules evaluated for a single permission check
+ * exceeded the configured `maxRuleIterations` limit.
+ */
+export class GuantrCircuitBreakerError extends Error {
+  /** The action being checked when the circuit breaker tripped. */
+  action: string;
+  /** The resource key being checked when the circuit breaker tripped. */
+  resource: string;
+  /** The configured iteration limit that was exceeded. */
+  limit: number;
+
+  constructor(action: string, resource: string, limit: number) {
+    super(
+      `[guantr] Circuit breaker tripped: rule iteration limit (${limit}) exceeded while evaluating action "${action}" on resource "${resource}". ` +
+        `Consider reducing the number of rules or increasing the \`maxRuleIterations\` option.`,
+    );
+    this.name = 'GuantrCircuitBreakerError';
+    this.action = action;
+    this.resource = resource;
+    this.limit = limit;
+  }
+}
+
 export class Guantr<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
   Context extends Record<string, unknown> = Record<string, unknown>,
 > {
   private _storage: Storage;
   private _getContext: () => Context | PromiseLike<Context>;
-  private static readonly MAX_ITERATIONS = 1000;
+  private readonly _maxRuleIterations: number;
 
   /**
    * Controls whether deprecation warnings are emitted for string-mode `can()` usage.
@@ -172,6 +197,7 @@ export class Guantr<
   constructor(options?: GuantrOptions<Context>) {
     this._storage = options?.storage || new InMemoryStorage();
     this._getContext = options?.getContext || (() => Promise.resolve({} as Context));
+    this._maxRuleIterations = options?.maxRuleIterations ?? 1000;
 
     this.can = Object.assign(
       <
@@ -368,9 +394,13 @@ export class Guantr<
     let iterationCount = 0; // Counter for circuit breaking.
     for (const rule of rules) {
       iterationCount++;
-      // Circuit breaker: if iterations exceed MAX_ITERATIONS, break out.
-      if (iterationCount > Guantr.MAX_ITERATIONS) {
-        return await trySetCache(false);
+      // Circuit breaker: if iterations exceed maxRuleIterations, throw an error.
+      if (iterationCount > this._maxRuleIterations) {
+        throw new GuantrCircuitBreakerError(
+          action as string,
+          resource[0] as string,
+          this._maxRuleIterations,
+        );
       }
       // If no condition is set, consider it as a direct allow/deny.
       if (!rule.condition) {
