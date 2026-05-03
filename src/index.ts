@@ -160,11 +160,17 @@ export class Guantr<
           ? `can/${action}:${resource}:${JSON.stringify(context)}`
           : `can/${action}:${resource[0]}:${JSON.stringify(resource[1])}:${JSON.stringify(context)}`;
 
-      const cachedResult = this._storage.cache.has
-        ? (await this._storage.cache.has(cacheKey))
-          ? await this._storage.cache.get<boolean>(cacheKey)
-          : undefined
-        : await this._storage.cache.get<boolean>(cacheKey);
+      let cachedResult: boolean | undefined = undefined;
+      try {
+        cachedResult = this._storage.cache.has
+          ? (await this._storage.cache.has(cacheKey))
+            ? await this._storage.cache.get<boolean>(cacheKey)
+            : undefined
+          : await this._storage.cache.get<boolean>(cacheKey);
+      } catch (error) {
+        // Swallow cache adapter errors and treat as cache miss
+        cachedResult = undefined;
+      }
       if (cachedResult !== undefined) {
         return cachedResult;
       }
@@ -260,11 +266,17 @@ export class Guantr<
     let cacheKey: string | null = null;
     if (this._storage.cache) {
       cacheKey = `applyContextualOperands/${JSON.stringify(condition)}:${JSON.stringify(resolvedContext)}`;
-      const cachedResult = this._storage.cache.has
-        ? (await this._storage.cache.has(cacheKey))
-          ? await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey)
-          : undefined
-        : await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey);
+      let cachedResult: GuantrAnyRule['condition'] | undefined = undefined;
+      try {
+        cachedResult = this._storage.cache.has
+          ? (await this._storage.cache.has(cacheKey))
+            ? await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey)
+            : undefined
+          : await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey);
+      } catch (error) {
+        // Swallow cache adapter errors and treat as cache miss
+        cachedResult = undefined;
+      }
       if (cachedResult !== undefined) {
         return cachedResult;
       }
