@@ -1,6 +1,6 @@
 {
   "name": "guantr",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Flexible, type-safe JavaScript library for efficient authorization and permission checking",
   "license": "MIT",
   "repository": "Hrdtr/guantr",
