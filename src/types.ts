@@ -9,6 +9,27 @@ export type GuantrOptions<Context extends Record<string, unknown> = Record<strin
    * @default 1000
    */
   maxRuleIterations?: number;
+  /**
+   * Enable strict validation mode.
+   *
+   * When `true`:
+   * - `setRules()` validates every condition at definition time and throws
+   *   `GuantrInvalidConditionError` if a condition uses an unrecognized operator
+   *   or has malformed structure.
+   * - `matchConditionExpression()` throws `GuantrInvalidConditionOperatorError`
+   *   for unknown operators instead of silently returning `false`.
+   * - `isValidConditionExpression()` also verifies that the operator is a known
+   *   `ConditionOperator` value.
+   *
+   * When `false` (the default):
+   * - Legacy / fail-closed behavior. Unknown operators return `false`.
+   *   No structural validation happens at `setRules()` time.
+   *   Useful in production when you want fail-closed without crashes during rollout,
+   *   or when migrating an existing codebase gradually.
+   *
+   * @default false
+   */
+  strict?: boolean;
 };
 
 export type GuantrMeta<

@@ -7,7 +7,14 @@ import type {
   GuantrOptions,
 } from './types';
 import { InMemoryStorage } from './storage';
-import { getContextValue, isContextualOperand, matchRuleCondition } from './utils';
+import {
+  getContextValue,
+  isContextualOperand,
+  matchRuleCondition,
+  validateConditionForStrict,
+} from './utils';
+
+export { GuantrInvalidConditionError, GuantrInvalidConditionOperatorError } from './errors';
 
 export type {
   GuantrMeta,
@@ -158,6 +165,7 @@ export class Guantr<
   private _storage: Storage;
   private _getContext: () => Context | PromiseLike<Context>;
   private readonly _maxRuleIterations: number;
+  private readonly _strict: boolean;
 
   /**
    * Controls whether deprecation warnings are emitted for string-mode `can()` usage.
@@ -198,6 +206,7 @@ export class Guantr<
     this._storage = options?.storage || new InMemoryStorage();
     this._getContext = options?.getContext || (() => Promise.resolve({} as Context));
     this._maxRuleIterations = options?.maxRuleIterations ?? 1000;
+    this._strict = options?.strict ?? false;
 
     this.can = Object.assign(
       <
@@ -252,13 +261,20 @@ export class Guantr<
    * @param {GuantrRule<Meta, Context>[]} rules - The array of rules to set.
    */
   setRules(rules: GuantrRule<Meta, Context>[]): Promise<void>;
-  setRules(
+  async setRules(
     callbackOrRules: SetRulesCallback<Meta, Context> | GuantrRule<Meta, Context>[],
   ): Promise<void> {
     this._storage.clearRules();
     this._storage.cache?.clear();
 
     if (Array.isArray(callbackOrRules)) {
+      if (this._strict) {
+        for (const rule of callbackOrRules as GuantrAnyRule[]) {
+          if (rule.condition !== null) {
+            validateConditionForStrict(rule.condition);
+          }
+        }
+      }
       return this._storage.setRules(callbackOrRules as GuantrAnyRule[]);
     }
 
@@ -281,6 +297,15 @@ export class Guantr<
           effect: 'deny',
         }),
     );
+
+    if (this._strict) {
+      for (const rule of rules) {
+        if (rule.condition !== null) {
+          validateConditionForStrict(rule.condition);
+        }
+      }
+    }
+
     return this._storage.setRules(rules);
   }
 
@@ -410,7 +435,7 @@ export class Guantr<
         continue;
       }
       // Evaluate the condition using the matching utility.
-      const matched = matchRuleCondition(resource[1], rule.condition);
+      const matched = matchRuleCondition(resource[1], rule.condition, this._strict);
       if (matched) {
         if (rule.effect === 'allow') allowed.push(true);
         else denied.push(false);

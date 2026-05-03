@@ -42,6 +42,7 @@ export default defineConfig({
         items: [
           { text: 'Custom Storage Adapter', link: '/advanced-usage/custom-storage-adapter' },
           { text: 'Caching', link: '/advanced-usage/caching' },
+          { text: 'Strict Mode', link: '/advanced-usage/strict-mode' },
           {
             text: 'Rules as Query Filters',
             items: [{ text: 'Prisma', link: '/advanced-usage/rules-as-query-filters/prisma' }],
@@ -75,6 +76,7 @@ export default defineConfig({
               { text: '.cannot.abstract', link: '/api/Guantr/cannot.abstract' },
             ],
           },
+          { text: 'Error Classes', link: '/api/error-classes' },
         ],
       },
     ],
@@ -82,7 +84,7 @@ export default defineConfig({
     footer: {
       message:
         'Released under the <a href="https://github.com/Hrdtr/guantr/blob/main/LICENSE">MIT License</a>.',
-      copyright: 'Copyright © 2024 <a href="https://github.com/Hrdtr">Herdi Tr.</a>',
+      copyright: 'Copyright © 2026 <a href="https://github.com/Hrdtr">Herdi Tr.</a>',
     },
 
     socialLinks: [
