@@ -65,4 +65,4 @@ await guantr.can('read', 'post');
 await guantr.can.abstract('read', 'post');
 ```
 
-See also: [`cannot.abstract`](./cannot.abstract), [`can`](./can), [Concepts: Abstract vs Resource-Aware Checks](../guides/abstract-vs-resource-aware).
+See also: [`cannot.abstract`](./cannot.abstract), [`can`](./can), [Concepts: Abstract vs Resource-Aware Checks](../../guides/abstract-vs-resource-aware).

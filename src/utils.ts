@@ -130,6 +130,12 @@ export function validateConditionForStrict(
   _path: string = '',
 ): void {
   if (condition === null || condition === undefined) return;
+  if (!isPlainObject(condition)) {
+    throw new GuantrInvalidConditionError(
+      condition,
+      `Invalid condition at "${_path || '<root>'}": expected a condition object`,
+    );
+  }
 
   for (const [key, value] of Object.entries(condition)) {
     const path = _path ? `${_path}.${key}` : key;

@@ -153,8 +153,11 @@ describe('Guantr.cannot', () => {
 
   // 12. throws GuantrCircuitBreakerError when maxRuleIterations is exceeded
   it('throws GuantrCircuitBreakerError when limit exceeded', async () => {
-    const guantr = new Guantr({ maxRuleIterations: 0 });
-    await guantr.setRules([{ effect: 'allow', action: 'read', resource: 'post', condition: null }]);
+    const guantr = new Guantr({ maxRuleIterations: 1 });
+    await guantr.setRules([
+      { effect: 'allow', action: 'read', resource: 'post', condition: null },
+      { effect: 'allow', action: 'read', resource: 'post', condition: { title: ['eq', 'Test'] } },
+    ]);
 
     // _can throws after the first iteration (1 > 0); cannot() propagates the error
     await expect(guantr.cannot('read', ['post', { id: 1 }])).rejects.toThrowError(

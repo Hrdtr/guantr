@@ -36,4 +36,4 @@ const showEditButton = !(await guantr.cannot.abstract('update', 'post'));
 // -> true (allow rule exists — show the button)
 ```
 
-See also: [`can.abstract`](./can.abstract), [`cannot`](./cannot), [Concepts: Abstract vs Resource-Aware Checks](../guides/abstract-vs-resource-aware).
+See also: [`can.abstract`](./can.abstract), [`cannot`](./cannot), [Concepts: Abstract vs Resource-Aware Checks](../../guides/abstract-vs-resource-aware).

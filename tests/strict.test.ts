@@ -89,9 +89,8 @@ describe('isValidConditionExpression (strict)', () => {
 // validateConditionForStrict
 // ---------------------------------------------------------------------------
 describe('validateConditionForStrict', () => {
-  it('accepts null or undefined conditions without throwing', () => {
+  it('accepts null condition without throwing', () => {
     expect(() => validateConditionForStrict(null)).not.toThrow();
-    expect(() => validateConditionForStrict(null)).not.toThrow(); // null is the only nullable form in the type
   });
 
   it('accepts a valid flat condition without throwing', () => {

@@ -187,7 +187,12 @@ export class Guantr<
   constructor(options?: GuantrOptions<Context>) {
     this._storage = options?.storage || new InMemoryStorage();
     this._getContext = options?.getContext || (() => Promise.resolve({} as Context));
-    this._maxRuleIterations = options?.maxRuleIterations ?? 1000;
+
+    const maxRuleIterations = options?.maxRuleIterations ?? 1000;
+    if (!Number.isInteger(maxRuleIterations) || maxRuleIterations < 1) {
+      throw new TypeError('maxRuleIterations must be a positive integer');
+    }
+    this._maxRuleIterations = maxRuleIterations;
     this._strict = options?.strict ?? false;
 
     this.can = Object.assign(
@@ -246,53 +251,52 @@ export class Guantr<
   async setRules(
     callbackOrRules: SetRulesCallback<Meta, Context> | GuantrRule<Meta, Context>[],
   ): Promise<void> {
-    this._storage.clearRules();
-    this._storage.cache?.clear();
+    let nextRules: GuantrAnyRule[];
 
     if (Array.isArray(callbackOrRules)) {
+      nextRules = callbackOrRules as GuantrAnyRule[];
       if (this._strict) {
-        for (const rule of callbackOrRules as GuantrAnyRule[]) {
+        for (const rule of nextRules) {
           if (rule.condition !== null) {
             validateConditionForStrict(rule.condition);
           }
         }
       }
-      return this._storage.setRules(callbackOrRules as GuantrAnyRule[]);
-    }
+    } else {
+      const rules: GuantrAnyRule[] = [];
+      await callbackOrRules(
+        (action, resource) =>
+          rules.push({
+            action,
+            resource: typeof resource === 'string' ? resource : resource[0],
+            condition:
+              typeof resource === 'string' ? null : (resource[1] as GuantrAnyRule['condition']),
+            effect: 'allow',
+          }),
+        (action, resource) =>
+          rules.push({
+            action,
+            resource: typeof resource === 'string' ? resource : resource[0],
+            condition:
+              typeof resource === 'string' ? null : (resource[1] as GuantrAnyRule['condition']),
+            effect: 'deny',
+          }),
+      );
 
-    const rules: GuantrAnyRule[] = [];
-    const result = callbackOrRules(
-      (action, resource) =>
-        rules.push({
-          action,
-          resource: typeof resource === 'string' ? resource : resource[0],
-          condition:
-            typeof resource === 'string' ? null : (resource[1] as GuantrAnyRule['condition']),
-          effect: 'allow',
-        }),
-      (action, resource) =>
-        rules.push({
-          action,
-          resource: typeof resource === 'string' ? resource : resource[0],
-          condition:
-            typeof resource === 'string' ? null : (resource[1] as GuantrAnyRule['condition']),
-          effect: 'deny',
-        }),
-    );
-
-    if (result && typeof result.then === 'function') {
-      await result;
-    }
-
-    if (this._strict) {
-      for (const rule of rules) {
-        if (rule.condition !== null) {
-          validateConditionForStrict(rule.condition);
+      if (this._strict) {
+        for (const rule of rules) {
+          if (rule.condition !== null) {
+            validateConditionForStrict(rule.condition);
+          }
         }
       }
+
+      nextRules = rules;
     }
 
-    return this._storage.setRules(rules);
+    await this._storage.clearRules();
+    await this._storage.cache?.clear();
+    return this._storage.setRules(nextRules);
   }
 
   /**
@@ -317,7 +321,11 @@ export class Guantr<
       if (cached !== undefined) return cached;
     }
     const rules = await this._storage.getRules();
-    await this._storage.cache?.set(cacheKey, rules);
+    try {
+      await this._storage.cache?.set(cacheKey, rules);
+    } catch {
+      // Swallow cache adapter errors and return uncached rules
+    }
     return rules;
   }
 
