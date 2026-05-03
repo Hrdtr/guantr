@@ -67,6 +67,7 @@ export default defineConfig({
           {
             text: 'Guantr',
             items: [
+              { text: 'constructor', link: '/api/Guantr/constructor' },
               { text: '.setRules', link: '/api/Guantr/setRules' },
               { text: '.getRules', link: '/api/Guantr/getRules' },
               { text: '.relatedRulesFor', link: '/api/Guantr/relatedRulesFor' },

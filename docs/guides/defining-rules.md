@@ -166,9 +166,11 @@ Guantr provides a specific set of operators. Note that direct negation operators
 | `every`      | Array of objects, _all_ objects match         | `tasks: ['every', { completed: ['eq', true] }]`           |
 | `none`       | Array of objects, _none_ of the objects match | `errors: ['none', { severity: ['eq', 'critical'] }]`      |
 
-- **Nested Conditions:** Condition objects can be nested to check properties of nested objects within your resource model.
+- **Nested Conditions:** Condition objects can be nested to check properties of nested objects within your resource model. For array properties, you can use the special `$expr` key to combine array-level expressions (like `some`, `every`, `has`) with nested property checks (like `length`). See [Combining Array Expressions with Nested Conditions](/guides/defining-rules/condition-operators#combining-array-expressions-with-nested-conditions-expr) for details.
 
-- **Contextual Operands (`$ctx.`):** Use `$ctx.` within the `operand` to compare against values from the Guantr context provided during initialization.
+- **Condition Options:** Some string operators support a `caseInsensitive` option as the third element of the condition tuple (e.g., `['eq', 'hello', { caseInsensitive: true }]`). See [Condition Options](/guides/defining-rules/condition-operators#condition-options) for the full list of supported operators.
+
+- **Contextual Operands (`$ctx.`):** Use `$ctx.` within the `operand` to compare against values from the Guantr context provided during initialization. The `ctx.` prefix (without `$`) is also accepted as an alias.
 
   ```ts
   // Example using context
