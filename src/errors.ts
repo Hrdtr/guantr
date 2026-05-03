@@ -1,4 +1,41 @@
 /**
+ * Error thrown when the circuit breaker trips due to excessive rule iterations.
+ * Indicates that the number of rules evaluated for a single permission check
+ * exceeded the configured `maxRuleIterations` limit.
+ *
+ * @example
+ * ```ts
+ * try {
+ *   await guantr.can('read', ['post', { id: 1 }]);
+ * } catch (e) {
+ *   if (e instanceof GuantrCircuitBreakerError) {
+ *     console.error(e.message);
+ *     console.error(e.action, e.resource, e.limit);
+ *   }
+ * }
+ * ```
+ */
+export class GuantrCircuitBreakerError extends Error {
+  /** The action being checked when the circuit breaker tripped. */
+  action: string;
+  /** The resource key being checked when the circuit breaker tripped. */
+  resource: string;
+  /** The configured iteration limit that was exceeded. */
+  limit: number;
+
+  constructor(action: string, resource: string, limit: number) {
+    super(
+      `[guantr] Circuit breaker tripped: rule iteration limit (${limit}) exceeded while evaluating action "${action}" on resource "${resource}". ` +
+        `Consider reducing the number of rules or increasing the \`maxRuleIterations\` option.`,
+    );
+    this.name = 'GuantrCircuitBreakerError';
+    this.action = action;
+    this.resource = resource;
+    this.limit = limit;
+  }
+}
+
+/**
  * Error thrown when an unknown operator is encountered during condition evaluation in strict mode.
  * This is thrown by `matchConditionExpression` when it encounters an operator that does not
  * correspond to any known `ConditionOperator` value.
