@@ -121,10 +121,18 @@ describe('matchConditionExpression - some operator', () => {
     expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
   });
 
-  // Edge case: invalid operand type
+  // Edge case: invalid nested condition value type in operand
+  it('should throw TypeError for invalid nested condition value in operand', () => {
+    const value = [{ id: 1, value: 10 }];
+    const operand = { key: 'value' }; // String 'value' is not a valid condition expression
+    const expression = ['some', operand] as any;
+    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  });
+
+  // Edge case: invalid operand type (not a plain object)
   it('should throw TypeError for unexpected operand type', () => {
     const value = [{ id: 1, value: 10 }];
-    const operand = { key: 'value' }; // Invalid type for 'some' operand
+    const operand = 42; // Truly invalid type for 'some' operand
     const expression = ['some', operand] as any;
     expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
   });
