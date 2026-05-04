@@ -1,4 +1,4 @@
-import type { GuantrMeta, GuantrRule, GuantrResourceMap, GuantrAnyRule } from '../src';
+import type { GuantrMeta, GuantrRule, GuantrResourceMap } from '../src';
 import { describe, expect, it, test } from 'vitest';
 import { createGuantr } from '../src';
 
@@ -338,7 +338,7 @@ describe('Guantr.can', () => {
       } as { name: string } | null,
     };
 
-    const guantr1 = await createGuantr<MockMeta, typeof mockContext1>(
+    const guantr1 = await createGuantr<MockMeta>(
       [
         {
           resource: 'user',
@@ -352,7 +352,7 @@ describe('Guantr.can', () => {
       { getContext: () => mockContext1 },
     );
 
-    const guantr2 = await createGuantr<MockMeta, typeof mockContext1>(
+    const guantr2 = await createGuantr<MockMeta>(
       [
         {
           resource: 'user',
@@ -434,7 +434,7 @@ describe('Guantr.can', () => {
       },
     ]);
 
-    const guantr2 = await createGuantr<MockMeta, typeof mockContext2>(
+    const guantr2 = await createGuantr<MockMeta>(
       [
         {
           resource: 'user',
@@ -475,7 +475,7 @@ describe('Guantr.can', () => {
 
   it('should handle circuit breaker in can method', async () => {
     const guantr = await createGuantr();
-    const rules: GuantrAnyRule[] = [];
+    const rules: GuantrRule[] = [];
     // 1001 rules should trip the default circuit breaker (limit: 1000)
     for (let i = 0; i < 1001; i++) {
       rules.push({

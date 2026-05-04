@@ -197,10 +197,10 @@ function validateRulesFromDatabase(rules: unknown[]) {
 }
 ```
 
-| Parameter   | Type                         | Description                                                                                             |
-| ----------- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `condition` | `GuantrAnyRule['condition']` | The condition object to validate (`null` and `undefined` are no-ops).                                   |
-| `_path`     | `string` (optional)          | Dot-notation prefix for error messages. Used internally during recursion; you rarely need to pass this. |
+| Parameter   | Type                      | Description                                                                                             |
+| ----------- | ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `condition` | `GuantrRule['condition']` | The condition object to validate (`null` and `undefined` are no-ops).                                   |
+| `_path`     | `string` (optional)       | Dot-notation prefix for error messages. Used internally during recursion; you rarely need to pass this. |
 
 ---
 
@@ -254,12 +254,12 @@ See the [`createGuantr`](./createGuantr) API reference for more details.
 
 ```ts
 import { createGuantr, GuantrCircuitBreakerError } from 'guantr';
-import type { GuantrAnyRule } from 'guantr';
+import type { GuantrRule } from 'guantr';
 
 const guantr = await createGuantr({ maxRuleIterations: 100 });
 
 // Create enough rules to trip the breaker
-const rules: GuantrAnyRule[] = [];
+const rules: GuantrRule[] = [];
 for (let i = 0; i < 150; i++) {
   rules.push({
     effect: 'allow',

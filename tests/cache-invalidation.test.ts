@@ -1,4 +1,3 @@
-import type { GuantrAnyRule } from '../src/types';
 import { describe, expect, it } from 'vitest';
 import { Guantr } from '../src/index';
 import { InMemoryStorage } from '../src/storage';
@@ -64,7 +63,7 @@ describe('cache invalidation after setRules', () => {
         effect: 'allow',
         action: 'read',
         resource: 'post',
-        condition: { id: ['eq', 1] } as GuantrAnyRule['condition'],
+        condition: { id: ['eq', 1] },
       },
     ]);
     expect(await guantr.can('read', ['post', { id: 1 }])).toBe(true);
@@ -75,7 +74,7 @@ describe('cache invalidation after setRules', () => {
         effect: 'allow',
         action: 'read',
         resource: 'post',
-        condition: { id: ['eq', 2] } as GuantrAnyRule['condition'],
+        condition: { id: ['eq', 2] },
       },
     ]);
     expect(await guantr.can('read', ['post', { id: 1 }])).toBe(false);
@@ -87,7 +86,7 @@ describe('cache invalidation after setRules', () => {
         effect: 'allow',
         action: 'read',
         resource: 'post',
-        condition: { id: ['eq', 1] } as GuantrAnyRule['condition'],
+        condition: { id: ['eq', 1] },
       },
     ]);
     expect(await guantr.can('read', ['post', { id: 1 }])).toBe(true);

@@ -1,5 +1,5 @@
 import type { Storage } from '../src/storage/types';
-import type { GuantrAnyRule } from '../src/types';
+import type { GuantrRule } from '../src/types';
 import { describe, expect, it } from 'vitest';
 import { createGuantr, Guantr } from '../src/index';
 
@@ -8,9 +8,9 @@ import { createGuantr, Guantr } from '../src/index';
 // Note: setRules atomically replaces the internal array.
 // ---------------------------------------------------------------------------
 class CustomArrayStorage implements Storage {
-  private rules: GuantrAnyRule[] = [];
+  private rules: GuantrRule[] = [];
 
-  async setRules(rules: GuantrAnyRule[]) {
+  async setRules(rules: GuantrRule[]) {
     this.rules = [...rules];
   }
 
@@ -92,7 +92,7 @@ describe('custom storage adapter integration', () => {
 
   it('getRules(): returns all rules that were stored via setRules()', async () => {
     const guantr = new Guantr({ storage: new CustomArrayStorage() });
-    const rules: GuantrAnyRule[] = [
+    const rules: GuantrRule[] = [
       { resource: 'post', action: 'read', condition: null, effect: 'allow' },
       { resource: 'post', action: 'delete', condition: null, effect: 'deny' },
     ];

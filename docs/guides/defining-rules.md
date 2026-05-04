@@ -2,14 +2,14 @@
 
 Rules are the core of Guantr's authorization logic. They define what specific actions users are permitted (`allow`) or explicitly forbidden (`deny`) to perform on resources within your application. Defining these rules accurately, based on the Guantr API, is essential for robust access control.
 
-## The Structure of a Rule (`GuantrAnyRule`)
+## The Structure of a Rule (`GuantrRule`)
 
-Internally, every rule in Guantr follows the `GuantrAnyRule` structure defined in the types:
+Internally, every rule in Guantr follows the `GuantrRule` structure defined in the types:
 
 1.  **`effect`**: `'allow'` | `'deny'` - Determines if the rule grants or revokes permission.
 2.  **`action`**: `string` - The **single** operation being attempted (e.g., `'read'`, `'update'`, `'publish'`).
 3.  **`resource`**: `string` - The _type_ or _key_ identifying the resource (e.g., `'article'`, `'user'`).
-4.  **`condition`**: `GuantrAnyRuleCondition | null` - An optional object specifying conditions that must be met for the rule to apply. This enables attribute-based and context-aware checks. If `null`, the rule applies based only on action and resource type.
+4.  **`condition`**: `GuantrRuleCondition | null` - An optional object specifying conditions that must be met for the rule to apply. This enables attribute-based and context-aware checks. If `null`, the rule applies based only on action and resource type.
 
 ## Methods for Setting Rules
 
@@ -67,11 +67,11 @@ await guantr.setRules((allow, deny) => {
 
 ### 2. Using a Direct Array of Rule Objects
 
-You can also provide an array of rule objects directly to `setRules`. Each object must conform to the `GuantrRule` (or `GuantrAnyRule`) structure. While the callback might be simpler for direct definition, **passing an array provides more flexibility, allowing you to preprocess, generate, or fetch rules from external sources before applying them.**
+You can also provide an array of rule objects directly to `setRules`. Each object must conform to the `GuantrRule` structure. While the callback might be simpler for direct definition, **passing an array provides more flexibility, allowing you to preprocess, generate, or fetch rules from external sources before applying them.**
 
 ```ts
 import { createGuantr } from 'guantr';
-import type { GuantrRule } from 'guantr'; // Or GuantrAnyRule if not using Meta
+import type { GuantrRule } from 'guantr';
 
 const guantr = await createGuantr();
 

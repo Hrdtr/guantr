@@ -7,7 +7,7 @@ The `can` method checks if a specific action is permitted on a given resource in
 ## Signature
 
 ```ts
-interface Guantr<Meta, Context> {
+interface Guantr<Meta> {
   can(
     action: string, // Or specific action type from Meta
     resource: [resourceKey: string, resourceInstance: object], // Or typed resource key/instance from Meta

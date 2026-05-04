@@ -123,7 +123,7 @@ Pass your defined `Meta` type when creating the Guantr instance and when typing 
 import { createGuantr } from 'guantr';
 // Assumes MyAppMeta is defined as above
 
-const guantr = await createGuantr<MyAppMeta, MyContext>({
+const guantr = await createGuantr<MyAppMeta>({
   getContext: async (): Promise<MyContext> => {
     // Fetch current user data and return object matching MyContext
     const user = await getCurrentUser();
@@ -143,7 +143,7 @@ const guantr = await createGuantr<MyAppMeta, MyContext>({
 import type { GuantrRule } from 'guantr';
 // Assumes MyAppMeta is defined as above
 
-const rules: GuantrRule<MyAppMeta, MyContext>[] = [
+const rules: GuantrRule<MyAppMeta>[] = [
   // TypeScript will validate this rule structure against MyAppMeta
   {
     effect: 'allow',

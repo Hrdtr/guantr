@@ -5,14 +5,14 @@ The `relatedRulesFor` method retrieves all stored permission rules that match a 
 ## Signature
 
 ```ts
-interface Guantr<Meta, Context> {
+interface Guantr<Meta> {
   relatedRulesFor(
     action: string,
     resource: string,
     options?: {
       applyConditionContextualOperands?: boolean;
     },
-  ): Promise<GuantrAnyRule[]>;
+  ): Promise<GuantrRule[]>;
 }
 ```
 
@@ -25,7 +25,7 @@ interface Guantr<Meta, Context> {
 
 ## Returns
 
-- `Promise<GuantrAnyRule[]>`: A promise that resolves to an array containing only the `GuantrAnyRule` objects from storage that exactly match the provided `action` and `resource` key. This array includes both `allow` and `deny` rules matching the criteria. It will be empty if no matching rules are found.
+- `Promise<GuantrRule[]>`: A promise that resolves to an array containing only the `GuantrRule` objects from storage that exactly match the provided `action` and `resource` key. This array includes both `allow` and `deny` rules matching the criteria. It will be empty if no matching rules are found.
 
 ## Usage
 

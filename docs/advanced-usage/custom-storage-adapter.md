@@ -8,9 +8,9 @@ To create a custom adapter, you need to implement the `Storage` interface define
 
 **Required Methods:**
 
-- `setRules(rules: GuantrAnyRule[]): Promise<void>`: Atomically replaces all stored rules with the provided rules.
-- `getRules(): Promise<GuantrAnyRule[]>`: Retrieves all currently stored rules.
-- `queryRules(action: string, resource: string): Promise<GuantrAnyRule[]>`: Retrieves only the rules matching a specific action and resource key. Implementing this efficiently (filtering at the source) is crucial for performance with large rule sets.
+- `setRules(rules: GuantrRule[]): Promise<void>`: Atomically replaces all stored rules with the provided rules.
+- `getRules(): Promise<GuantrRule[]>`: Retrieves all currently stored rules.
+- `queryRules(action: string, resource: string): Promise<GuantrRule[]>`: Retrieves only the rules matching a specific action and resource key. Implementing this efficiently (filtering at the source) is crucial for performance with large rule sets.
 
 **Optional Property:**
 
@@ -27,13 +27,13 @@ This adapter is suitable for client-side browser applications where rule persist
 **Note:** LocalStorage has size limits and stores data as strings.
 
 ```ts
-import type { GuantrAnyRule } from 'guantr';
+import type { GuantrRule } from 'guantr';
 import type { Storage } from 'guantr/storage';
 
 const STORAGE_KEY = 'guantr_rules';
 
 class LocalStorageAdapter implements Storage {
-  async setRules(rules: GuantrAnyRule[]): Promise<void> {
+  async setRules(rules: GuantrRule[]): Promise<void> {
     try {
       // Atomically replace the stored rules
       localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
@@ -43,7 +43,7 @@ class LocalStorageAdapter implements Storage {
     }
   }
 
-  async getRules(): Promise<GuantrAnyRule[]> {
+  async getRules(): Promise<GuantrRule[]> {
     try {
       const storedRules = localStorage.getItem(STORAGE_KEY);
       return storedRules ? JSON.parse(storedRules) : [];
@@ -55,7 +55,7 @@ class LocalStorageAdapter implements Storage {
 
   // Note: This queryRules implementation fetches all rules and filters locally.
   // This can be inefficient for very large rule sets compared to DB filtering.
-  async queryRules(action: string, resource: string): Promise<GuantrAnyRule[]> {
+  async queryRules(action: string, resource: string): Promise<GuantrRule[]> {
     const allRules = await this.getRules();
     return allRules.filter((rule) => rule.action === action && rule.resource === resource);
   }
@@ -69,7 +69,7 @@ class LocalStorageAdapter implements Storage {
 Uses `ioredis` (or a similar client) to store rules in Redis, suitable for shared state between server instances.
 
 ```ts
-import type { GuantrAnyRule } from 'guantr';
+import type { GuantrRule } from 'guantr';
 import type { Storage } from 'guantr/storage';
 import Redis from 'ioredis'; // Assuming ioredis client
 
@@ -77,12 +77,12 @@ const redisClient = new Redis(/* Redis connection options */);
 const REDIS_KEY = 'guantr_rules';
 
 class RedisStorage implements Storage {
-  async setRules(rules: GuantrAnyRule[]): Promise<void> {
+  async setRules(rules: GuantrRule[]): Promise<void> {
     // Atomically replace the stored rules
     await redisClient.set(REDIS_KEY, JSON.stringify(rules));
   }
 
-  async getRules(): Promise<GuantrAnyRule[]> {
+  async getRules(): Promise<GuantrRule[]> {
     const storedRules = await redisClient.get(REDIS_KEY);
     return storedRules ? JSON.parse(storedRules) : [];
   }
@@ -90,7 +90,7 @@ class RedisStorage implements Storage {
   // Note: This queryRules implementation fetches all rules and filters locally.
   // Consider alternative Redis structures (e.g., sets per action/resource)
   // for more efficient querying with very large rule sets.
-  async queryRules(action: string, resource: string): Promise<GuantrAnyRule[]> {
+  async queryRules(action: string, resource: string): Promise<GuantrRule[]> {
     const allRules = await this.getRules();
     return allRules.filter((rule) => rule.action === action && rule.resource === resource);
   }
@@ -132,9 +132,9 @@ const clearStmt = db.prepare('DELETE FROM rules');
 
 // --- Storage Class ---
 class SQLiteStorage implements Storage {
-  async setRules(rules: GuantrAnyRule[]): Promise<void> {
+  async setRules(rules: GuantrRule[]): Promise<void> {
     // Use a transaction for atomic bulk replace
-    db.transaction((ruleList: GuantrAnyRule[]) => {
+    db.transaction((ruleList: GuantrRule[]) => {
       clearStmt.run(); // Clear existing rules first
       for (const rule of ruleList) {
         insertStmt.run(
@@ -147,7 +147,7 @@ class SQLiteStorage implements Storage {
     })(rules);
   }
 
-  async getRules(): Promise<GuantrAnyRule[]> {
+  async getRules(): Promise<GuantrRule[]> {
     const rows = getAllStmt.all() as Array<{
       action: string;
       resource: string;
@@ -160,7 +160,7 @@ class SQLiteStorage implements Storage {
     }));
   }
 
-  async queryRules(action: string, resource: string): Promise<GuantrAnyRule[]> {
+  async queryRules(action: string, resource: string): Promise<GuantrRule[]> {
     // This query efficiently filters at the database level
     const rows = queryStmt.all(action, resource) as Array<{
       action: string;
@@ -197,14 +197,14 @@ model Rule {
 ```
 
 ```ts
-import type { GuantrAnyRule } from 'guantr';
+import type { GuantrRule } from 'guantr';
 import type { Storage } from 'guantr/storage';
 import { PrismaClient, Prisma } from '@prisma/client'; // Import Prisma types if needed
 
 const prisma = new PrismaClient();
 
 class PrismaStorage implements Storage {
-  async setRules(rules: GuantrAnyRule[]): Promise<void> {
+  async setRules(rules: GuantrRule[]): Promise<void> {
     // Use Prisma transaction API for atomicity
     await prisma.$transaction(async (tx) => {
       await tx.rule.deleteMany(); // Clear existing rules
@@ -223,23 +223,23 @@ class PrismaStorage implements Storage {
     });
   }
 
-  async getRules(): Promise<GuantrAnyRule[]> {
+  async getRules(): Promise<GuantrRule[]> {
     const rules = await prisma.rule.findMany();
-    // Map Prisma result to GuantrAnyRule, handling potential null condition
+    // Map Prisma result to GuantrRule, handling potential null condition
     return rules.map((rule) => ({
       ...rule,
-      condition: rule.condition as GuantrAnyRuleCondition | null, // Cast JsonValue back
+      condition: rule.condition as GuantrRuleCondition | null, // Cast JsonValue back
     }));
   }
 
-  async queryRules(action: string, resource: string): Promise<GuantrAnyRule[]> {
+  async queryRules(action: string, resource: string): Promise<GuantrRule[]> {
     // Efficiently filters at the database level
     const rules = await prisma.rule.findMany({
       where: { action, resource },
     });
     return rules.map((rule) => ({
       ...rule,
-      condition: rule.condition as GuantrAnyRuleCondition | null,
+      condition: rule.condition as GuantrRuleCondition | null,
     }));
   }
 

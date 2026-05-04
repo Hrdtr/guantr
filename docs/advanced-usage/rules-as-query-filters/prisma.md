@@ -11,7 +11,7 @@ You will create a function that accepts an array of rules and produces a Prisma 
 Create a function named `prisma` that accepts a list of rules and produces a Prisma `where` clause.
 
 ```ts
-export const prisma = (rules: GuantrAnyRule[]) => {
+export const prisma = (rules: GuantrRule[]) => {
   const query = {
     OR: [] as Record<string, any>[],
     AND: [] as Record<string, any>[],
@@ -42,16 +42,16 @@ Create a helper `toPrismaWhereClause` to handle the condition object recursively
 
 ```ts
 /**
- * Converts a GuantrAnyPermission condition object to a Prisma where clause.
+ * Converts a GuantrRule condition object to a Prisma where clause.
  *
- * @param {GuantrAnyPermission['condition']} condition - The condition object to convert.
+ * @param {GuantrRule['condition']} condition - The condition object to convert.
  */
-const toPrismaWhereClause = (condition: GuantrAnyPermission['condition']) => {
+const toPrismaWhereClause = (condition: GuantrRule['condition']) => {
   const clause = {} as Record<string, any>;
 
   const processCondition = (
     key: string,
-    nestedConditionOrExpression: GuantrAnyConditionExpression | GuantrAnyCondition,
+    nestedConditionOrExpression: GuantrRuleConditionExpression | GuantrRuleCondition,
   ) => {
     if (isConditionExpressionLike(nestedConditionOrExpression)) {
       const [operator, operand, options] = nestedConditionOrExpression;
@@ -146,7 +146,7 @@ Use this type guard to differentiate condition expressions:
 ```ts
 export const isConditionExpressionLike = (
   maybeExpression: unknown,
-): maybeExpression is GuantrAnyRuleConditionExpression =>
+): maybeExpression is GuantrRuleConditionExpression =>
   Array.isArray(maybeExpression) &&
   maybeExpression.length >= 2 &&
   typeof maybeExpression[0] === 'string';
@@ -179,4 +179,4 @@ const posts = await prisma.post.findFirst({ where });
 - Output types are `Record<string, any>`.
 - Array length filters (e.g. `length[1] < 1`) are only can be interpreted as empty/non-empty checks and currently mapped to `some` or `none`.
 
-This structure gives you full control to enforce rule-based authorization at the database level using Prisma’s native capabilities.
+This structure gives you full control to enforce rule-based authorization at the database level using Prisma's native capabilities.

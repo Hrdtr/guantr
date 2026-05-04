@@ -9,9 +9,9 @@ There are two ways to call `setRules`:
 **1. With a Rules Array:**
 
 ```ts
-interface Guantr<Meta, Context> {
+interface Guantr<Meta> {
   setRules(
-    rules: GuantrRule<Meta, Context>[], // Array of rule objects
+    rules: GuantrRule<Meta>[], // Array of rule objects
   ): Promise<void>;
 }
 ```
@@ -19,21 +19,21 @@ interface Guantr<Meta, Context> {
 **2. With a Callback Function:**
 
 ```ts
-type SetRulesCallback<Meta, Context> = (
+type SetRulesCallback<Meta> = (
   allow: (action: string, resource: string | [resourceKey: string, condition: GuantrRuleCondition<...> | null]) => void,
   deny: (action: string, resource: string | [resourceKey: string, condition: GuantrRuleCondition<...> | null]) => void
 ) => void | Promise<void>;
 
-interface Guantr<Meta, Context> {
+interface Guantr<Meta> {
   setRules(
-    callback: SetRulesCallback<Meta, Context> // Async function defining rules
+    callback: SetRulesCallback<Meta> // Async function defining rules
   ): Promise<void>;
 }
 ```
 
 ## Parameters
 
-- `rules`: (Array Method) An array of `GuantrRule` (or `GuantrAnyRule`) objects. Each object must have `effect` (`'allow'` or `'deny'`), `action` (string), `resource` (string), and optional `condition` (object or null).
+- `rules`: (Array Method) An array of `GuantrRule` (or `GuantrRule`) objects. Each object must have `effect` (`'allow'` or `'deny'`), `action` (string), `resource` (string), and optional `condition` (object or null).
 - `callback`: (Callback Method) An asynchronous function that receives two arguments:
   - `allow`: A function used to define permission grants. Call it as `allow(action, resource)` or `allow(action, [resourceKey, condition])`.
   - `deny`: A function used to define permission restrictions. Call it as `deny(action, resource)` or `deny(action, [resourceKey, condition])`.
