@@ -1,6 +1,6 @@
 # API: Error Classes
 
-Guantr exports three error classes that extend the built-in `Error` class and carry extra metadata so you can programmatically inspect what went wrong. Two of them (`GuantrInvalidConditionError` and `GuantrInvalidConditionOperatorError`) are thrown when [strict mode](../advanced-usage/strict-mode) is enabled, while `GuantrCircuitBreakerError` is thrown when the rule iteration limit is exceeded.
+Guantr exports three error classes that extend the built-in `Error` class and carry extra metadata so you can programmatically inspect what went wrong.
 
 ## Importing
 
@@ -16,7 +16,7 @@ import {
 
 ## `GuantrInvalidConditionOperatorError`
 
-Thrown by `matchConditionExpression` (and therefore surfaced through `can`/`cannot`) when an operator string that does not match any known `ConditionOperator` value is encountered **at evaluation time**, and the Guantr instance was created with `strict: true`.
+Thrown by `matchConditionExpression` (and therefore surfaced through `can`/`cannot`) when an operator string that does not match any known `ConditionOperator` value is encountered **at evaluation time**.
 
 ### Class Definition
 
@@ -31,48 +31,34 @@ class GuantrInvalidConditionOperatorError extends Error {
 
 ### Properties
 
-| Property   | Type     | Description                                                                      |
-| ---------- | -------- | -------------------------------------------------------------------------------- |
-| `name`     | `string` | Always `"GuantrInvalidConditionOperatorError"`.                                  |
-| `message`  | `string` | Human-readable description including the bad operator and a hint about `strict`. |
-| `operator` | `string` | The unrecognized operator string that triggered the error.                       |
+| Property   | Type     | Description                                                |
+| ---------- | -------- | ---------------------------------------------------------- |
+| `name`     | `string` | Always `"GuantrInvalidConditionOperatorError"`.            |
+| `message`  | `string` | Human-readable description including the bad operator.     |
+| `operator` | `string` | The unrecognized operator string that triggered the error. |
 
 ### When It Is Thrown
 
 - A rule condition expression has been stored whose first element is not a recognized `ConditionOperator`.
-- The Guantr instance has `strict: true`.
 - `can` / `cannot` is called and evaluation reaches that expression.
 
-> **Note:** With `strict: true`, `setRules` validates rules upfront via `validateConditionForStrict`, so this error is most likely to occur when rules are loaded from an external source (e.g., a database) and bypass the definition-time check.
+> **Note:** `setRules` validates rules upfront via `validateCondition`, so this error is most likely to occur when rules are loaded from an external source (e.g., a database) and bypass the definition-time check.
 
 ### Example
 
 ```ts
-import { createGuantr, GuantrInvalidConditionOperatorError } from 'guantr';
-
-const guantr = await createGuantr({ strict: true });
-
-// Manually set raw rules that bypass TypeScript typing (e.g., loaded from DB)
-await (guantr as any).setRules([
-  { effect: 'allow', action: 'read', resource: 'post', condition: { id: ['unknownOp', 1] } },
-]);
-
-try {
-  await guantr.can('read', ['post', { id: 1 }]);
-} catch (e) {
-  if (e instanceof GuantrInvalidConditionOperatorError) {
-    console.error('Unknown operator:', e.operator); // 'unknownOp'
-  }
-}
+import { GuantrInvalidConditionOperatorError } from 'guantr';
 ```
 
 ---
 
 ## `GuantrInvalidConditionError`
 
-Thrown by `setRules` when a rule condition fails structural or operator validation **at definition time**, and the Guantr instance was created with `strict: true`.
+Thrown by `setRules` when a rule condition fails structural or operator validation **at definition time**.
 
-Validation is performed recursively by the internal `validateConditionForStrict` utility, which is also exported from `'guantr/utils'` for use in custom validation pipelines.
+Validation is performed recursively by the internal `validateCondition` utility, which is also exported from `'guantr/utils'` for use in custom validation pipelines.
+
+---
 
 ### Class Definition
 
@@ -98,7 +84,7 @@ class GuantrInvalidConditionError extends Error {
 
 ### When It Is Thrown
 
-`setRules` (called directly or via `createGuantr`) throws this error when any of the following are true for a condition with `strict: true`:
+`setRules` (called directly or via `createGuantr`) throws this error when any of the following are true:
 
 1. A condition expression array has fewer than two elements, or its first element is not a `string`.
 2. A condition expression's operator is not present in `KNOWN_OPERATORS`.
@@ -114,10 +100,9 @@ The `reason` string always includes the dot-notation path to the offending field
 import { createGuantr, GuantrInvalidConditionError } from 'guantr';
 
 try {
-  await createGuantr(
-    [{ effect: 'allow', action: 'read', resource: 'post', condition: { id: ['eql', 1] } }],
-    { strict: true },
-  );
+  await createGuantr([
+    { effect: 'allow', action: 'read', resource: 'post', condition: { id: ['eql', 1] } },
+  ]);
 } catch (e) {
   if (e instanceof GuantrInvalidConditionError) {
     console.error(e.condition); // ['eql', 1]
@@ -131,11 +116,10 @@ try {
 
 ```ts
 try {
-  await createGuantr(
+  await createGuantr([
     // Condition expression has only one element — malformed
-    [{ effect: 'allow', action: 'read', resource: 'post', condition: { id: ['eq'] as any } }],
-    { strict: true },
-  );
+    { effect: 'allow', action: 'read', resource: 'post', condition: { id: ['eq'] as any } },
+  ]);
 } catch (e) {
   if (e instanceof GuantrInvalidConditionError) {
     console.error(e.reason);
@@ -148,19 +132,16 @@ try {
 
 ```ts
 try {
-  await createGuantr(
-    [
-      {
-        effect: 'allow',
-        action: 'read',
-        resource: 'post',
-        condition: {
-          tags: ['some', { name: ['likee', 'typescript'] }], // 'likee' is not valid
-        },
+  await createGuantr([
+    {
+      effect: 'allow',
+      action: 'read',
+      resource: 'post',
+      condition: {
+        tags: ['some', { name: ['likee', 'typescript'] }], // 'likee' is not valid
       },
-    ],
-    { strict: true },
-  );
+    },
+  ]);
 } catch (e) {
   if (e instanceof GuantrInvalidConditionError) {
     console.error(e.reason);
@@ -171,12 +152,12 @@ try {
 
 ---
 
-## `KNOWN_OPERATORS` and `validateConditionForStrict`
+## `KNOWN_OPERATORS` and `validateCondition`
 
-Two additional utilities are exported from `'guantr/utils'` and are useful when building custom validation tooling or middleware:
+Two additional utilities are exported from `'guantr'` and are useful when building custom validation tooling or middleware:
 
 ```ts
-import { KNOWN_OPERATORS, validateConditionForStrict } from 'guantr/utils';
+import { KNOWN_OPERATORS, validateCondition } from 'guantr';
 ```
 
 ### `KNOWN_OPERATORS`
@@ -191,19 +172,19 @@ KNOWN_OPERATORS.has('eq'); // true
 KNOWN_OPERATORS.has('unknownOp'); // false
 ```
 
-### `validateConditionForStrict(condition, path?)`
+### `validateCondition(condition, path?)`
 
-Recursively validates a condition object. Throws `GuantrInvalidConditionError` on the first invalid expression encountered. This is the same function called internally by `setRules` in strict mode.
+Recursively validates a condition object. Throws `GuantrInvalidConditionError` on the first invalid expression encountered. This is the same function called internally by `setRules`.
 
 ```ts
-import { validateConditionForStrict } from 'guantr/utils';
+import { validateCondition } from 'guantr';
 import { GuantrInvalidConditionError } from 'guantr';
 
 function validateRulesFromDatabase(rules: unknown[]) {
   for (const rule of rules as any[]) {
     if (rule.condition) {
       try {
-        validateConditionForStrict(rule.condition);
+        validateCondition(rule.condition);
       } catch (e) {
         if (e instanceof GuantrInvalidConditionError) {
           throw new Error(

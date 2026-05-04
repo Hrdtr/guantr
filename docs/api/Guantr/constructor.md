@@ -31,7 +31,6 @@ class Guantr<
   - `storage`: An instance implementing the `Storage` interface. Defaults to `InMemoryStorage`.
   - `getContext`: An asynchronous function `() => Context | PromiseLike<Context>` that returns the context object. Defaults to a function returning an empty object.
   - `maxRuleIterations`: Maximum number of rule iterations before the circuit breaker trips. Defaults to `1000`.
-  - `strict`: Enable strict validation mode. Defaults to `false`. See [Strict Mode](/advanced-usage/strict-mode).
 
 ## Returns
 
@@ -90,11 +89,10 @@ const guantr = new Guantr<MyMeta, MyContext>({
 });
 ```
 
-**With strict mode and custom maxRuleIterations:**
+**With custom maxRuleIterations:**
 
 ```ts
 const guantr = new Guantr({
-  strict: true,
   maxRuleIterations: 500,
 });
 ```
@@ -103,4 +101,3 @@ const guantr = new Guantr({
 
 - [`createGuantr()`](/api/createGuantr) — The recommended factory function for most use cases.
 - [`.setRules()`](/api/Guantr/setRules) — Method to set rules after instantiation.
-- [Strict Mode](/advanced-usage/strict-mode) — Details on strict validation.

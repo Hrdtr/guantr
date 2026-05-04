@@ -297,7 +297,7 @@ describe('$expr integration tests', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Case 9: invalid $expr (non-array plain string) → isValidConditionExpression fails → false
+  // Case 9: invalid $expr (non-array plain string) → isConditionExpressionLike fails → false
   // -------------------------------------------------------------------------
   it('evaluates an invalid $expr (plain string instead of array) as false', () => {
     const post: Post = {

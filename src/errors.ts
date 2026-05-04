@@ -36,14 +36,14 @@ export class GuantrCircuitBreakerError extends Error {
 }
 
 /**
- * Error thrown when an unknown operator is encountered during condition evaluation in strict mode.
+ * Error thrown when an unknown operator is encountered during condition evaluation.
  * This is thrown by `matchConditionExpression` when it encounters an operator that does not
  * correspond to any known `ConditionOperator` value.
  *
  * @example
  * ```ts
  * try {
- *   matchConditionExpression({ value: 'foo', expression: ['unknownOp', 'bar'], strict: true });
+ *   matchConditionExpression({ value: 'foo', expression: ['unknownOp', 'bar'] });
  * } catch (e) {
  *   if (e instanceof GuantrInvalidConditionOperatorError) {
  *     console.error('Unknown operator:', e.operator);
@@ -58,8 +58,7 @@ export class GuantrInvalidConditionOperatorError extends Error {
   constructor(operator: string) {
     super(
       `[guantr] Unknown condition operator: "${operator}". ` +
-        `Ensure the operator is one of the supported ConditionOperator values. ` +
-        `If you want silent fallback instead of throwing, set \`strict: false\` in GuantrOptions.`,
+        `Ensure the operator is one of the supported ConditionOperator values.`,
     );
     this.name = 'GuantrInvalidConditionOperatorError';
     this.operator = operator;
@@ -67,7 +66,7 @@ export class GuantrInvalidConditionOperatorError extends Error {
 }
 
 /**
- * Error thrown when a condition fails validation at rule-definition time in strict mode.
+ * Error thrown when a condition fails validation at rule-definition time.
  * This is thrown by `setRules` when a condition contains an unrecognized operator or has
  * malformed structure (e.g. a condition expression that is not a valid `[operator, operand]` tuple).
  *

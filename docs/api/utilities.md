@@ -4,8 +4,17 @@ Guantr exports several utility functions that power the internal rule evaluation
 
 ## Importing
 
+All utilities are exported from the main `'guantr'` entry:
+
 ```ts
-import { isContextualOperand, matchConditionExpression, matchRuleCondition } from 'guantr';
+import {
+  isConditionExpressionLike,
+  isContextualOperand,
+  KNOWN_OPERATORS,
+  matchConditionExpression,
+  matchRuleCondition,
+  validateCondition,
+} from 'guantr';
 ```
 
 ---
@@ -84,17 +93,15 @@ Evaluates a full rule condition object against a model (plain object). This is t
 function matchRuleCondition<Model extends Record<string, unknown>>(
   model: Model,
   condition: NonNullable<GuantrAnyRule['condition']>,
-  strict?: boolean,
 ): boolean;
 ```
 
 ### Parameters
 
-| Parameter   | Type                                      | Description                                                                                                                |
-| ----------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `model`     | `Model extends Record<string, unknown>`   | The plain object to evaluate the condition against (e.g., a resource instance).                                            |
-| `condition` | `NonNullable<GuantrAnyRule['condition']>` | The condition object from a rule. Each key maps to either a condition expression array or a nested condition object.       |
-| `strict`    | `boolean`                                 | When `true`, unrecognized operators cause `GuantrInvalidConditionOperatorError` to be thrown instead of returning `false`. |
+| Parameter   | Type                                      | Description                                                                                                          |
+| ----------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `model`     | `Model extends Record<string, unknown>`   | The plain object to evaluate the condition against (e.g., a resource instance).                                      |
+| `condition` | `NonNullable<GuantrAnyRule['condition']>` | The condition object from a rule. Each key maps to either a condition expression array or a nested condition object. |
 
 ### Returns
 
@@ -102,7 +109,7 @@ function matchRuleCondition<Model extends Record<string, unknown>>(
 
 ### Throws
 
-- `GuantrInvalidConditionOperatorError` — if `strict` is `true` and an unknown operator is encountered.
+- `GuantrInvalidConditionOperatorError` — if an unknown operator is encountered.
 - `TypeError` — if a condition value has an unexpected type.
 
 ### Example
@@ -125,22 +132,19 @@ const draftPost = { status: 'draft', author: { role: 'editor' } };
 matchRuleCondition(draftPost, condition); // false (status doesn't match)
 ```
 
-### With Strict Mode
+### With Unknown Operators
 
 ```ts
 import { matchRuleCondition, GuantrInvalidConditionOperatorError } from 'guantr';
 
 try {
-  // 'eql' is not a valid operator — only throws in strict mode
-  matchRuleCondition({ id: 1 }, { id: ['eql', 1] }, true);
+  // 'eql' is not a valid operator — throws immediately
+  matchRuleCondition({ id: 1 }, { id: ['eql', 1] });
 } catch (e) {
   if (e instanceof GuantrInvalidConditionOperatorError) {
     console.error('Unknown operator:', e.operator); // 'eql'
   }
 }
-
-// Without strict mode, unknown operators silently return false
-matchRuleCondition({ id: 1 }, { id: ['eql', 1] }); // false (no error thrown)
 ```
 
 ---
@@ -158,17 +162,15 @@ function matchConditionExpression(data: {
     NonNullable<GuantrAnyRule['condition']>[keyof NonNullable<GuantrAnyRule['condition']>],
     Array<any>
   >;
-  strict?: boolean;
 }): boolean;
 ```
 
 ### Parameters
 
-| Parameter         | Type      | Description                                                                                                                |
-| ----------------- | --------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `data.value`      | `unknown` | The value to evaluate the condition against (e.g., a specific field from the model).                                       |
-| `data.expression` | `Array`   | A condition expression tuple in the form `[operator, operand, ?options]`.                                                  |
-| `data.strict`     | `boolean` | When `true`, unrecognized operators cause `GuantrInvalidConditionOperatorError` to be thrown instead of returning `false`. |
+| Parameter         | Type      | Description                                                                          |
+| ----------------- | --------- | ------------------------------------------------------------------------------------ |
+| `data.value`      | `unknown` | The value to evaluate the condition against (e.g., a specific field from the model). |
+| `data.expression` | `Array`   | A condition expression tuple in the form `[operator, operand, ?options]`.            |
 
 ### Returns
 
@@ -176,7 +178,7 @@ function matchConditionExpression(data: {
 
 ### Throws
 
-- `GuantrInvalidConditionOperatorError` — if `strict` is `true` and the operator is not recognized.
+- `GuantrInvalidConditionOperatorError` — if the operator is not recognized.
 - `TypeError` — if the value or operand type is invalid for the given operator.
 
 ### Example
@@ -204,17 +206,14 @@ matchConditionExpression({
 matchConditionExpression({ value: 'admin', expression: ['in', ['admin', 'superadmin']] }); // true
 ```
 
-### Using with Strict Mode
+### Using with Unknown Operators
 
 ```ts
 import { matchConditionExpression, GuantrInvalidConditionOperatorError } from 'guantr';
 
-// Without strict: unknown operator silently returns false
-matchConditionExpression({ value: 1, expression: ['unknownOp', 1] }); // false
-
-// With strict: throws immediately
+// Unknown operator always throws immediately
 try {
-  matchConditionExpression({ value: 1, expression: ['unknownOp', 1], strict: true });
+  matchConditionExpression({ value: 1, expression: ['unknownOp', 1] });
 } catch (e) {
   if (e instanceof GuantrInvalidConditionOperatorError) {
     console.error('Unknown operator:', e.operator); // 'unknownOp'
@@ -224,8 +223,102 @@ try {
 
 ---
 
+## `isConditionExpressionLike`
+
+Type guard that checks whether a value is **structurally** a valid condition expression (an array with at least 2 elements where the first is a string).
+
+This is a **structural check only** — the operator string is NOT validated against `KNOWN_OPERATORS`. Operator validation is handled by `validateCondition` (at definition time) and `matchConditionExpression` (at evaluation time).
+
+See [Rule Validation](../guides/defining-rules/rule-validation) for a full explanation.
+
+> **Renamed** from `isValidConditionExpression` in v2.0.0.
+
+### Signature
+
+```ts
+function isConditionExpressionLike(
+  maybeExpression: unknown,
+): maybeExpression is GuantrAnyRuleConditionExpression;
+```
+
+### Parameters
+
+| Parameter         | Type      | Description         |
+| ----------------- | --------- | ------------------- |
+| `maybeExpression` | `unknown` | The value to check. |
+
+### Returns
+
+- `boolean` — `true` if the value is an array with at least 2 elements and the first element is a string. Acts as a TypeScript type guard, narrowing to `GuantrAnyRuleConditionExpression`.
+
+### Example
+
+```ts
+import { isConditionExpressionLike } from 'guantr';
+
+isConditionExpressionLike(['eq', 'hello']); // true
+isConditionExpressionLike(['unknownOp', 'foo']); // true (structural check only)
+isConditionExpressionLike(null); // false
+isConditionExpressionLike(['eq']); // false (too few elements)
+isConditionExpressionLike([42, 'foo']); // false (operator not a string)
+```
+
+---
+
+## `validateCondition`
+
+Recursively validates a condition object, throwing `GuantrInvalidConditionError` on the first invalid expression encountered. This is the same function called internally by `setRules`.
+
+### Signature
+
+```ts
+function validateCondition(condition: GuantrAnyRule['condition'], _path?: string): void;
+```
+
+### Parameters
+
+| Parameter   | Type                         | Description                                                                    |
+| ----------- | ---------------------------- | ------------------------------------------------------------------------------ |
+| `condition` | `GuantrAnyRule['condition']` | The condition object to validate. `null` and `undefined` are accepted (no-op). |
+| `_path`     | `string` (optional)          | Dot-notation prefix for error messages. Used internally during recursion.      |
+
+### Throws
+
+- `GuantrInvalidConditionError` — if the condition is malformed, uses an unknown operator, or contains an invalid value type.
+
+### Example
+
+```ts
+import { validateCondition } from 'guantr';
+import { GuantrInvalidConditionError } from 'guantr';
+
+try {
+  validateCondition({ id: ['eql', 1] });
+} catch (e) {
+  if (e instanceof GuantrInvalidConditionError) {
+    console.error(e.reason);
+    // 'Unknown operator "eql" at "id". Valid operators: eq, in, ...'
+  }
+}
+```
+
+---
+
+## `KNOWN_OPERATORS`
+
+A `ReadonlySet<string>` containing all valid `ConditionOperator` values. Useful for custom validation or introspection.
+
+```ts
+import { KNOWN_OPERATORS } from 'guantr';
+
+KNOWN_OPERATORS.has('eq'); // true
+KNOWN_OPERATORS.has('eql'); // false
+```
+
+---
+
 ## Related
 
 - [Condition Operators](../guides/defining-rules/condition-operators) — Reference for all available operators.
-- [Strict Mode](../advanced-usage/strict-mode) — How strict mode affects evaluation behavior.
-- [Error Classes](./error-classes) — Documentation for the error types thrown in strict mode.
+- [Rule Validation](../guides/defining-rules/rule-validation) — How Guantr validates conditions at definition and evaluation time.
+- [Error Classes](./error-classes) — Documentation for error types.

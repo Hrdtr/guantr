@@ -84,21 +84,21 @@ export const KNOWN_OPERATORS: ReadonlySet<string> = new Set<ConditionOperator>([
 ]);
 
 /**
- * Type guard for checking if a value is a valid condition expression.
+ * Type guard for checking if a value is a structurally valid condition expression.
  *
  * A condition expression is an array with at least two elements. The first element is a string that represents the condition
  * operator. The second element is the operand, which may be a string, number, boolean, or an array of strings or numbers.
  * The third element is an optional object that contains additional options for the condition expression.
  *
- * When `strict` is `true`, this also verifies that the operator string is a known `ConditionOperator` value.
+ * This is a structural check only — the operator is NOT validated against `KNOWN_OPERATORS` here.
+ * Operator validation is performed by `validateCondition` (at definition time) and
+ * `matchConditionExpression` (at evaluation time).
  *
  * @param {unknown} maybeExpression - The value to check.
- * @param {boolean} [strict] - When true, also validates that the operator is a known ConditionOperator.
- * @return {maybeExpression is GuantrAnyRuleConditionExpression} - Returns true if the value is a valid condition expression, otherwise returns false.
+ * @return {maybeExpression is GuantrAnyRuleConditionExpression} - Returns true if the value is a structurally valid condition expression, otherwise returns false.
  */
-export const isValidConditionExpression = (
+export const isConditionExpressionLike = (
   maybeExpression: unknown,
-  strict?: boolean,
 ): maybeExpression is GuantrAnyRuleConditionExpression => {
   if (
     !Array.isArray(maybeExpression) ||
@@ -107,28 +107,22 @@ export const isValidConditionExpression = (
   ) {
     return false;
   }
-  if (strict && !KNOWN_OPERATORS.has(maybeExpression[0])) {
-    return false;
-  }
   return true;
 };
 
 /**
- * Recursively validates a condition object (or expression) in strict mode.
+ * Recursively validates a condition object (or expression).
  * Throws `GuantrInvalidConditionError` if any expression has malformed structure
  * or uses an operator that is not a recognized `ConditionOperator`.
  *
- * This is called by `setRules` when strict mode is enabled to catch problems
- * at definition time rather than silently failing at evaluation time.
+ * This is called by `setRules` to catch problems at definition time rather than
+ * throwing at evaluation time.
  *
  * @param {GuantrAnyRule['condition']} condition - The condition to validate.
  * @param {string} [_path] - Dot-notation path used for error messages (populated by recursion).
  * @throws {GuantrInvalidConditionError}
  */
-export function validateConditionForStrict(
-  condition: GuantrAnyRule['condition'],
-  _path: string = '',
-): void {
+export function validateCondition(condition: GuantrAnyRule['condition'], _path: string = ''): void {
   if (condition === null || condition === undefined) return;
   if (!isPlainObject(condition)) {
     throw new GuantrInvalidConditionError(
@@ -139,11 +133,11 @@ export function validateConditionForStrict(
 
   for (const [key, value] of Object.entries(condition)) {
     const path = _path ? `${_path}.${key}` : key;
-    _validateConditionValueForStrict(value, path);
+    _validateConditionValue(value, path);
   }
 }
 
-function _validateConditionValueForStrict(value: unknown, path: string): void {
+function _validateConditionValue(value: unknown, path: string): void {
   if (Array.isArray(value)) {
     // Must be a well-formed condition expression: [operator, operand, ?options]
     if (value.length < 2 || typeof value[0] !== 'string') {
@@ -164,15 +158,15 @@ function _validateConditionValueForStrict(value: unknown, path: string): void {
       (operator === 'some' || operator === 'every' || operator === 'none') &&
       isPlainObject(value[1])
     ) {
-      validateConditionForStrict(value[1] as GuantrAnyRuleCondition, path);
+      validateCondition(value[1] as GuantrAnyRuleCondition, path);
     }
   } else if (isPlainObject(value)) {
     // Could be a nested condition object (possibly with a $expr sibling key)
     const { $expr, ...nested } = value as Record<string, unknown>;
     if ($expr !== undefined) {
-      _validateConditionValueForStrict($expr, `${path}.$expr`);
+      _validateConditionValue($expr, `${path}.$expr`);
     }
-    validateConditionForStrict(nested as GuantrAnyRuleCondition, path);
+    validateCondition(nested as GuantrAnyRuleCondition, path);
   } else {
     throw new GuantrInvalidConditionError(
       value,
@@ -524,16 +518,12 @@ const conditionHandlers: Record<
 };
 
 /**
- * Evaluates `some`, `every`, or `none` operators with strict-aware recursive condition matching.
- * This is called directly by `matchConditionExpression` instead of going through
- * `conditionHandlers`, so that the `strict` flag can be forwarded to `checkComplexCondition`
- * without polluting the `conditionHandlers` type signature.
+ * Evaluates `some`, `every`, or `none` operators with recursive condition matching.
  */
 function _evaluateComplexOperator(
   operator: 'some' | 'every' | 'none',
   value: unknown,
   operand: unknown,
-  strict?: boolean,
 ): boolean {
   validateValueType(value, ['array', 'null', 'undefined'], operator, 'value', (item) =>
     isObjectArray(item),
@@ -547,10 +537,9 @@ function _evaluateComplexOperator(
   }
 
   const arr = value as Record<string, unknown>[];
-  if (operator === 'some') return arr.some((item) => checkComplexCondition(item, operand, strict));
-  if (operator === 'every')
-    return arr.every((item) => checkComplexCondition(item, operand, strict));
-  return arr.every((item) => !checkComplexCondition(item, operand, strict));
+  if (operator === 'some') return arr.some((item) => checkComplexCondition(item, operand));
+  if (operator === 'every') return arr.every((item) => checkComplexCondition(item, operand));
+  return arr.every((item) => !checkComplexCondition(item, operand));
 }
 
 /**
@@ -559,16 +548,12 @@ function _evaluateComplexOperator(
 function checkComplexCondition(
   item: Record<string, unknown>,
   operand: Record<string, unknown>,
-  strict?: boolean,
 ): boolean {
   return Object.entries(operand).every(([key, expressionOrNestedCondition]) => {
-    // Structural check only (no strict): routes arrays into matchConditionExpression,
-    // which owns the operator-validity / strict throwing logic.
-    if (isValidConditionExpression(expressionOrNestedCondition)) {
+    if (isConditionExpressionLike(expressionOrNestedCondition)) {
       return matchConditionExpression({
         value: item[key],
         expression: expressionOrNestedCondition,
-        strict,
       });
     } else if (isPlainObject(expressionOrNestedCondition)) {
       if (!isPlainObject(item[key])) {
@@ -578,7 +563,6 @@ function checkComplexCondition(
       return matchRuleCondition(
         item[key] as Record<string, unknown>,
         expressionOrNestedCondition as GuantrAnyRuleCondition,
-        strict,
       );
     } else {
       throw new TypeError(
@@ -593,13 +577,11 @@ function checkComplexCondition(
  *
  * @param {Model} model - The model to check against the rule condition.
  * @param {GuantrAnyRule & { condition: NonNullable<GuantrAnyRule['condition']> }} condition - The condition to match.
- * @param {boolean} [strict] - When true, unknown operators throw instead of returning false.
  * @returns {boolean} Returns true if the model matches the rule condition, false otherwise.
  */
 export const matchRuleCondition = <Model extends Record<string, unknown>>(
   model: Model,
   condition: NonNullable<GuantrAnyRule['condition']>,
-  strict?: boolean,
 ): boolean => {
   if (!model) {
     return false;
@@ -608,13 +590,10 @@ export const matchRuleCondition = <Model extends Record<string, unknown>>(
   return Object.entries(condition).every(([key, expressionOrNestedCondition]) => {
     const modelValue = model[key];
 
-    // Structural check only (no strict): routes arrays into matchConditionExpression,
-    // which owns the operator-validity / strict throwing logic.
-    if (isValidConditionExpression(expressionOrNestedCondition)) {
+    if (isConditionExpressionLike(expressionOrNestedCondition)) {
       return matchConditionExpression({
         value: modelValue,
         expression: expressionOrNestedCondition,
-        strict,
       });
     } else if (isPlainObject(expressionOrNestedCondition)) {
       if (!isPlainObject(modelValue) && !Array.isArray(modelValue)) {
@@ -623,14 +602,13 @@ export const matchRuleCondition = <Model extends Record<string, unknown>>(
 
       const { $expr, ...nestedCondition } = expressionOrNestedCondition;
       const exprResult = $expr
-        ? isValidConditionExpression($expr)
-          ? matchConditionExpression({ value: modelValue, expression: $expr, strict })
+        ? isConditionExpressionLike($expr)
+          ? matchConditionExpression({ value: modelValue, expression: $expr })
           : false
         : true;
 
       return (
-        exprResult &&
-        matchRuleCondition(modelValue as Record<string, unknown>, nestedCondition, strict)
+        exprResult && matchRuleCondition(modelValue as Record<string, unknown>, nestedCondition)
       );
     } else {
       throw new TypeError(
@@ -641,14 +619,13 @@ export const matchRuleCondition = <Model extends Record<string, unknown>>(
 };
 
 /**
- * Evaluates a condition expression against a given value and ctx.
+ * Evaluates a condition expression against a given value.
  *
- * @param {Object} data - The data object containing the value, expression, and optional ctx.
+ * @param {Object} data - The data object containing the value and expression.
  * @param {unknown} data.value - The value to evaluate the condition against.
  * @param {NonNullable<GuantrAnyRule['condition']>[keyof NonNullable<GuantrAnyRule['condition']>]} data.expression - The condition expression to evaluate.
- * @param {boolean} [data.strict] - When true, throws `GuantrInvalidConditionOperatorError` for unknown operators instead of returning false.
- * @return {boolean} The result of evaluating the condition expression against the value and ctx.
- * @throws {GuantrInvalidConditionOperatorError} If strict is true and the operator is not a known ConditionOperator.
+ * @return {boolean} The result of evaluating the condition expression against the value.
+ * @throws {GuantrInvalidConditionOperatorError} If the operator is not a known ConditionOperator.
  * @throws {TypeError} If the model value type is unexpected or the operand type is invalid.
  */
 export const matchConditionExpression = (data: {
@@ -657,28 +634,23 @@ export const matchConditionExpression = (data: {
     NonNullable<GuantrAnyRule['condition']>[keyof NonNullable<GuantrAnyRule['condition']>],
     Array<any>
   >;
-  strict?: boolean;
 }): boolean => {
-  const { value, expression, strict } = data;
+  const { value, expression } = data;
   if (!expression || expression.length < 2) {
     return false;
   }
 
   const [operator, operand, options] = expression;
 
-  // some/every/none need strict-aware nested evaluation — bypass conditionHandlers
-  // so we don't need to put strict on every handler's signature.
+  // some/every/none need recursive nested evaluation
   if (operator === 'some' || operator === 'every' || operator === 'none') {
-    return _evaluateComplexOperator(operator, value, operand, strict);
+    return _evaluateComplexOperator(operator, value, operand);
   }
 
   const handler = conditionHandlers[operator as ConditionOperator];
 
   if (!handler) {
-    if (strict) {
-      throw new GuantrInvalidConditionOperatorError(operator);
-    }
-    return false;
+    throw new GuantrInvalidConditionOperatorError(operator);
   }
 
   return handler(value, operand, options);
