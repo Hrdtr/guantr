@@ -36,4 +36,19 @@ const showEditButton = !(await guantr.cannot.abstract('update', 'post'));
 // -> true (allow rule exists — show the button)
 ```
 
+## Migration from v1.x
+
+The string overload `cannot(action, 'resourceKey')` was deprecated in v1.1.0 and **removed in v2.0.0**. Replace all such calls with `cannot.abstract`:
+
+```ts
+// v1.x — removed in v2.0.0
+await guantr.cannot('read', 'post');
+
+// v2.0.0 — use cannot.abstract for abstract checks
+await guantr.cannot.abstract('read', 'post');
+
+// v2.0.0 — use the tuple form for full evaluation
+await guantr.cannot('read', ['post', postInstance]);
+```
+
 See also: [`can.abstract`](./can.abstract), [`cannot`](./cannot), [Concepts: Abstract vs Resource-Aware Checks](../../guides/abstract-vs-resource-aware).

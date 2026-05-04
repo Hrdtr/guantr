@@ -65,32 +65,18 @@ await guantr.can('update', ['post', publishedPost]);
 // -> false (allow matches, but deny also matches — deny wins)
 ```
 
-## Why the String Overload of `can()` is Deprecated
+## Migration from v1.x
 
-Prior to v1.1.0, calling `can('update', 'post')` (string-mode) silently performed an abstract check. This was easy to misuse — developers could accidentally rely on it for access control decisions while it was actually just checking for rule existence.
-
-In v1.1.0:
-
-- `can(action, 'resourceKey')` is **deprecated** and emits a `console.warn` in non-production environments.
-- Use `can.abstract(action, 'resourceKey')` for the same behaviour with explicit intent.
-- Use `can(action, ['resourceKey', instance])` for full evaluation.
+Prior to v2.0.0, calling `can('update', 'post')` with a plain string silently performed an abstract check. This was deprecated in v1.1.0 and **removed in v2.0.0** because it was easy to misuse — developers could accidentally rely on it for access control decisions while it was only checking for rule existence.
 
 ```ts
-// v1.0.x — ambiguous
-await guantr.can('update', 'post'); // ❌ deprecated
+// v1.x — no longer compiles in v2.0.0
+await guantr.can('update', 'post');
+await guantr.cannot('update', 'post');
 
-// v1.1.0 — explicit intent
+// v2.0.0 — use dedicated methods with explicit intent
 await guantr.can.abstract('update', 'post'); // ✅ UI hints
+await guantr.cannot.abstract('update', 'post'); // ✅ UI hints (negated)
 await guantr.can('update', ['post', post]); // ✅ access control
-```
-
-## Dev-Mode Warnings
-
-The deprecation warning is emitted once per unique `action + resource` pair and is suppressed in production environments (`process.env.NODE_ENV === 'production'`).
-
-You can also disable it manually:
-
-```ts
-import { Guantr } from 'guantr';
-Guantr.devWarnings = false;
+await guantr.cannot('update', ['post', post]); // ✅ access control (negated)
 ```

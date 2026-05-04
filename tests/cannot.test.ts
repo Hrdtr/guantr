@@ -173,18 +173,11 @@ describe('Guantr.cannot', () => {
       deny('delete', 'post'); // creates unconditional deny rule for delete/post
     });
 
-    // Suppress string-mode deprecation warnings around these assertions
-    const prev = Guantr.devWarnings;
-    Guantr.devWarnings = false;
-    try {
-      // Unconditional allow for read → can() true → cannot() false
-      expect(await guantr.cannot('read', ['post', { id: 1 }])).toBe(false);
+    // Unconditional allow for read → can() true → cannot() false
+    expect(await guantr.cannot('read', ['post', { id: 1 }])).toBe(false);
 
-      // No allow rule for delete (only deny) → can.abstract() false → cannot.abstract() true
-      expect(await guantr.cannot.abstract('delete', 'post')).toBe(true);
-    } finally {
-      Guantr.devWarnings = prev;
-    }
+    // No allow rule for delete (only deny) → can.abstract() false → cannot.abstract() true
+    expect(await guantr.cannot.abstract('delete', 'post')).toBe(true);
   });
 
   // 14. works with the async setRules callback

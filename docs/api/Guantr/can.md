@@ -1,6 +1,6 @@
 # API: `Guantr.prototype.can`
 
-The `can` method checks if a specific action is permitted on a given resource, according to the rules defined in the Guantr instance. It considers both `allow` and `deny` rules, including any applicable conditions based on the resource instance and context.
+The `can` method checks if a specific action is permitted on a given resource instance, according to the rules defined in the Guantr instance. It evaluates both `allow` and `deny` rules, including any applicable conditions based on the resource instance and context.
 
 > For an abstract check that only tests whether any allow rule exists (without evaluating conditions or deny rules), see [`can.abstract`](./can.abstract).
 
@@ -10,7 +10,7 @@ The `can` method checks if a specific action is permitted on a given resource, a
 interface Guantr<Meta, Context> {
   can(
     action: string, // Or specific action type from Meta
-    resource: string | [resourceKey: string, resourceInstance: object], // Or typed resource key/instance from Meta
+    resource: [resourceKey: string, resourceInstance: object], // Or typed resource key/instance from Meta
   ): Promise<boolean>;
 }
 ```
@@ -18,9 +18,7 @@ interface Guantr<Meta, Context> {
 ## Parameters
 
 - `action`: (`string`) The action being attempted (e.g., `'read'`, `'update'`).
-- `resource`: (`string` | `[string, object]`) The resource being acted upon.
-  - If a `string` (e.g., `'post'`) is provided, it checks rules defined for the general resource type _without_ evaluating instance-specific conditions. **Deprecated** — use [`can.abstract`](./can.abstract) instead for this behaviour.
-  - If a tuple `[resourceKey: string, resourceInstance: object]` (e.g., `['post', { id: 1, status: 'draft' }]`) is provided, it checks rules for the `resourceKey` and evaluates any conditions against the properties of the `resourceInstance` and the current context.
+- `resource`: (`[string, object]`) A tuple of `[resourceKey, resourceInstance]` (e.g., `['post', { id: 1, status: 'draft' }]`). Rules for the `resourceKey` are retrieved and any conditions are evaluated against the `resourceInstance` and the current context.
 
 ## Returns
 
@@ -30,8 +28,8 @@ interface Guantr<Meta, Context> {
 
 ## How it Works
 
-1.  Retrieves all rules relevant to the given `action` and `resource` key using `queryRules` from the storage adapter.
-2.  If a `resourceInstance` is provided, it evaluates the `condition` of each relevant rule against the instance's properties and the current context (obtained via `getContext`).
+1.  Retrieves all rules relevant to the given `action` and resource key using `queryRules` from the storage adapter.
+2.  Evaluates the `condition` of each rule against the `resourceInstance`'s properties and the current context (obtained via `getContext`).
 3.  Determines the outcome: Permission is granted (`true`) if there's at least one applicable `allow` rule and no applicable `deny` rules. Otherwise, permission is denied (`false`).
 
 ## Examples
@@ -48,10 +46,6 @@ const someoneElsesArticle = { id: 3, status: 'published', ownerId: 'user-456' };
 
 // Assume current context userId is 'user-123'
 
-// Check general read permission (doesn't evaluate conditions)
-const canReadType = await guantr.can('read', 'article');
-// -> true (because the general 'allow read article' rule exists)
-
 // Check read permission on specific instances
 const canReadActive = await guantr.can('read', ['article', activeArticle]);
 // -> true (general 'allow' applies, 'deny' condition doesn't match)
@@ -66,3 +60,5 @@ const canEditOwn = await guantr.can('edit', ['article', activeArticle]);
 const canEditElse = await guantr.can('edit', ['article', someoneElsesArticle]);
 // -> false (condition ownerId === $ctx.userId does not match)
 ```
+
+> To check whether any permission exists for a resource type without a specific instance (e.g., for showing/hiding a UI button), use [`can.abstract`](./can.abstract).
