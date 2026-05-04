@@ -124,7 +124,7 @@ describe('matchConditionExpression - some operator', () => {
   // Edge case: invalid nested condition value type in operand
   it('should throw TypeError for invalid nested condition value in operand', () => {
     const value = [{ id: 1, value: 10 }];
-    const operand = { key: 'value' }; // String 'value' is not a valid condition expression
+    const operand = { id: 'value' }; // String 'value' is not a valid condition expression (id exists on items)
     const expression = ['some', operand] as any;
     expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
   });

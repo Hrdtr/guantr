@@ -111,7 +111,7 @@ describe('matchConditionExpression - every operator', () => {
   // Edge case: invalid operand type
   it('should throw TypeError for unexpected operand type', () => {
     const value = [{ id: 1, value: 10 }];
-    const operand = { key: 'value' }; // Invalid type for 'every' operand
+    const operand = { id: 'value' }; // Invalid type for 'every' operand (id exists on items)
     const expression = ['every', operand] as any;
     expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
   });

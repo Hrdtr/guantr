@@ -16,12 +16,13 @@ By **always validating** — throwing errors for invalid operators, malformed ex
 
 ## When Validation Happens
 
-Guantr validates conditions at two distinct stages:
+Guantr validates conditions at three distinct stages:
 
 | Stage                                             | What's Checked                                               | Error Thrown                          |
 | ------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------- |
 | **Definition time** (`setRules` / `createGuantr`) | Structure and operator validity of all condition expressions | `GuantrInvalidConditionError`         |
 | **Evaluation time** (`can` / `cannot`)            | Operator validity (for rules loaded outside `setRules`)      | `GuantrInvalidConditionOperatorError` |
+| **Evaluation time** (`can` / `cannot`)            | Key existence on resource instance (**new in v2.0**)         | `GuantrInvalidConditionKeyError`      |
 
 ## 1. Definition-Time Validation (`setRules`)
 
@@ -187,7 +188,73 @@ try {
 }
 ```
 
-## 3. The Structural Check: `isConditionExpressionLike`
+## 3. Evaluation-Time Key-Existence Checks (`can` / `cannot`) — New in v2.0
+
+When a rule condition references a key that does **not exist** on the resource instance, Guantr throws a `GuantrInvalidConditionKeyError` instead of silently evaluating `undefined`. This catches typos in condition keys that would otherwise produce silent authorization failures.
+
+```ts
+import { Guantr, GuantrInvalidConditionKeyError } from 'guantr';
+import { InMemoryStorage } from 'guantr/storage';
+
+const storage = new InMemoryStorage();
+await storage.setRules([
+  {
+    effect: 'allow',
+    action: 'read',
+    resource: 'post',
+    condition: { titel: ['eq', 'Hello'] }, // ❌ typo: should be 'title'
+  },
+]);
+
+const guantr = new Guantr({ storage });
+
+try {
+  await guantr.can('read', ['post', { title: 'Hello' }]);
+} catch (e) {
+  if (e instanceof GuantrInvalidConditionKeyError) {
+    console.error('Missing key:', e.key); // 'titel'
+  }
+}
+```
+
+### Opt-Out for Sparse Objects
+
+If you **intentionally** work with sparse objects where some keys may be absent, use an explicit nullish operand (`null` or `undefined`) to signal your intent. The key-existence check is skipped when the operand is `null` or `undefined`.
+
+```ts
+// ✅ Explicit opt-out: operand is undefined → key-existence check is skipped
+const condition = { optionalField: ['eq', undefined] };
+
+// With optionalField absent:
+matchRuleCondition({ title: 'Hello' }, condition); // true (undefined === undefined)
+
+// With optionalField present but undefined:
+matchRuleCondition({ title: 'Hello', optionalField: undefined }, condition); // true
+
+// With optionalField present with a value:
+matchRuleCondition({ title: 'Hello', optionalField: 'value' }, condition); // false ('value' !== undefined)
+```
+
+> **Note:** The nullish opt-out only works with the `eq` operator since it is the only operator that accepts `null` and `undefined` as valid operands. For other operators, condition keys must exist on the resource.
+
+### Nested Conditions and Arrays
+
+Key-existence checks apply recursively:
+
+- **Nested objects:** If a condition key maps to a nested condition object, the key must exist on the resource.
+- **Array operators (`some`, `every`, `none`):** Keys inside the operand are checked against each array item.
+
+```ts
+// ❌ Typo in nested key: 'citie' instead of 'city'
+const condition = { address: { citie: ['eq', 'NYC'] } };
+// Throws GuantrInvalidConditionKeyError: "citie" does not exist
+
+// ❌ Typo inside some operator: 'author' instead of 'authorId'
+const condition = { comments: ['some', { author: ['eq', 1] }] };
+// Throws GuantrInvalidConditionKeyError: "author" does not exist
+```
+
+## 4. The Structural Check: `isConditionExpressionLike`
 
 The `isConditionExpressionLike` utility (renamed from `isValidConditionExpression` in v2.0.0) performs a purely structural check — it verifies that a value looks like a condition expression without validating the operator. This is used internally for routing (determining whether a value is an expression or a nested condition) and is exported for custom tooling.
 
@@ -206,7 +273,7 @@ isConditionExpressionLike(['eq']); // false (too few elements)
 isConditionExpressionLike([42, 'foo']); // false (operator not a string)
 ```
 
-## 4. Using `validateCondition` Directly
+## 5. Using `validateCondition` Directly
 
 The `validateCondition` function (the internal utility called by `setRules`) is exported from `'guantr'` for custom validation pipelines — for example, when loading rules from an external source and you want to validate them before storing.
 
@@ -240,7 +307,7 @@ function validateRulesFromDatabase(rules: unknown[]) {
 
 **Throws:** `GuantrInvalidConditionError` if the condition contains any malformed expression, unknown operator, or invalid value type.
 
-## 5. The `KNOWN_OPERATORS` Set
+## 6. The `KNOWN_OPERATORS` Set
 
 The set of all valid operator strings is exported as `KNOWN_OPERATORS` from `'guantr'`. You can use it for custom validation or introspection.
 
@@ -263,11 +330,16 @@ console.log([...KNOWN_OPERATORS]);
 | ------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `GuantrInvalidConditionError`         | `setRules` / `createGuantr`                   | Malformed expression, unknown operator, or invalid value type at definition time | `condition` (the offending value), `reason` (human-readable description) |
 | `GuantrInvalidConditionOperatorError` | `matchConditionExpression` / `can` / `cannot` | Unknown operator encountered during evaluation                                   | `operator` (the unrecognized operator string)                            |
+| `GuantrInvalidConditionKeyError`      | `matchRuleCondition` / `can` / `cannot`       | Condition key does not exist on resource instance (**new in v2.0**)              | `key` (the missing key)                                                  |
 
-Both error classes are exported from `'guantr'`. See the [Error Classes API reference](../../api/error-classes) for full details.
+All error classes are exported from `'guantr'`. See the [Error Classes API reference](../../api/error-classes) for full details.
 
 ```ts
-import { GuantrInvalidConditionError, GuantrInvalidConditionOperatorError } from 'guantr';
+import {
+  GuantrInvalidConditionError,
+  GuantrInvalidConditionKeyError,
+  GuantrInvalidConditionOperatorError,
+} from 'guantr';
 ```
 
 ## Migration from v1.x

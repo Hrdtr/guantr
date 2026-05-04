@@ -2,13 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   createGuantr,
   GuantrInvalidConditionError,
+  GuantrInvalidConditionKeyError,
   GuantrInvalidConditionOperatorError,
   Guantr,
+  GuantrRuleCondition,
 } from '../src/index';
 import { InMemoryStorage } from '../src/storage';
 import {
   isConditionExpressionLike,
   matchConditionExpression,
+  matchRuleCondition,
   validateCondition,
   KNOWN_OPERATORS,
 } from '../src/utils';
@@ -379,5 +382,196 @@ describe('Guantr.can — evaluation-time operator validation', () => {
 
     const noMatch: MockPost = { id: 2, title: 'goodbye', published: true, tags: [], comments: [] };
     expect(await guantr.can('read', ['post', noMatch])).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Key-existence check — new in v2.0
+// ---------------------------------------------------------------------------
+describe('matchRuleCondition — key-existence check', () => {
+  it('throws GuantrInvalidConditionKeyError for a key that does not exist on the model', () => {
+    const model = { title: 'Hello', published: true };
+    const condition: GuantrRuleCondition = { titel: ['eq', 'Hello'] }; // typo in key
+
+    expect(() => matchRuleCondition(model, condition)).toThrowError(GuantrInvalidConditionKeyError);
+  });
+
+  it('includes the missing key in the error', () => {
+    const model = { title: 'Hello' };
+    const condition: GuantrRuleCondition = { titel: ['eq', 'Hello'] };
+
+    let caught: GuantrInvalidConditionKeyError | undefined;
+    try {
+      matchRuleCondition(model, condition);
+    } catch (e) {
+      caught = e as GuantrInvalidConditionKeyError;
+    }
+    expect(caught).toBeInstanceOf(GuantrInvalidConditionKeyError);
+    expect(caught!.key).toBe('titel');
+    expect(caught!.message).toContain('"titel"');
+    expect(caught!.message).toContain('does not exist on the resource instance');
+  });
+
+  it('throws for a non-existent key in a nested condition', () => {
+    const model = { address: { city: 'NYC' } };
+    const condition: GuantrRuleCondition = { address: { citie: ['eq', 'NYC'] } }; // typo in nested key
+
+    expect(() => matchRuleCondition(model, condition)).toThrowError(GuantrInvalidConditionKeyError);
+  });
+
+  it('does NOT throw when the key exists', () => {
+    const model = { title: 'Hello', published: true };
+    const condition: GuantrRuleCondition = { title: ['eq', 'Hello'] };
+
+    expect(() => matchRuleCondition(model, condition)).not.toThrow();
+    expect(matchRuleCondition(model, condition)).toBe(true);
+  });
+
+  it('opts out when operand is undefined (explicit nullish check)', () => {
+    const model = { title: 'Hello' }; // no 'optionalField'
+    const condition: GuantrRuleCondition = { optionalField: ['eq', undefined] };
+
+    // Should not throw — explicit nullish operand signals sparse object intent
+    expect(() => matchRuleCondition(model, condition)).not.toThrow();
+    // undefined === undefined → true, so the condition matches
+    expect(matchRuleCondition(model, condition)).toBe(true);
+  });
+
+  it('opts out when operand is null (explicit nullish check)', () => {
+    const model = { title: 'Hello' }; // no 'optionalField'
+    const condition: GuantrRuleCondition = { optionalField: ['eq', null] };
+
+    // Should not throw — explicit nullish operand signals sparse object intent
+    expect(() => matchRuleCondition(model, condition)).not.toThrow();
+    // undefined !== null → false, so the condition does not match
+    expect(matchRuleCondition(model, condition)).toBe(false);
+  });
+
+  it('does NOT opt out for non-nullish operands on missing keys', () => {
+    const model = { title: 'Hello' };
+    const condition: GuantrRuleCondition = { missingField: ['eq', 'someValue'] };
+
+    expect(() => matchRuleCondition(model, condition)).toThrowError(GuantrInvalidConditionKeyError);
+  });
+
+  it('does NOT opt out for nested conditions on missing keys', () => {
+    const model = { title: 'Hello' };
+    // Nested condition on a key that doesn't exist — always throws
+    const condition: GuantrRuleCondition = { missingField: { subKey: ['eq', 'value'] } };
+
+    expect(() => matchRuleCondition(model, condition)).toThrowError(GuantrInvalidConditionKeyError);
+  });
+
+  it('does NOT throw for keys that exist with value undefined', () => {
+    const model = { title: 'Hello', optionalField: undefined };
+    const condition: GuantrRuleCondition = { optionalField: ['eq', 'something'] };
+
+    // Key exists on model (even though value is undefined), so no error
+    expect(() => matchRuleCondition(model, condition)).not.toThrow();
+    expect(matchRuleCondition(model, condition)).toBe(false);
+  });
+
+  it('works with the in operator on a missing key', () => {
+    const model = { title: 'Hello' };
+    const condition: GuantrRuleCondition = { tags: ['in', ['news', 'tech']] };
+
+    expect(() => matchRuleCondition(model, condition)).toThrowError(GuantrInvalidConditionKeyError);
+  });
+
+  it('throws for in operator on missing key (in does not accept nullish operand)', () => {
+    const model = { title: 'Hello' };
+    const condition: GuantrRuleCondition = { tags: ['in', ['news', 'tech']] };
+
+    // in operator requires array operand — nullish opt-out is not available for 'in'
+    expect(() => matchRuleCondition(model, condition)).toThrowError(GuantrInvalidConditionKeyError);
+  });
+
+  it('throws for has operator on missing key (has does not accept nullish operand)', () => {
+    const model = { title: 'Hello' };
+    const condition: GuantrRuleCondition = { tags: ['has', 'news'] };
+
+    // has operator requires string/number operand — nullish opt-out is only for 'eq'
+    expect(() => matchRuleCondition(model, condition)).toThrowError(GuantrInvalidConditionKeyError);
+  });
+});
+
+describe('Guantr.can — key-existence check at evaluation time', () => {
+  it('throws GuantrInvalidConditionKeyError when rule condition references a missing key', async () => {
+    const storage = new InMemoryStorage();
+    await storage.setRules([
+      {
+        effect: 'allow',
+        action: 'read',
+        resource: 'post',
+        condition: { titel: ['eq', 'hello world'] }, // typo: should be 'title'
+      },
+    ]);
+
+    const guantr = new Guantr({ storage });
+    const post: MockPost = { id: 1, title: 'hello world', published: true, tags: [], comments: [] };
+
+    await expect(guantr.can('read', ['post', post])).rejects.toThrowError(
+      GuantrInvalidConditionKeyError,
+    );
+  });
+
+  it('does NOT throw when key exists on the resource', async () => {
+    const storage = new InMemoryStorage();
+    await storage.setRules([
+      {
+        effect: 'allow',
+        action: 'read',
+        resource: 'post',
+        condition: { title: ['eq', 'hello world'] },
+      },
+    ]);
+
+    const guantr = new Guantr({ storage });
+    const post: MockPost = { id: 1, title: 'hello world', published: true, tags: [], comments: [] };
+
+    await expect(guantr.can('read', ['post', post])).resolves.toBe(true);
+  });
+
+  it('opts out with undefined operand on a sparse resource', async () => {
+    const storage = new InMemoryStorage();
+    await storage.setRules([
+      {
+        effect: 'allow',
+        action: 'read',
+        resource: 'post',
+        condition: { optionalField: ['eq', undefined] },
+      },
+    ]);
+
+    const guantr = new Guantr({ storage });
+    // Post doesn't have 'optionalField' — but that's okay because operand is undefined
+    const post: MockPost = { id: 1, title: 'hello', published: true, tags: [], comments: [] };
+
+    await expect(guantr.can('read', ['post', post])).resolves.toBe(true);
+  });
+
+  it('throws for missing key inside a some/none/every operator', async () => {
+    const storage = new InMemoryStorage();
+    await storage.setRules([
+      {
+        effect: 'allow',
+        action: 'read',
+        resource: 'post',
+        condition: { comments: ['some', { author: ['eq', 1] }] }, // typo: should be 'authorId'
+      },
+    ]);
+
+    const guantr = new Guantr({ storage });
+    const post: MockPost = {
+      id: 1,
+      title: 'hello',
+      published: true,
+      tags: [],
+      comments: [{ authorId: 1, body: 'test' }],
+    };
+
+    await expect(guantr.can('read', ['post', post])).rejects.toThrowError(
+      GuantrInvalidConditionKeyError,
+    );
   });
 });

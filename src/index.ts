@@ -18,6 +18,7 @@ import {
 export {
   GuantrCircuitBreakerError,
   GuantrInvalidConditionError,
+  GuantrInvalidConditionKeyError,
   GuantrInvalidConditionOperatorError,
 } from './errors';
 

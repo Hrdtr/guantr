@@ -1,4 +1,8 @@
-import { GuantrInvalidConditionError, GuantrInvalidConditionOperatorError } from './errors';
+import {
+  GuantrInvalidConditionError,
+  GuantrInvalidConditionKeyError,
+  GuantrInvalidConditionOperatorError,
+} from './errors';
 import {
   ConditionOperator,
   ConditionOptions,
@@ -543,13 +547,23 @@ function _evaluateComplexOperator(
 }
 
 /**
- * Helper function to check complex conditions for object array items
+ * Helper function to check complex conditions for object array items.
+ *
+ * **New in v2.0:** Throws `GuantrInvalidConditionKeyError` when a condition
+ * key does not exist on the array item, unless the expression uses an
+ * explicit nullish operand to opt out.
  */
 function checkComplexCondition(
   item: Record<string, unknown>,
   operand: Record<string, unknown>,
 ): boolean {
   return Object.entries(operand).every(([key, expressionOrNestedCondition]) => {
+    const keyExists = Object.hasOwn(item, key);
+
+    if (!keyExists && !isExplicitNullishCheck(expressionOrNestedCondition)) {
+      throw new GuantrInvalidConditionKeyError(key);
+    }
+
     if (isConditionExpressionLike(expressionOrNestedCondition)) {
       return matchConditionExpression({
         value: item[key],
@@ -573,11 +587,30 @@ function checkComplexCondition(
 }
 
 /**
+ * Checks whether a condition expression is an explicit nullish check —
+ * i.e. its operand is `null` or `undefined`. This signals that the
+ * developer intentionally handles sparse objects where the key may be
+ * absent, and the key-existence check should be skipped.
+ */
+function isExplicitNullishCheck(expr: unknown): boolean {
+  if (isConditionExpressionLike(expr)) {
+    const operand = (expr as unknown[])[1];
+    return operand === null || operand === undefined;
+  }
+  return false;
+}
+
+/**
  * Checks if the given model matches the rule condition.
+ *
+ * **New in v2.0:** Throws `GuantrInvalidConditionKeyError` when a condition
+ * references a key that does not exist on the model, unless the condition
+ * uses an explicit nullish operand (`null` or `undefined`) to opt out.
  *
  * @param {Model} model - The model to check against the rule condition.
  * @param {GuantrRule & { condition: NonNullable<GuantrRule['condition']> }} condition - The condition to match.
  * @returns {boolean} Returns true if the model matches the rule condition, false otherwise.
+ * @throws {GuantrInvalidConditionKeyError} When a condition key does not exist on the model and the operand is not nullish.
  */
 export const matchRuleCondition = <Model extends Record<string, unknown>>(
   model: Model,
@@ -588,6 +621,13 @@ export const matchRuleCondition = <Model extends Record<string, unknown>>(
   }
 
   return Object.entries(condition).every(([key, expressionOrNestedCondition]) => {
+    const keyExists = Object.hasOwn(model, key);
+
+    // Throw if key does not exist and this is not an explicit nullish check
+    if (!keyExists && !isExplicitNullishCheck(expressionOrNestedCondition)) {
+      throw new GuantrInvalidConditionKeyError(key);
+    }
+
     const modelValue = model[key];
 
     if (isConditionExpressionLike(expressionOrNestedCondition)) {
