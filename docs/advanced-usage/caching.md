@@ -50,7 +50,7 @@ class LoggingCacheStorage extends InMemoryStorage {
     async has(key: string): Promise<boolean> {
       console.log(`CACHE HAS: Key="${key}"`);
       // Call the original implementation
-      return super.cache.has ? await super.cache.has(key) : false; // Default InMemoryStorage might not have 'has' explicitly separate from get
+      return super.cache.has(key);
     },
 
     async clear(): Promise<void> {
@@ -86,6 +86,18 @@ initialize();
 
 - **Eviction Policies (TTL, LRU):** Guantr itself **does not** implement cache eviction logic like Time-To-Live (TTL) or Least Recently Used (LRU). If you need such policies, they must be implemented within your custom `cache` methods in your storage adapter.
 - **Cache Invalidation:** Be mindful of cache invalidation. If underlying rules or context data changes frequently, a long-lived cache might serve stale permissions. When `setRules` is called, Guantr clears **all** cache entries via `this._storage.cache?.clear()` (see [`Guantr.prototype.setRules` in `src/index.ts`](https://github.com/hrdtr/guantr/blob/main/src/index.ts)). Guantr uses cache keys prefixed with `can/` (for permission check results) and `applyContextualOperands/` (for resolved condition operands). No key-level invalidation is performed — the entire cache is purged on every `setRules` call. External context changes that do not pass through `setRules` might therefore require manual cache clearing via `storage.cache.clear()`, or more granular removal if your adapter supports it.
-- **Interface Compliance:** Ensure your custom `cache` implementation adheres to the method signatures defined in the `Storage['cache']` interface.
+
+## Cache Interface Changes in v2.0
+
+In v2.0, the cache contract was simplified:
+
+- `cache.has` is now **required** when the cache object is provided (no fallback logic).
+- `cache.get` must return `undefined` for cache misses (not `null`).
+
+This eliminates the fragile `has`/`get` fallback branching that was needed in v1.x.
+
+## Important Considerations
+
+- **Interface Compliance:** Ensure your custom `cache` implementation adheres to the method signatures defined in the `Storage['cache']` interface. `has` is now **required** when cache is provided.
 
 By understanding Guantr's caching mechanism and how to customize it via the storage adapter, you can optimize permission check performance for your specific application needs.

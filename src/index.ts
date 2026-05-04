@@ -10,7 +10,6 @@ import { GuantrCircuitBreakerError } from './errors';
 import { InMemoryStorage } from './storage';
 import {
   getContextValue,
-  isConditionExpressionLike,
   isContextualOperand,
   matchRuleCondition,
   validateCondition,
@@ -262,11 +261,9 @@ export class Guantr<
     if (this._storage.cache) {
       let cached: ReadonlyArray<GuantrAnyRule> | undefined;
       try {
-        cached = this._storage.cache.has
-          ? (await this._storage.cache.has(cacheKey))
-            ? await this._storage.cache.get<ReadonlyArray<GuantrAnyRule>>(cacheKey)
-            : undefined
-          : await this._storage.cache.get<ReadonlyArray<GuantrAnyRule>>(cacheKey);
+        if (await this._storage.cache.has(cacheKey)) {
+          cached = await this._storage.cache.get<ReadonlyArray<GuantrAnyRule>>(cacheKey);
+        }
       } catch {
         // Swallow cache adapter errors and treat as cache miss
         cached = undefined;
@@ -329,11 +326,9 @@ export class Guantr<
 
       let cachedResult: boolean | undefined = undefined;
       try {
-        cachedResult = this._storage.cache.has
-          ? (await this._storage.cache.has(cacheKey))
-            ? await this._storage.cache.get<boolean>(cacheKey)
-            : undefined
-          : await this._storage.cache.get<boolean>(cacheKey);
+        if (await this._storage.cache.has(cacheKey)) {
+          cachedResult = await this._storage.cache.get<boolean>(cacheKey);
+        }
       } catch {
         // Swallow cache adapter errors and treat as cache miss
         cachedResult = undefined;
@@ -415,11 +410,9 @@ export class Guantr<
       cacheKey = `can.abstract/${action as string}:${resource as string}`;
       let cachedResult: boolean | undefined = undefined;
       try {
-        cachedResult = this._storage.cache.has
-          ? (await this._storage.cache.has(cacheKey))
-            ? await this._storage.cache.get<boolean>(cacheKey)
-            : undefined
-          : await this._storage.cache.get<boolean>(cacheKey);
+        if (await this._storage.cache.has(cacheKey)) {
+          cachedResult = await this._storage.cache.get<boolean>(cacheKey);
+        }
       } catch {
         cachedResult = undefined;
       }
@@ -477,11 +470,9 @@ export class Guantr<
       cacheKey = `applyContextualOperands/${JSON.stringify(condition)}:${serializedCtx}`;
       let cachedResult: GuantrAnyRule['condition'] | undefined = undefined;
       try {
-        cachedResult = this._storage.cache.has
-          ? (await this._storage.cache.has(cacheKey))
-            ? await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey)
-            : undefined
-          : await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey);
+        if (await this._storage.cache.has(cacheKey)) {
+          cachedResult = await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey);
+        }
       } catch {
         // Swallow cache adapter errors and treat as cache miss
         cachedResult = undefined;
