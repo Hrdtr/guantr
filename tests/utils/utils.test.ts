@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getContextValue, validateValueType } from '../src/utils';
+import { getContextValue, validateValueType } from '../../src/utils';
 
 describe('getContextValue', () => {
   it('should return the value at the specified path', () => {
@@ -42,6 +42,12 @@ describe('getContextValue', () => {
       },
     };
     expect(getContextValue(context, '$ctx.user.name')).toBe('John Doe');
+  });
+
+  it('should return undefined for null context', () => {
+    // as any needed because we intentionally pass null to test the
+    // getContextValue early return when context is nullish
+    expect(getContextValue(null as any, 'any.path')).toBeUndefined();
   });
 
   it('should handle optional chaining', () => {
@@ -92,5 +98,13 @@ describe('validateValueType', () => {
     expect(() =>
       validateValueType('string', ['string'], 'eq', 'value', (value) => typeof value === 'number'),
     ).toThrowError(TypeError);
+  });
+
+  it('should return false for unknown type string in switch default case', () => {
+    // as any needed because we intentionally pass an unknown type string
+    // to test the switch default branch in validateValueType
+    expect(() => validateValueType('test', ['unknownType' as any], 'eq', 'value')).toThrowError(
+      TypeError,
+    );
   });
 });

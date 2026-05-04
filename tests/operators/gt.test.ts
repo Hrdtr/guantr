@@ -1,40 +1,53 @@
 import { describe, expect, it } from 'vitest';
+import { matchRuleCondition } from '../../src/utils';
 import { matchConditionExpression } from '../../src/utils';
 
-describe('matchConditionExpression - gt operator', () => {
-  const testCases = [
-    // Basic Comparisons
-    { value: 20, operand: 10, expected: true }, // 20 > 10
-    { value: 5, operand: 10, expected: false }, // 5 < 10
-    { value: -5, operand: -10, expected: true }, // -5 > -10
-    { value: 0, operand: 0, expected: false }, // 0 == 0
+describe('gt operator', () => {
+  // ---------------------------------------------------------------------------
+  // Tests via matchRuleCondition (properly typed)
+  // ---------------------------------------------------------------------------
 
-    // Handling null and undefined
-    { value: null, operand: 10, expected: false }, // null is not greater than 10
-    { value: undefined, operand: 10, expected: false }, // undefined is not greater than 10
-  ];
-
-  for (const [idx, { value, operand, expected }] of testCases.entries()) {
-    it(`should return ${expected} for case #${idx + 1}`, () => {
-      const expression = ['gt', operand] as any;
-      const result = matchConditionExpression({ value, expression });
-      expect(result).toBe(expected);
-    });
-  }
-
-  // Edge case: invalid resource value type
-  it('should throw TypeError for unexpected resource value type', () => {
-    const value = { key: 'value' }; // Invalid type for 'gt' operator
-    const operand = 10;
-    const expression = ['gt', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  it('returns true when value is greater than operand', () => {
+    expect(matchRuleCondition({ count: 20 }, { count: ['gt', 10] })).toBe(true);
   });
 
-  // Edge case: invalid operand type
-  it('should throw TypeError for unexpected operand type', () => {
-    const value = 10;
-    const operand = { key: 'value' }; // Invalid type for 'gt' operand
-    const expression = ['gt', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  it('returns false when value is less than operand', () => {
+    expect(matchRuleCondition({ count: 5 }, { count: ['gt', 10] })).toBe(false);
+  });
+
+  it('returns true for negative numbers', () => {
+    expect(matchRuleCondition({ count: -5 }, { count: ['gt', -10] })).toBe(true);
+  });
+
+  it('returns false when values are equal', () => {
+    expect(matchRuleCondition({ count: 0 }, { count: ['gt', 0] })).toBe(false);
+  });
+
+  it('returns false for null value', () => {
+    expect(matchRuleCondition({ count: null }, { count: ['gt', 10] })).toBe(false);
+  });
+
+  it('returns false for undefined value', () => {
+    expect(matchRuleCondition({ count: undefined }, { count: ['gt', 10] })).toBe(false);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TypeError tests via matchConditionExpression (cast needed to bypass TS)
+  // ---------------------------------------------------------------------------
+
+  it('should throw TypeError for unexpected resource value type', () => {
+    // as any needed because we intentionally pass an object as value to test
+    // the runtime TypeError for the gt operator
+    const expression = ['gt', 10] as any;
+    expect(() => matchConditionExpression({ value: { key: 'value' }, expression })).toThrow(
+      TypeError,
+    );
+  });
+
+  it('should throw TypeError for invalid operand type', () => {
+    // as any needed because we intentionally pass an object as operand to test
+    // the runtime TypeError for the gt operator
+    const expression = ['gt', { key: 'value' }] as any;
+    expect(() => matchConditionExpression({ value: 10, expression })).toThrow(TypeError);
   });
 });

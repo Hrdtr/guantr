@@ -1,70 +1,113 @@
 import { describe, expect, it } from 'vitest';
+import { matchRuleCondition } from '../../src/utils';
 import { matchConditionExpression } from '../../src/utils';
 
-describe('matchConditionExpression - hasEvery operator', () => {
-  const testCases = [
-    // Basic Array Checks
-    { value: ['a', 'b', 'c'], operand: ['a', 'b'], expected: true }, // 'a' and 'b' in ['a', 'b', 'c']
-    { value: [1, 2, 3, 4], operand: [2, 3, 4], expected: true }, // 2, 3, and 4 in [1, 2, 3, 4]
-    { value: ['x', 'y', 'z'], operand: ['y', 'a'], expected: false }, // 'y' and 'a' not both in ['x', 'y', 'z']
-    { value: ['a', 'b'], operand: ['a', 'b', 'c'], expected: false }, // ['a', 'b', 'c'] not all in ['a', 'b']
+describe('hasEvery operator', () => {
+  // ---------------------------------------------------------------------------
+  // Tests via matchRuleCondition (properly typed)
+  // ---------------------------------------------------------------------------
 
-    // Handling null and undefined
-    { value: null, operand: ['element'], expected: false }, // null array
-    { value: undefined, operand: ['element'], expected: false }, // undefined array
-
-    // Case Insensitive Checks
-    {
-      value: ['A', 'B', 'C'],
-      operand: ['a', 'b'],
-      expected: true,
-      options: { caseInsensitive: true },
-    }, // 'a' and 'b' (case insensitive) in ['A', 'B', 'C']
-    {
-      value: ['x', 'y', 'z'],
-      operand: ['Y', 'A'],
-      expected: false,
-      options: { caseInsensitive: true },
-    }, // 'Y' and 'A' (case insensitive) not both in ['x', 'y', 'z']
-    {
-      value: ['One', 2, 'Three', 4],
-      operand: ['three', 'one'],
-      expected: true,
-      options: { caseInsensitive: true },
-    }, // 'three' and 'one' (case insensitive) in ['One', 2, 'Three', 4]
-
-    // Edge case: value array with mixed types
-    { value: [1, 'two', 3], operand: [1, 'two'], expected: true }, // 1 and 'two' in [1, 'two', 3]
-    {
-      value: [1, 'two', 3],
-      operand: [1, 'Two'],
-      expected: true,
-      options: { caseInsensitive: true },
-    }, // 1 and 'two' in [1, 'two', 3]
-    { value: [1, 'two', 3], operand: [1, 'four'], expected: false }, // 1 and 'four' not both in [1, 'two', 3]
-  ];
-
-  for (const [idx, { value, operand, expected, options }] of testCases.entries()) {
-    it(`should return ${expected} for case #${idx + 1}`, () => {
-      const expression = ['hasEvery', operand, options] as any;
-      const result = matchConditionExpression({ value, expression });
-      expect(result).toBe(expected);
-    });
-  }
-
-  // Edge case: invalid resource value type
-  it('should throw TypeError for unexpected resource value type', () => {
-    const value = { key: 'value' }; // Invalid type for 'hasEvery' operator
-    const operand = ['element'];
-    const expression = ['hasEvery', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  it('returns true when array has all elements (strings)', () => {
+    expect(matchRuleCondition({ tags: ['a', 'b', 'c'] }, { tags: ['hasEvery', ['a', 'b']] })).toBe(
+      true,
+    );
   });
 
-  // Edge case: invalid operand type
-  it('should throw TypeError for unexpected operand type', () => {
-    const value = ['a', 'b', 'c'];
-    const operand = { key: 'value' }; // Invalid type for 'hasEvery' operand
-    const expression = ['hasEvery', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  it('returns true when array has all elements (numbers)', () => {
+    expect(matchRuleCondition({ tags: [1, 2, 3, 4] }, { tags: ['hasEvery', [2, 3, 4]] })).toBe(
+      true,
+    );
+  });
+
+  it('returns false when array does not have all elements', () => {
+    expect(matchRuleCondition({ tags: ['x', 'y', 'z'] }, { tags: ['hasEvery', ['y', 'a']] })).toBe(
+      false,
+    );
+  });
+
+  it('returns false when operand has more elements than value', () => {
+    expect(matchRuleCondition({ tags: ['a', 'b'] }, { tags: ['hasEvery', ['a', 'b', 'c']] })).toBe(
+      false,
+    );
+  });
+
+  it('returns false for null array', () => {
+    expect(matchRuleCondition({ tags: null }, { tags: ['hasEvery', ['element']] })).toBe(false);
+  });
+
+  it('returns false for undefined array', () => {
+    expect(matchRuleCondition({ tags: undefined }, { tags: ['hasEvery', ['element']] })).toBe(
+      false,
+    );
+  });
+
+  it('returns true for case-insensitive match', () => {
+    expect(
+      matchRuleCondition(
+        { tags: ['A', 'B', 'C'] },
+        { tags: ['hasEvery', ['a', 'b'], { caseInsensitive: true }] },
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false for case-insensitive non-match', () => {
+    expect(
+      matchRuleCondition(
+        { tags: ['x', 'y', 'z'] },
+        { tags: ['hasEvery', ['Y', 'A'], { caseInsensitive: true }] },
+      ),
+    ).toBe(false);
+  });
+
+  it('returns true for case-insensitive match with mixed types', () => {
+    expect(
+      matchRuleCondition(
+        { tags: ['One', 2, 'Three', 4] },
+        { tags: ['hasEvery', ['three', 'one'], { caseInsensitive: true }] },
+      ),
+    ).toBe(true);
+  });
+
+  it('returns true with mixed types in array', () => {
+    expect(matchRuleCondition({ tags: [1, 'two', 3] }, { tags: ['hasEvery', [1, 'two']] })).toBe(
+      true,
+    );
+  });
+
+  it('returns true with mixed types case-insensitive', () => {
+    expect(
+      matchRuleCondition(
+        { tags: [1, 'two', 3] },
+        { tags: ['hasEvery', [1, 'Two'], { caseInsensitive: true }] },
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false with mixed types no match', () => {
+    expect(matchRuleCondition({ tags: [1, 'two', 3] }, { tags: ['hasEvery', [1, 'four']] })).toBe(
+      false,
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // TypeError tests via matchConditionExpression (cast needed to bypass TS)
+  // ---------------------------------------------------------------------------
+
+  it('should throw TypeError for unexpected resource value type', () => {
+    // as any needed because we intentionally pass an object as value to test
+    // the runtime TypeError for the hasEvery operator
+    const expression = ['hasEvery', ['element']] as any;
+    expect(() => matchConditionExpression({ value: { key: 'value' }, expression })).toThrow(
+      TypeError,
+    );
+  });
+
+  it('should throw TypeError for invalid operand type', () => {
+    // as any needed because we intentionally pass an object as operand to test
+    // the runtime TypeError for the hasEvery operator
+    const expression = ['hasEvery', { key: 'value' }] as any;
+    expect(() => matchConditionExpression({ value: ['a', 'b', 'c'], expression })).toThrow(
+      TypeError,
+    );
   });
 });

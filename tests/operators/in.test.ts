@@ -1,66 +1,112 @@
 import { describe, expect, it } from 'vitest';
+import { matchRuleCondition } from '../../src/utils';
 import { matchConditionExpression } from '../../src/utils';
 
-describe('matchConditionExpression - in operator', () => {
-  const testCases = [
-    // Valid cases where the value is in the operand array
-    { value: 3, operand: [1, 2, 3, 4, 5], expected: true },
-    { value: 'banana', operand: ['apple', 'banana', 'cherry'], expected: true },
-    { value: 'hello', operand: ['hello', 'world'], expected: true },
+describe('in operator', () => {
+  // ---------------------------------------------------------------------------
+  // Tests via matchRuleCondition (properly typed)
+  // ---------------------------------------------------------------------------
 
-    // Cases where the value is not in the operand array
-    { value: 6, operand: [1, 2, 3, 4, 5], expected: false },
-    { value: 'pear', operand: ['apple', 'banana', 'cherry'], expected: false },
-    { value: 'goodbye', operand: ['hello', 'world'], expected: false },
-
-    // Case-insensitive comparisons
-    {
-      value: 'test',
-      operand: ['test', 'TEST', 'TeSt'],
-      options: { caseInsensitive: true },
-      expected: true,
-    },
-    {
-      value: 'case',
-      operand: ['CaSe', 'CASE', 'case'],
-      options: { caseInsensitive: true },
-      expected: true,
-    },
-
-    // Null and undefined values
-    { value: null, operand: ['null', 0], expected: false },
-    { value: undefined, operand: ['undefined', 0], expected: false },
-
-    // Edge cases with empty arrays
-    { value: 'test', operand: [], expected: false }, // Operand is an empty array
-    { value: '', operand: [''], expected: true }, // Value is empty string and in the array
-
-    // Edge case with special characters
-    { value: '@#$%', operand: ['@#$%', 'abc', 'def'], expected: true },
-    { value: 'special*', operand: ['*special', 'special*', '*'], expected: true },
-  ];
-
-  for (const [idx, { value, operand, options, expected }] of testCases.entries()) {
-    it(`should return ${expected} for case #${idx + 1}`, () => {
-      const expression = ['in', operand, options] as any;
-      const result = matchConditionExpression({ value, expression });
-      expect(result).toBe(expected);
-    });
-  }
-
-  // Edge case: invalid resource value type
-  it('should throw TypeError for unexpected resource value type', () => {
-    const value = { key: 'value' }; // Invalid type for 'in' operator
-    const operand = [1, 2, 3];
-    const expression = ['in', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  it('returns true when number is in array', () => {
+    expect(matchRuleCondition({ value: 3 }, { value: ['in', [1, 2, 3, 4, 5]] })).toBe(true);
   });
 
-  // Edge case: invalid operand type
+  it('returns true when string is in array', () => {
+    expect(
+      matchRuleCondition({ value: 'banana' }, { value: ['in', ['apple', 'banana', 'cherry']] }),
+    ).toBe(true);
+  });
+
+  it('returns true when string is in another array', () => {
+    expect(matchRuleCondition({ value: 'hello' }, { value: ['in', ['hello', 'world']] })).toBe(
+      true,
+    );
+  });
+
+  it('returns false when number is not in array', () => {
+    expect(matchRuleCondition({ value: 6 }, { value: ['in', [1, 2, 3, 4, 5]] })).toBe(false);
+  });
+
+  it('returns false when string is not in array', () => {
+    expect(
+      matchRuleCondition({ value: 'pear' }, { value: ['in', ['apple', 'banana', 'cherry']] }),
+    ).toBe(false);
+  });
+
+  it('returns false when another string is not in array', () => {
+    expect(matchRuleCondition({ value: 'goodbye' }, { value: ['in', ['hello', 'world']] })).toBe(
+      false,
+    );
+  });
+
+  it('returns true for case-insensitive match', () => {
+    expect(
+      matchRuleCondition(
+        { value: 'test' },
+        { value: ['in', ['test', 'TEST', 'TeSt'], { caseInsensitive: true }] },
+      ),
+    ).toBe(true);
+  });
+
+  it('returns true for case-insensitive match (different casing)', () => {
+    expect(
+      matchRuleCondition(
+        { value: 'case' },
+        { value: ['in', ['CaSe', 'CASE', 'case'], { caseInsensitive: true }] },
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false for null value', () => {
+    // as any needed because the array contains mixed types (string | number)
+    // which is not allowed by the typed in operator operand signature
+    const condition = { value: ['in', ['null', 0]] } as any;
+    expect(matchRuleCondition({ value: null }, condition)).toBe(false);
+  });
+
+  it('returns false for undefined value', () => {
+    // as any needed because the array contains mixed types (string | number)
+    const condition = { value: ['in', ['undefined', 0]] } as any;
+    expect(matchRuleCondition({ value: undefined }, condition)).toBe(false);
+  });
+
+  it('returns false for empty operand array', () => {
+    expect(matchRuleCondition({ value: 'test' }, { value: ['in', []] })).toBe(false);
+  });
+
+  it('returns true for empty string in array of one', () => {
+    expect(matchRuleCondition({ value: '' }, { value: ['in', ['']] })).toBe(true);
+  });
+
+  it('returns true with special characters', () => {
+    expect(matchRuleCondition({ value: '@#$%' }, { value: ['in', ['@#$%', 'abc', 'def']] })).toBe(
+      true,
+    );
+  });
+
+  it('returns true with special asterisk', () => {
+    expect(
+      matchRuleCondition({ value: 'special*' }, { value: ['in', ['*special', 'special*', '*']] }),
+    ).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TypeError tests via matchConditionExpression (cast needed to bypass TS)
+  // ---------------------------------------------------------------------------
+
+  it('should throw TypeError for unexpected resource value type', () => {
+    // as any needed because we intentionally pass an object as value to test
+    // the runtime TypeError for the in operator
+    const expression = ['in', [1, 2, 3]] as any;
+    expect(() => matchConditionExpression({ value: { key: 'value' }, expression })).toThrow(
+      TypeError,
+    );
+  });
+
   it('should throw TypeError for invalid operand type', () => {
-    const value = 'test';
-    const operand = 'not an array'; // Operand must be an array
-    const expression = ['in', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+    // as any needed because we intentionally pass a non-array as operand to test
+    // the runtime TypeError for the in operator
+    const expression = ['in', 'not an array'] as any;
+    expect(() => matchConditionExpression({ value: 'test', expression })).toThrow(TypeError);
   });
 });

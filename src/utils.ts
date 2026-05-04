@@ -268,7 +268,7 @@ export function validateValueType(
 }
 
 // Define specialized handlers for each operator
-const conditionHandlers: Record<
+export const conditionHandlers: Record<
   ConditionOperator,
   (value: unknown, operand: unknown, options?: ConditionOptions) => boolean
 > = {

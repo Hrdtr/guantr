@@ -43,6 +43,7 @@ export {
   matchConditionExpression,
   matchRuleCondition,
   validateCondition,
+  conditionHandlers,
 } from './utils';
 
 // Extract commonly used type patterns to reduce repetition
