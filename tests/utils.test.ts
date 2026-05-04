@@ -44,15 +44,6 @@ describe('getContextValue', () => {
     expect(getContextValue(context, '$ctx.user.name')).toBe('John Doe');
   });
 
-  it('should handle paths starting with ctx.', () => {
-    const context = {
-      user: {
-        name: 'John Doe',
-      },
-    };
-    expect(getContextValue(context, 'ctx.user.name')).toBe('John Doe');
-  });
-
   it('should handle optional chaining', () => {
     const context1 = {
       user: {

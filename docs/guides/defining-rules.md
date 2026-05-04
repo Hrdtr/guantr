@@ -170,7 +170,7 @@ Guantr provides a specific set of operators. Note that direct negation operators
 
 - **Condition Options:** Some string operators support a `caseInsensitive` option as the third element of the condition tuple (e.g., `['eq', 'hello', { caseInsensitive: true }]`). See [Condition Options](/guides/defining-rules/condition-operators#condition-options) for the full list of supported operators.
 
-- **Contextual Operands (`$ctx.`):** Use `$ctx.` within the `operand` to compare against values from the Guantr context provided during initialization. The `ctx.` prefix (without `$`) is also accepted as an alias.
+- **Contextual Operands (`$ctx.`):** Use `$ctx.` within the `operand` to compare against values from the Guantr context provided during initialization.
 
   ```ts
   // Example using context

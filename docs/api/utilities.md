@@ -21,7 +21,7 @@ import {
 
 ## `isContextualOperand`
 
-Type guard that checks whether a value is a string referencing a context path (prefixed with `$ctx.` or `ctx.`).
+Type guard that checks whether a value is a string referencing a context path (prefixed with `$ctx.`).
 
 When writing rule conditions, you can reference values from the dynamic context using the `$ctx.` prefix (e.g., `$ctx.userId`). This function lets you programmatically detect such references.
 
@@ -39,7 +39,7 @@ function isContextualOperand(path: unknown): path is string;
 
 ### Returns
 
-- `boolean` — `true` if the value is a string starting with `$ctx.` or `ctx.`, `false` otherwise. Acts as a TypeScript type guard, narrowing to `string`.
+- `boolean` — `true` if the value is a string starting with `$ctx.`, `false` otherwise. Acts as a TypeScript type guard, narrowing to `string`.
 
 ### Example
 
@@ -47,7 +47,7 @@ function isContextualOperand(path: unknown): path is string;
 import { isContextualOperand } from 'guantr';
 
 isContextualOperand('$ctx.userId'); // true
-isContextualOperand('ctx.role'); // true
+isContextualOperand('ctx.role'); // false
 isContextualOperand('userId'); // false
 isContextualOperand(42); // false
 isContextualOperand(null); // false
