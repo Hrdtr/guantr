@@ -5,8 +5,7 @@ import { GuantrAnyRule } from '../types';
  */
 export interface Storage {
   /**
-   * Sets (appends) rules in the storage index. Guantr calls `clearRules()`
-   * before `setRules()` to achieve replace semantics.
+   * Atomically replaces all rules in storage with the provided rules.
    *
    * @param rules - Array of rules to set.
    * @returns A promise that resolves when the rules are set.
@@ -26,12 +25,6 @@ export interface Storage {
    * @returns A promise that resolves to an array of matching rules, or an empty array if none exist.
    */
   queryRules: (action: string, resource: string) => Promise<GuantrAnyRule[]>;
-
-  /**
-   * Clears all stored rules.
-   * @returns A promise that resolves when all rules are cleared.
-   */
-  clearRules: () => Promise<void>;
 
   /**
    * Optional cache mechanism for storing and retrieving data.
