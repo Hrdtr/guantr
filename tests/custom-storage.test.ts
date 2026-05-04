@@ -5,15 +5,13 @@ import { createGuantr, Guantr } from '../src/index';
 
 // ---------------------------------------------------------------------------
 // Custom storage with no cache — implements the Storage interface minimally.
-// Note: setRules *appends* rules; clearRules resets the array.
-// Guantr always calls clearRules() before setRules(), so the push-based
-// implementation here yields correct replace-on-set semantics.
+// Note: setRules atomically replaces the internal array.
 // ---------------------------------------------------------------------------
 class CustomArrayStorage implements Storage {
   private rules: GuantrAnyRule[] = [];
 
   async setRules(rules: GuantrAnyRule[]) {
-    this.rules.push(...rules);
+    this.rules = [...rules];
   }
 
   async getRules() {
@@ -22,10 +20,6 @@ class CustomArrayStorage implements Storage {
 
   async queryRules(action: string, resource: string) {
     return this.rules.filter((r) => r.action === action && r.resource === resource);
-  }
-
-  async clearRules() {
-    this.rules = [];
   }
   // No `cache` property — tests that Guantr handles the absence of a cache correctly.
 }
@@ -111,8 +105,8 @@ describe('custom storage adapter integration', () => {
   });
 
   it('setRules() replaces previous rules: second call overwrites the first', async () => {
-    // Guantr calls clearRules() then setRules() internally, so a second setRules
-    // call must discard the first batch and store only the new rules.
+    // setRules() atomically replaces all rules, so a second call must discard
+    // the first batch and store only the new rules.
     const guantr = new Guantr({ storage: new CustomArrayStorage() });
 
     await guantr.setRules([{ resource: 'post', action: 'read', condition: null, effect: 'allow' }]);

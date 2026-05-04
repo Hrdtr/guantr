@@ -8,10 +8,9 @@ To create a custom adapter, you need to implement the `Storage` interface define
 
 **Required Methods:**
 
-- `setRules(rules: GuantrAnyRule[]): Promise<void>`: Appends the provided rules to the existing rule set. Guantr always calls `clearRules()` before `setRules()` to achieve replace semantics.
+- `setRules(rules: GuantrAnyRule[]): Promise<void>`: Atomically replaces all stored rules with the provided rules.
 - `getRules(): Promise<GuantrAnyRule[]>`: Retrieves all currently stored rules.
 - `queryRules(action: string, resource: string): Promise<GuantrAnyRule[]>`: Retrieves only the rules matching a specific action and resource key. Implementing this efficiently (filtering at the source) is crucial for performance with large rule sets.
-- `clearRules(): Promise<void>`: Deletes all stored rules.
 
 **Optional Property:**
 
@@ -36,7 +35,7 @@ const STORAGE_KEY = 'guantr_rules';
 class LocalStorageAdapter implements Storage {
   async setRules(rules: GuantrAnyRule[]): Promise<void> {
     try {
-      // Store the entire rules array as a single stringified entry
+      // Atomically replace the stored rules
       localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
     } catch (error) {
       console.error('Error setting Guantr rules in LocalStorage:', error);
@@ -61,10 +60,6 @@ class LocalStorageAdapter implements Storage {
     return allRules.filter((rule) => rule.action === action && rule.resource === resource);
   }
 
-  async clearRules(): Promise<void> {
-    localStorage.removeItem(STORAGE_KEY);
-  }
-
   // cache?: Storage['cache']; // Optional: Implement cache if needed
 }
 ```
@@ -83,7 +78,7 @@ const REDIS_KEY = 'guantr_rules';
 
 class RedisStorage implements Storage {
   async setRules(rules: GuantrAnyRule[]): Promise<void> {
-    // Overwrite existing key with the new set of rules
+    // Atomically replace the stored rules
     await redisClient.set(REDIS_KEY, JSON.stringify(rules));
   }
 
@@ -98,10 +93,6 @@ class RedisStorage implements Storage {
   async queryRules(action: string, resource: string): Promise<GuantrAnyRule[]> {
     const allRules = await this.getRules();
     return allRules.filter((rule) => rule.action === action && rule.resource === resource);
-  }
-
-  async clearRules(): Promise<void> {
-    await redisClient.del(REDIS_KEY);
   }
 
   // cache?: Storage['cache']; // Optional: Implement cache using Redis commands
@@ -142,7 +133,7 @@ const clearStmt = db.prepare('DELETE FROM rules');
 // --- Storage Class ---
 class SQLiteStorage implements Storage {
   async setRules(rules: GuantrAnyRule[]): Promise<void> {
-    // Use a transaction for bulk insert/replace
+    // Use a transaction for atomic bulk replace
     db.transaction((ruleList: GuantrAnyRule[]) => {
       clearStmt.run(); // Clear existing rules first
       for (const rule of ruleList) {
@@ -181,10 +172,6 @@ class SQLiteStorage implements Storage {
       ...row,
       condition: row.condition ? JSON.parse(row.condition) : null,
     }));
-  }
-
-  async clearRules(): Promise<void> {
-    clearStmt.run();
   }
 
   // cache?: Storage['cache']; // Optional: Could implement cache using another table or external cache
@@ -254,10 +241,6 @@ class PrismaStorage implements Storage {
       ...rule,
       condition: rule.condition as GuantrAnyRuleCondition | null,
     }));
-  }
-
-  async clearRules(): Promise<void> {
-    await prisma.rule.deleteMany();
   }
 
   // cache?: Storage['cache']; // Optional: Implement cache if needed

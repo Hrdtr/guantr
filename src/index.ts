@@ -246,7 +246,6 @@ export class Guantr<
       nextRules = rules;
     }
 
-    await this._storage.clearRules();
     await this._storage.cache?.clear();
     return this._storage.setRules(nextRules);
   }

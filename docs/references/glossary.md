@@ -63,4 +63,4 @@ The fundamental unit defining a permission statement in Guantr. It consists of a
 
 ## **Storage**
 
-The mechanism responsible for persisting, retrieving (`getRules`, `queryRules`), and clearing (`clearRules`) Guantr `Rule`s, as well as optionally caching (`cache`) results. Defined by the `Storage` interface. Implementations can range from `InMemoryStorage` to custom adapters for databases or external stores. See the [Custom Storage Adapter Guide](/advanced-usage/custom-storage-adapter.md).
+The mechanism responsible for persisting, retrieving (`getRules`, `queryRules`) Guantr `Rule`s, as well as optionally caching (`cache`) results. Defined by the `Storage` interface. Implementations can range from `InMemoryStorage` to custom adapters for databases or external stores. See the [Custom Storage Adapter Guide](/advanced-usage/custom-storage-adapter.md).

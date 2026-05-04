@@ -11,11 +11,12 @@ export class InMemoryStorage implements Storage {
   };
 
   /**
-   * Appends rules to the storage index. Guantr always calls `clearRules()` before
-   * `setRules()` to achieve replace semantics.
+   * Atomically replaces all stored rules with the provided rules.
    * @param rules - Array of rules to set.
    */
   async setRules(rules: GuantrAnyRule[]) {
+    this.storage.rules.clear();
+
     for (const rule of rules) {
       let resourceMap = this.storage.rules.get(rule.action);
       if (!resourceMap) {
@@ -56,13 +57,6 @@ export class InMemoryStorage implements Storage {
     const resourceMap = this.storage.rules.get(action);
     if (!resourceMap) return [];
     return resourceMap.get(resource) || [];
-  }
-
-  /**
-   * Clears all stored rules.
-   */
-  async clearRules() {
-    this.storage.rules.clear();
   }
 
   cache = {
