@@ -1,54 +1,94 @@
 import { describe, expect, it } from 'vitest';
+import { matchRuleCondition } from '../../src/utils';
 import { matchConditionExpression } from '../../src/utils';
 
-describe('matchConditionExpression - equals operator', () => {
-  const testCases = [
-    // Null and undefined values
-    { value: null, operand: null, expected: true },
-    { value: undefined, operand: undefined, expected: true },
-    { value: null, operand: undefined, expected: false },
-    { value: undefined, operand: null, expected: false },
+describe('matchConditionExpression / matchRuleCondition - equals operator', () => {
+  // ---------------------------------------------------------------------------
+  // Tests via matchRuleCondition (properly typed - no casts needed)
+  // ---------------------------------------------------------------------------
 
-    // String values
-    { value: 'test', operand: 'test', expected: true },
-    { value: 'Test', operand: 'test', expected: false },
-    { value: 'Test', operand: 'test', options: { caseInsensitive: true }, expected: true },
-    { value: 'test', operand: 'Test', options: { caseInsensitive: true }, expected: true },
-
-    // Number values
-    { value: 123, operand: 123, expected: true },
-    { value: 123, operand: 456, expected: false },
-    { value: 123.456, operand: 123.456, expected: true },
-    { value: 123, operand: 123.456, expected: false },
-
-    // Boolean values
-    { value: true, operand: true, expected: true },
-    { value: false, operand: false, expected: true },
-    { value: true, operand: false, expected: false },
-    { value: false, operand: true, expected: false },
-  ];
-
-  for (const [idx, { value, operand, options, expected }] of testCases.entries()) {
-    it(`should return ${expected} for case #${idx + 1}`, () => {
-      const expression = ['eq', operand, options] as any;
-      const result = matchConditionExpression({ value, expression });
-      expect(result).toBe(expected);
-    });
-  }
-
-  // Edge case: invalid resource value type
-  it('should throw TypeError for unexpected resource value type', () => {
-    const value = { key: 'value' };
-    const operand = 'test';
-    const expression = ['eq', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  it('returns true for null === null', () => {
+    expect(matchRuleCondition({ value: null }, { value: ['eq', null] })).toBe(true);
   });
 
-  // Edge case: invalid operand type
+  it('returns true for undefined === undefined', () => {
+    expect(matchRuleCondition({ value: undefined }, { value: ['eq', undefined] })).toBe(true);
+  });
+
+  it('returns false for null !== undefined', () => {
+    expect(matchRuleCondition({ value: null }, { value: ['eq', undefined] })).toBe(false);
+  });
+
+  it('returns false for undefined !== null', () => {
+    expect(matchRuleCondition({ value: undefined }, { value: ['eq', null] })).toBe(false);
+  });
+
+  it('returns true for matching strings', () => {
+    expect(matchRuleCondition({ title: 'test' }, { title: ['eq', 'test'] })).toBe(true);
+  });
+
+  it('returns false for non-matching strings', () => {
+    expect(matchRuleCondition({ title: 'Test' }, { title: ['eq', 'test'] })).toBe(false);
+  });
+
+  it('returns true for case-insensitive string match', () => {
+    expect(
+      matchRuleCondition({ title: 'Test' }, { title: ['eq', 'test', { caseInsensitive: true }] }),
+    ).toBe(true);
+  });
+
+  it('returns true for case-insensitive string match (reversed casing)', () => {
+    expect(
+      matchRuleCondition({ title: 'test' }, { title: ['eq', 'Test', { caseInsensitive: true }] }),
+    ).toBe(true);
+  });
+
+  it('returns true for matching numbers', () => {
+    expect(matchRuleCondition({ count: 123 }, { count: ['eq', 123] })).toBe(true);
+  });
+
+  it('returns false for non-matching numbers', () => {
+    expect(matchRuleCondition({ count: 123 }, { count: ['eq', 456] })).toBe(false);
+  });
+
+  it('returns true for matching floats', () => {
+    expect(matchRuleCondition({ ratio: 123.456 }, { ratio: ['eq', 123.456] })).toBe(true);
+  });
+
+  it('returns false for non-matching float vs int', () => {
+    expect(matchRuleCondition({ ratio: 123 }, { ratio: ['eq', 123.456] })).toBe(false);
+  });
+
+  it('returns true for matching booleans (true)', () => {
+    expect(matchRuleCondition({ active: true }, { active: ['eq', true] })).toBe(true);
+  });
+
+  it('returns true for matching booleans (false)', () => {
+    expect(matchRuleCondition({ active: false }, { active: ['eq', false] })).toBe(true);
+  });
+
+  it('returns false for non-matching booleans', () => {
+    expect(matchRuleCondition({ active: true }, { active: ['eq', false] })).toBe(false);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Invalid type tests via matchConditionExpression (cast needed to bypass TS)
+  // ---------------------------------------------------------------------------
+
+  it('should throw TypeError for unexpected resource value type', () => {
+    // as any is required here because we intentionally pass a plain object value
+    // to the eq handler via matchConditionExpression to test the runtime
+    // TypeError validation. The type system would normally prevent this.
+    const expression = ['eq', 'test'] as any;
+    expect(() => matchConditionExpression({ value: { key: 'value' }, expression })).toThrow(
+      TypeError,
+    );
+  });
+
   it('should throw TypeError for invalid operand type', () => {
-    const value = 'test';
-    const operand = { key: 'value' };
-    const expression = ['eq', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+    // as any is required here because we intentionally pass a plain object
+    // as the eq operand to test the runtime TypeError validation.
+    const expression = ['eq', { key: 'value' }] as any;
+    expect(() => matchConditionExpression({ value: 'test', expression })).toThrow(TypeError);
   });
 });

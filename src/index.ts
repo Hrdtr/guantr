@@ -18,6 +18,7 @@ import {
 export {
   GuantrCircuitBreakerError,
   GuantrInvalidConditionError,
+  GuantrInvalidConditionKeyError,
   GuantrInvalidConditionOperatorError,
 } from './errors';
 
@@ -42,6 +43,7 @@ export {
   matchConditionExpression,
   matchRuleCondition,
   validateCondition,
+  conditionHandlers,
 } from './utils';
 
 // Extract commonly used type patterns to reduce repetition

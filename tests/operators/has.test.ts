@@ -1,54 +1,90 @@
 import { describe, expect, it } from 'vitest';
+import { matchRuleCondition } from '../../src/utils';
 import { matchConditionExpression } from '../../src/utils';
 
-describe('matchConditionExpression - has operator', () => {
-  const testCases = [
-    // Basic Array Checks
-    { value: ['a', 'b', 'c'], operand: 'a', expected: true }, // 'a' in ['a', 'b', 'c']
-    { value: [1, 2, 3], operand: 2, expected: true }, // 2 in [1, 2, 3]
-    { value: ['x', 'y', 'z'], operand: 'a', expected: false }, // 'a' not in ['x', 'y', 'z']
-    { value: [], operand: 'element', expected: false }, // 'element' not in []
+describe('has operator', () => {
+  // ---------------------------------------------------------------------------
+  // Tests via matchRuleCondition (properly typed)
+  // ---------------------------------------------------------------------------
 
-    // Handling null and undefined
-    { value: null, operand: 'element', expected: false }, // null array
-    { value: undefined, operand: 'element', expected: false }, // undefined array
-
-    // Case Insensitive Checks
-    { value: ['A', 'B', 'C'], operand: 'a', expected: true, options: { caseInsensitive: true } }, // 'a' (case insensitive) in ['A', 'B', 'C']
-    { value: ['x', 'y', 'z'], operand: 'A', expected: false, options: { caseInsensitive: true } }, // 'A' (case insensitive) not in ['x', 'y', 'z']
-    {
-      value: ['One', 2, 'Three', 4],
-      operand: 'three',
-      expected: true,
-      options: { caseInsensitive: true },
-    }, // 'three' (case insensitive) in ['One', 2, 'Three', 4]
-
-    // Edge case: value array with mixed types
-    { value: [1, 'two', 3], operand: 'two', expected: true }, // 'two' in [1, 'two', 3]
-    { value: [1, 'two', 3], operand: 2, expected: false }, // 2 not in [1, 'two', 3]
-  ];
-
-  for (const [idx, { value, operand, expected, options }] of testCases.entries()) {
-    it(`should return ${expected} for case #${idx + 1}`, () => {
-      const expression = ['has', operand, options] as any;
-      const result = matchConditionExpression({ value, expression });
-      expect(result).toBe(expected);
-    });
-  }
-
-  // Edge case: invalid resource value type
-  it('should throw TypeError for unexpected resource value type', () => {
-    const value = { key: 'value' }; // Invalid type for 'has' operator
-    const operand = 'element';
-    const expression = ['has', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  it('returns true when array has the element (string)', () => {
+    expect(matchRuleCondition({ tags: ['a', 'b', 'c'] }, { tags: ['has', 'a'] })).toBe(true);
   });
 
-  // Edge case: invalid operand type
-  it('should throw TypeError for unexpected operand type', () => {
-    const value = ['a', 'b', 'c'];
-    const operand = { key: 'value' }; // Invalid type for 'has' operand
-    const expression = ['has', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  it('returns true when array has the element (number)', () => {
+    expect(matchRuleCondition({ tags: [1, 2, 3] }, { tags: ['has', 2] })).toBe(true);
+  });
+
+  it('returns false when array does not have the element', () => {
+    expect(matchRuleCondition({ tags: ['x', 'y', 'z'] }, { tags: ['has', 'a'] })).toBe(false);
+  });
+
+  it('returns false for empty array', () => {
+    expect(matchRuleCondition({ tags: [] }, { tags: ['has', 'element'] })).toBe(false);
+  });
+
+  it('returns false for null array', () => {
+    expect(matchRuleCondition({ tags: null }, { tags: ['has', 'element'] })).toBe(false);
+  });
+
+  it('returns false for undefined array', () => {
+    expect(matchRuleCondition({ tags: undefined }, { tags: ['has', 'element'] })).toBe(false);
+  });
+
+  it('returns true for case-insensitive match', () => {
+    expect(
+      matchRuleCondition(
+        { tags: ['A', 'B', 'C'] },
+        { tags: ['has', 'a', { caseInsensitive: true }] },
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false for case-insensitive non-match', () => {
+    expect(
+      matchRuleCondition(
+        { tags: ['x', 'y', 'z'] },
+        { tags: ['has', 'A', { caseInsensitive: true }] },
+      ),
+    ).toBe(false);
+  });
+
+  it('returns true for case-insensitive match with mixed types', () => {
+    expect(
+      matchRuleCondition(
+        { tags: ['One', 2, 'Three', 4] },
+        { tags: ['has', 'three', { caseInsensitive: true }] },
+      ),
+    ).toBe(true);
+  });
+
+  it('returns true with mixed types in array', () => {
+    expect(matchRuleCondition({ tags: [1, 'two', 3] }, { tags: ['has', 'two'] })).toBe(true);
+  });
+
+  it('returns false with mixed types (number not found)', () => {
+    expect(matchRuleCondition({ tags: [1, 'two', 3] }, { tags: ['has', 2] })).toBe(false);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TypeError tests via matchConditionExpression (cast needed to bypass TS)
+  // ---------------------------------------------------------------------------
+
+  it('should throw TypeError for unexpected resource value type', () => {
+    // as any needed because we intentionally pass an object as value to test
+    // the runtime TypeError for the has operator
+    const expression = ['has', 'element'] as any;
+    expect(() => matchConditionExpression({ value: { key: 'value' }, expression })).toThrow(
+      TypeError,
+    );
+  });
+
+  it('should throw TypeError for invalid operand type', () => {
+    // as any needed because we intentionally pass an object as operand to test
+    // the runtime TypeError for the has operator
+    const expression = ['has', { key: 'value' }] as any;
+    expect(() => matchConditionExpression({ value: ['a', 'b', 'c'], expression })).toThrow(
+      TypeError,
+    );
   });
 });

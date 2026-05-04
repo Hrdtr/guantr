@@ -1,65 +1,102 @@
 import { describe, expect, it } from 'vitest';
+import { matchRuleCondition } from '../../src/utils';
 import { matchConditionExpression } from '../../src/utils';
 
-describe('matchConditionExpression - endsWith operator', () => {
-  const testCases = [
-    // Valid cases where the value ends with the operand
-    { value: 'Hello, world!', operand: 'world!', expected: true },
-    { value: 'Testing endsWith operator', operand: 'operator', expected: true },
+describe('endsWith operator', () => {
+  // ---------------------------------------------------------------------------
+  // Tests via matchRuleCondition (properly typed)
+  // ---------------------------------------------------------------------------
 
-    // Cases where the value does not end with the operand
-    { value: 'Hello, world!', operand: 'world', expected: false },
-    { value: 'Testing endsWith operator', operand: 'operators', expected: false },
-
-    // Case insensitive checks
-    {
-      value: 'Hello, world!',
-      operand: 'WORLD!',
-      expected: true,
-      options: { caseInsensitive: true },
-    },
-    {
-      value: 'Testing endsWith Operator',
-      operand: 'operator',
-      expected: true,
-      options: { caseInsensitive: true },
-    },
-
-    // Null and undefined values
-    { value: null, operand: 'suffix', expected: false },
-    { value: undefined, operand: 'suffix', expected: false },
-
-    // Special characters
-    { value: 'Special*Characters!', operand: 'Characters!', expected: true },
-    {
-      value: 'Special*Characters!',
-      operand: 'characters!',
-      expected: true,
-      options: { caseInsensitive: true },
-    },
-  ];
-
-  for (const [idx, { value, operand, expected, options }] of testCases.entries()) {
-    it(`should return ${expected} for case #${idx + 1}`, () => {
-      const expression = ['endsWith', operand, options] as any;
-      const result = matchConditionExpression({ value, expression });
-      expect(result).toBe(expected);
-    });
-  }
-
-  // Edge case: invalid resource value type
-  it('should throw TypeError for unexpected resource value type', () => {
-    const value = { key: 'value' }; // Invalid type for 'endsWith' operator
-    const operand = 'value';
-    const expression = ['endsWith', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  it('returns true when string ends with the operand', () => {
+    expect(matchRuleCondition({ title: 'Hello, world!' }, { title: ['endsWith', 'world!'] })).toBe(
+      true,
+    );
   });
 
-  // Edge case: invalid operand type
-  it('should throw TypeError for unexpected operand type', () => {
-    const value = 'string value';
-    const operand = 123; // Invalid type for 'endsWith' operand
-    const expression = ['endsWith', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+  it('returns true for another suffix', () => {
+    expect(
+      matchRuleCondition(
+        { title: 'Testing endsWith operator' },
+        { title: ['endsWith', 'operator'] },
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false when string does not end with the operand', () => {
+    expect(matchRuleCondition({ title: 'Hello, world!' }, { title: ['endsWith', 'world'] })).toBe(
+      false,
+    );
+  });
+
+  it('returns false for wrong suffix', () => {
+    expect(
+      matchRuleCondition(
+        { title: 'Testing endsWith operator' },
+        { title: ['endsWith', 'operators'] },
+      ),
+    ).toBe(false);
+  });
+
+  it('returns true for case-insensitive match (uppercase operand)', () => {
+    expect(
+      matchRuleCondition(
+        { title: 'Hello, world!' },
+        { title: ['endsWith', 'WORLD!', { caseInsensitive: true }] },
+      ),
+    ).toBe(true);
+  });
+
+  it('returns true for case-insensitive match (lowercase operand)', () => {
+    expect(
+      matchRuleCondition(
+        { title: 'Testing endsWith Operator' },
+        { title: ['endsWith', 'operator', { caseInsensitive: true }] },
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false for null value', () => {
+    expect(matchRuleCondition({ title: null }, { title: ['endsWith', 'suffix'] })).toBe(false);
+  });
+
+  it('returns false for undefined value', () => {
+    expect(matchRuleCondition({ title: undefined }, { title: ['endsWith', 'suffix'] })).toBe(false);
+  });
+
+  it('returns true with special characters', () => {
+    expect(
+      matchRuleCondition({ title: 'Special*Characters!' }, { title: ['endsWith', 'Characters!'] }),
+    ).toBe(true);
+  });
+
+  it('returns true with special characters case-insensitive', () => {
+    expect(
+      matchRuleCondition(
+        { title: 'Special*Characters!' },
+        { title: ['endsWith', 'characters!', { caseInsensitive: true }] },
+      ),
+    ).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TypeError tests via matchConditionExpression (cast needed to bypass TS)
+  // ---------------------------------------------------------------------------
+
+  it('should throw TypeError for unexpected resource value type', () => {
+    // as any needed because we intentionally pass an object as value to test
+    // the runtime TypeError for the endsWith operator
+    const expression = ['endsWith', 'value'] as any;
+    expect(() => matchConditionExpression({ value: { key: 'value' }, expression })).toThrow(
+      TypeError,
+    );
+  });
+
+  it('should throw TypeError for invalid operand type', () => {
+    // as any needed because we intentionally pass a number as operand to test
+    // the runtime TypeError for the endsWith operator
+    const expression = ['endsWith', 123] as any;
+    expect(() => matchConditionExpression({ value: 'string value', expression })).toThrow(
+      TypeError,
+    );
   });
 });

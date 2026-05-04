@@ -22,6 +22,7 @@ import { demoStorage } from './demos/06-storage';
 import { demoAdvanced } from './demos/07-advanced';
 import { demoComplexContext } from './demos/08-complex-context';
 import { demoComplexModel } from './demos/09-complex-model';
+import { demoKeyCheck } from './demos/10-key-check';
 
 async function main() {
   console.log('══════════════════════════════════════════════════════');
@@ -37,6 +38,7 @@ async function main() {
   await demoAdvanced();
   await demoComplexContext();
   await demoComplexModel();
+  await demoKeyCheck();
 
   console.log('\n══════════════════════════════════════════════════════');
   console.log('  All demos completed successfully.');

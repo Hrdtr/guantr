@@ -1,118 +1,167 @@
 import { describe, expect, it } from 'vitest';
+import { matchRuleCondition } from '../../src/utils';
 import { matchConditionExpression } from '../../src/utils';
 
-describe('matchConditionExpression - every operator', () => {
-  const testCases = [
-    // Basic Checks
-    {
-      value: [
-        { id: 1, value: 60 },
-        { id: 2, value: 70 },
-        { id: 3, value: 80 },
-      ],
-      operand: { value: ['gt', 50] },
-      expected: true,
-    }, // All items with value > 50
-    {
-      value: [
-        { id: 1, value: 40 },
-        { id: 2, value: 50 },
-        { id: 3, value: 60 },
-      ],
-      operand: { value: ['eq', 50] },
-      expected: false,
-    }, // Not all items with value === 50
-    {
-      value: [
-        { id: 1, value: 10 },
-        { id: 2, value: 20 },
-      ],
-      operand: { value: ['eq', 30] },
-      expected: false,
-    }, // No item with value === 30
+describe('every operator', () => {
+  // ---------------------------------------------------------------------------
+  // Tests via matchRuleCondition (properly typed)
+  // ---------------------------------------------------------------------------
 
-    // Multiple Conditions
-    {
-      value: [
-        { id: 1, value: 60, status: 'active' },
-        { id: 2, value: 70, status: 'active' },
-      ],
-      operand: { value: ['gt', 50], status: ['eq', 'active'] },
-      expected: true,
-    }, // All items with value > 50 and status === 'active'
-    {
-      value: [
-        { id: 1, value: 60, status: 'active' },
-        { id: 2, value: 70, status: 'inactive' },
-      ],
-      operand: { value: ['gt', 50], status: ['eq', 'active'] },
-      expected: false,
-    }, // Not all items with value > 50 and status === 'active'
-    {
-      value: [
-        { id: 1, name: 'alice', age: 25 },
-        { id: 2, name: 'bob', age: 30 },
-      ],
-      operand: { name: ['eq', 'alice'], age: ['gte', 25] },
-      expected: false,
-    }, // Not all items with name === 'alice' and age >= 25
-
-    // Nested
-    {
-      value: [
-        { id: 1, name: { first: 'John', last: 'Doe' } },
-        { id: 2, name: { first: 'Alice', last: 'Doe' } },
-      ],
-      operand: { name: { last: ['eq', 'Doe'] } },
-      expected: true,
-    }, // All items with name.last === 'Doe'
-
-    // Handling null and undefined
-    { value: null, operand: { value: ['gt', 10] }, expected: false }, // null array
-    { value: undefined, operand: { value: ['gt', 10] }, expected: false }, // undefined array
-
-    // Edge case: value array with mixed types
-    {
-      value: [
-        { id: 1, value: 10 },
-        { id: 2, value: 'twenty' },
-      ],
-      operand: { value: ['eq', 'twenty'] },
-      expected: false,
-    }, // Not all items with value === 'twenty'
-  ];
-
-  for (const [idx, { value, operand, expected }] of testCases.entries()) {
-    it(`should return ${expected} for case #${idx + 1}`, () => {
-      const expression = ['every', operand] as any;
-      const result = matchConditionExpression({ value, expression });
-      expect(result).toBe(expected);
-    });
-  }
-
-  it('should return false for an empty array', () => {
-    const expression = ['every', { value: ['gt', 10] }] as any;
-    expect(matchConditionExpression({ value: [], expression })).toBe(false);
+  it('returns true when every item has value > 50', () => {
+    expect(
+      matchRuleCondition(
+        {
+          items: [
+            { id: 1, value: 60 },
+            { id: 2, value: 70 },
+            { id: 3, value: 80 },
+          ],
+        },
+        { items: ['every', { value: ['gt', 50] }] },
+      ),
+    ).toBe(true);
   });
 
-  it('should return false for an empty array even with a trivially-true condition', () => {
-    const expression = ['every', { id: ['gte', 0] }] as any;
-    expect(matchConditionExpression({ value: [], expression })).toBe(false);
+  it('returns false when not all items match eq', () => {
+    expect(
+      matchRuleCondition(
+        {
+          items: [
+            { id: 1, value: 40 },
+            { id: 2, value: 50 },
+            { id: 3, value: 60 },
+          ],
+        },
+        { items: ['every', { value: ['eq', 50] }] },
+      ),
+    ).toBe(false);
   });
 
-  // Edge case: invalid resource value type
+  it('returns false when no items match eq', () => {
+    expect(
+      matchRuleCondition(
+        {
+          items: [
+            { id: 1, value: 10 },
+            { id: 2, value: 20 },
+          ],
+        },
+        { items: ['every', { value: ['eq', 30] }] },
+      ),
+    ).toBe(false);
+  });
+
+  it('returns true with multiple conditions when all items match', () => {
+    expect(
+      matchRuleCondition(
+        {
+          items: [
+            { id: 1, value: 60, status: 'active' },
+            { id: 2, value: 70, status: 'active' },
+          ],
+        },
+        { items: ['every', { value: ['gt', 50], status: ['eq', 'active'] }] },
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false with multiple conditions when not all items match', () => {
+    expect(
+      matchRuleCondition(
+        {
+          items: [
+            { id: 1, value: 60, status: 'active' },
+            { id: 2, value: 70, status: 'inactive' },
+          ],
+        },
+        { items: ['every', { value: ['gt', 50], status: ['eq', 'active'] }] },
+      ),
+    ).toBe(false);
+  });
+
+  it('returns false with multiple conditions only some items match', () => {
+    expect(
+      matchRuleCondition(
+        {
+          items: [
+            { id: 1, name: 'alice', age: 25 },
+            { id: 2, name: 'bob', age: 30 },
+          ],
+        },
+        { items: ['every', { name: ['eq', 'alice'], age: ['gte', 25] }] },
+      ),
+    ).toBe(false);
+  });
+
+  it('returns true with nested object condition', () => {
+    expect(
+      matchRuleCondition(
+        {
+          items: [
+            { id: 1, name: { first: 'John', last: 'Doe' } },
+            { id: 2, name: { first: 'Alice', last: 'Doe' } },
+          ],
+        },
+        { items: ['every', { name: { last: ['eq', 'Doe'] } }] },
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false for null value', () => {
+    expect(matchRuleCondition({ items: null }, { items: ['every', { value: ['gt', 10] }] })).toBe(
+      false,
+    );
+  });
+
+  it('returns false for undefined value', () => {
+    expect(
+      matchRuleCondition({ items: undefined }, { items: ['every', { value: ['gt', 10] }] }),
+    ).toBe(false);
+  });
+
+  it('returns false for empty array', () => {
+    expect(matchRuleCondition({ items: [] }, { items: ['every', { value: ['gt', 10] }] })).toBe(
+      false,
+    );
+  });
+
+  it('returns false for empty array even with trivially true condition', () => {
+    expect(matchRuleCondition({ items: [] }, { items: ['every', { id: ['gte', 0] }] })).toBe(false);
+  });
+
+  it('returns false with mixed types when not all match', () => {
+    expect(
+      matchRuleCondition(
+        {
+          items: [
+            { id: 1, value: 10 },
+            { id: 2, value: 'twenty' },
+          ],
+        },
+        { items: ['every', { value: ['eq', 'twenty'] }] },
+      ),
+    ).toBe(false);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TypeError tests via matchConditionExpression (cast needed to bypass TS)
+  // ---------------------------------------------------------------------------
+
   it('should throw TypeError for unexpected resource value type', () => {
-    const value = { key: 'value' }; // Invalid type for 'every' operator
-    const operand = { value: ['gt', 10] };
-    const expression = ['every', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+    // as any needed because we intentionally pass an object as value to test
+    // the runtime TypeError for the every operator
+    const expression = ['every', { value: ['gt', 10] }] as any;
+    expect(() => matchConditionExpression({ value: { key: 'value' }, expression })).toThrow(
+      TypeError,
+    );
   });
 
-  // Edge case: invalid operand type
   it('should throw TypeError for unexpected operand type', () => {
-    const value = [{ id: 1, value: 10 }];
-    const operand = { key: 'value' }; // Invalid type for 'every' operand
-    const expression = ['every', operand] as any;
-    expect(() => matchConditionExpression({ value, expression })).toThrow(TypeError);
+    // as any needed because we intentionally pass a string as condition value
+    // to test the runtime TypeError for the every operator
+    const expression = ['every', { id: 'value' }] as any;
+    expect(() => matchConditionExpression({ value: [{ id: 1, value: 10 }], expression })).toThrow(
+      TypeError,
+    );
   });
 });
