@@ -11,7 +11,8 @@ export class InMemoryStorage implements Storage {
   };
 
   /**
-   * Bulk sets rules by clearing the current index and adding new rules.
+   * Appends rules to the storage index. Guantr always calls `clearRules()` before
+   * `setRules()` to achieve replace semantics.
    * @param rules - Array of rules to set.
    */
   async setRules(rules: GuantrAnyRule[]) {

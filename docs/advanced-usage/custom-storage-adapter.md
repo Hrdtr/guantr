@@ -8,14 +8,14 @@ To create a custom adapter, you need to implement the `Storage` interface define
 
 **Required Methods:**
 
-- `setRules(rules: GuantrAnyRule[]): Promise<void>`: Replaces all existing rules with the provided array. Should handle storing the rules persistently.
+- `setRules(rules: GuantrAnyRule[]): Promise<void>`: Appends the provided rules to the existing rule set. Guantr always calls `clearRules()` before `setRules()` to achieve replace semantics.
 - `getRules(): Promise<GuantrAnyRule[]>`: Retrieves all currently stored rules.
 - `queryRules(action: string, resource: string): Promise<GuantrAnyRule[]>`: Retrieves only the rules matching a specific action and resource key. Implementing this efficiently (filtering at the source) is crucial for performance with large rule sets.
 - `clearRules(): Promise<void>`: Deletes all stored rules.
 
 **Optional Property:**
 
-- `cache?: { set, get, has, clear }`: An optional object implementing caching logic. See the [Caching Guide](./caching.md) for details.
+- `cache?: { set, get, has, clear }`: An optional object implementing caching logic. If provided, `has` is **required** (no fallback logic; Guantr uses `has` to check cache hits and `get` to retrieve values). `get` must return `undefined` for cache misses. See the [Caching Guide](./caching.md) for details.
 
 ## Example Implementations
 

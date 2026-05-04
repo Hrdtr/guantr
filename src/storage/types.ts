@@ -5,11 +5,13 @@ import { GuantrAnyRule } from '../types';
  */
 export interface Storage {
   /**
-   * Appends rules to the storage index. Called after clearRules() by the Guantr class.
-   * @param rule - Array of rules to set.
+   * Sets (appends) rules in the storage index. Guantr calls `clearRules()`
+   * before `setRules()` to achieve replace semantics.
+   *
+   * @param rules - Array of rules to set.
    * @returns A promise that resolves when the rules are set.
    */
-  setRules: (rule: GuantrAnyRule[]) => Promise<void>;
+  setRules: (rules: GuantrAnyRule[]) => Promise<void>;
 
   /**
    * Retrieves all stored rules.
@@ -33,6 +35,7 @@ export interface Storage {
 
   /**
    * Optional cache mechanism for storing and retrieving data.
+   * If provided, `has` is REQUIRED (no fallback logic).
    */
   cache?: {
     /**
@@ -46,19 +49,18 @@ export interface Storage {
     /**
      * Retrieves a value from the cache.
      * @param key - The key associated with the value.
-     * @returns A promise that resolves to the cached value, or undefined if not found.
+     * @returns A promise that resolves to the cached value, or `undefined` if not found.
      */
     get: <T>(key: string) => Promise<T | undefined>;
 
     /**
      * Checks if a key exists in the cache.
+     * Required when the cache object is provided.
      *
      * @param key - The key to check for existence in the cache.
      * @returns A promise that resolves to true if the key exists, false otherwise.
-     * @remarks If implemented, this method is used to check cache hits. If not implemented,
-     * the `get` method is used directly, and it must return `undefined` for cache misses.
      */
-    has?: (key: string) => Promise<boolean>;
+    has: (key: string) => Promise<boolean>;
 
     /**
      * Clears all entries in the cache.
