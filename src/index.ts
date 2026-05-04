@@ -10,9 +10,10 @@ import { GuantrCircuitBreakerError } from './errors';
 import { InMemoryStorage } from './storage';
 import {
   getContextValue,
+  isConditionExpressionLike,
   isContextualOperand,
   matchRuleCondition,
-  validateConditionForStrict,
+  validateCondition,
 } from './utils';
 
 export {
@@ -36,7 +37,14 @@ export type {
   GuantrAnyRule,
 } from './types';
 
-export { isContextualOperand, matchConditionExpression, matchRuleCondition } from './utils';
+export {
+  isConditionExpressionLike,
+  isContextualOperand,
+  KNOWN_OPERATORS,
+  matchConditionExpression,
+  matchRuleCondition,
+  validateCondition,
+} from './utils';
 
 // Extract commonly used type patterns to reduce repetition
 type ExtractResourceKeys<Meta> = Meta extends GuantrMeta<infer U> ? keyof U : string;
@@ -112,8 +120,6 @@ export class Guantr<
   private _storage: Storage;
   private _getContext: () => Context | PromiseLike<Context>;
   private readonly _maxRuleIterations: number;
-  private readonly _strict: boolean;
-
   /**
    * Check whether an action is permitted on a resource.
    *
@@ -146,8 +152,6 @@ export class Guantr<
       throw new TypeError('maxRuleIterations must be a positive integer');
     }
     this._maxRuleIterations = maxRuleIterations;
-    this._strict = options?.strict ?? false;
-
     this.can = Object.assign(
       <
         ResourceKey extends ExtractResourceKeys<Meta>,
@@ -208,11 +212,9 @@ export class Guantr<
 
     if (Array.isArray(callbackOrRules)) {
       nextRules = callbackOrRules as GuantrAnyRule[];
-      if (this._strict) {
-        for (const rule of nextRules) {
-          if (rule.condition !== null) {
-            validateConditionForStrict(rule.condition);
-          }
+      for (const rule of nextRules) {
+        if (rule.condition !== null) {
+          validateCondition(rule.condition);
         }
       }
     } else {
@@ -236,11 +238,9 @@ export class Guantr<
           }),
       );
 
-      if (this._strict) {
-        for (const rule of rules) {
-          if (rule.condition !== null) {
-            validateConditionForStrict(rule.condition);
-          }
+      for (const rule of rules) {
+        if (rule.condition !== null) {
+          validateCondition(rule.condition);
         }
       }
 
@@ -390,7 +390,7 @@ export class Guantr<
         continue;
       }
       // Evaluate the condition using the matching utility.
-      const matched = matchRuleCondition(resource[1], rule.condition, this._strict);
+      const matched = matchRuleCondition(resource[1], rule.condition);
       if (matched) {
         if (rule.effect === 'allow') allowed.push(true);
         else denied.push(false);

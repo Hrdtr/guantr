@@ -53,7 +53,7 @@ const toPrismaWhereClause = (condition: GuantrAnyPermission['condition']) => {
     key: string,
     nestedConditionOrExpression: GuantrAnyConditionExpression | GuantrAnyCondition,
   ) => {
-    if (isValidConditionExpression(nestedConditionOrExpression)) {
+    if (isConditionExpressionLike(nestedConditionOrExpression)) {
       const [operator, operand, options] = nestedConditionOrExpression;
       switch (operator) {
         case 'eq': {
@@ -144,7 +144,7 @@ const toPrismaWhereClause = (condition: GuantrAnyPermission['condition']) => {
 Use this type guard to differentiate condition expressions:
 
 ```ts
-export const isValidConditionExpression = (
+export const isConditionExpressionLike = (
   maybeExpression: unknown,
 ): maybeExpression is GuantrAnyRuleConditionExpression =>
   Array.isArray(maybeExpression) &&

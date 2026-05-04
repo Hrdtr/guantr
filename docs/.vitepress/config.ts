@@ -28,6 +28,7 @@ export default defineConfig({
             link: '/guides/defining-rules',
             items: [
               { text: 'Condition Operators', link: '/guides/defining-rules/condition-operators' },
+              { text: 'Rule Validation', link: '/guides/defining-rules/rule-validation' },
             ],
           },
           { text: 'Context Usage', link: '/guides/context-usage' },
@@ -42,7 +43,6 @@ export default defineConfig({
         items: [
           { text: 'Custom Storage Adapter', link: '/advanced-usage/custom-storage-adapter' },
           { text: 'Caching', link: '/advanced-usage/caching' },
-          { text: 'Strict Mode', link: '/advanced-usage/strict-mode' },
           {
             text: 'Rules as Query Filters',
             items: [{ text: 'Prisma', link: '/advanced-usage/rules-as-query-filters/prisma' }],
