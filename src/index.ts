@@ -54,7 +54,21 @@ type ExtractResourceModel<Meta, K> =
   Meta extends GuantrMeta<infer U> ? U[K & keyof U]['model'] : Record<string, unknown>;
 
 /**
- * Typed callable for `guantr.can`. Supports two call signatures and a nested `.abstract()` sub-method.
+ * A check tuple for batch permission methods (`can.all`, `can.any`, etc.).
+ * Each element is a tuple of `[action, [resourceKey, resourceInstance]]`.
+ */
+type CanCheckItem<Meta extends GuantrMeta<GuantrResourceMap> | undefined> =
+  Meta extends GuantrMeta<infer ResourceMap>
+    ? {
+        [K in keyof ResourceMap]: [
+          action: ResourceMap[K]['action'],
+          resource: [key: K, instance: ResourceMap[K]['model']],
+        ];
+      }[keyof ResourceMap]
+    : [action: string, resource: [key: string, instance: Record<string, unknown>]];
+
+/**
+ * Typed callable for `guantr.can`. Supports two call signatures and nested `.abstract()`, `.all()`, `.any()` sub-methods.
  */
 type CanMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
   /**
@@ -81,6 +95,20 @@ type CanMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
     action: ExtractResourceAction<Meta, ResourceKey>,
     resource: ResourceKey,
   ): Promise<boolean>;
+
+  /**
+   * Checks if ALL specified permissions are granted.
+   * Resolves context once and shares it across all checks.
+   * Short-circuits on the first `false` result.
+   */
+  all(checks: CanCheckItem<Meta>[]): Promise<boolean>;
+
+  /**
+   * Checks if ANY of the specified permissions is granted.
+   * Resolves context once and shares it across all checks.
+   * Short-circuits on the first `true` result.
+   */
+  any(checks: CanCheckItem<Meta>[]): Promise<boolean>;
 };
 
 /**
@@ -111,6 +139,20 @@ type CannotMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
     action: ExtractResourceAction<Meta, ResourceKey>,
     resource: ResourceKey,
   ): Promise<boolean>;
+
+  /**
+   * Checks if ALL specified permissions are denied.
+   * Resolves context once and shares it across all checks.
+   * Short-circuits on the first `true` result (first granted permission).
+   */
+  all(checks: CanCheckItem<Meta>[]): Promise<boolean>;
+
+  /**
+   * Checks if ANY of the specified permissions is denied.
+   * Resolves context once and shares it across all checks.
+   * Short-circuits on the first `false` result (first granted permission).
+   */
+  any(checks: CanCheckItem<Meta>[]): Promise<boolean>;
 };
 
 export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined> {
@@ -122,6 +164,8 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
    *
    * - `can(action, [resourceKey, instance])` — full evaluation against the resource instance.
    * - `can.abstract(action, resourceKey)` — abstract check for UI hints; ignores conditions and deny rules.
+   * - `can.all(checks)` — batch check ALL permissions; short-circuits on first `false`.
+   * - `can.any(checks)` — batch check ANY permission; short-circuits on first `true`.
    */
   readonly can!: CanMethod<Meta>;
 
@@ -130,6 +174,8 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
    *
    * - `cannot(action, [resourceKey, instance])` — full evaluation against the resource instance.
    * - `cannot.abstract(action, resourceKey)` — abstract check for UI hints; ignores conditions and deny rules.
+   * - `cannot.all(checks)` — batch check ALL permissions are denied; short-circuits on first `true`.
+   * - `cannot.any(checks)` — batch check ANY permission is denied; short-circuits on first `false`.
    */
   readonly cannot!: CannotMethod<Meta>;
 
@@ -165,6 +211,8 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
           action: ExtractResourceAction<Meta, ResourceKey>,
           resource: ResourceKey,
         ) => this._canAbstract(action, resource),
+        all: (checks: CanCheckItem<Meta>[]) => this._canAll(checks),
+        any: (checks: CanCheckItem<Meta>[]) => this._canAny(checks),
       },
     ) as CanMethod<Meta>;
 
@@ -184,6 +232,8 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
           action: ExtractResourceAction<Meta, ResourceKey>,
           resource: ResourceKey,
         ) => this._cannotAbstract(action, resource),
+        all: (checks: CanCheckItem<Meta>[]) => this._cannotAll(checks),
+        any: (checks: CanCheckItem<Meta>[]) => this._cannotAny(checks),
       },
     ) as CannotMethod<Meta>;
   }
@@ -300,6 +350,78 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
     return rules;
   }
 
+  /**
+   * Core evaluation of a single permission check, using a pre-resolved context.
+   * This is the shared workhorse for `_can`, `_canAll`, and `_canAny`.
+   */
+  private async _evaluateCheck<
+    ResourceKey extends ExtractResourceKeys<Meta>,
+    Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<
+      Meta,
+      ResourceKey
+    >,
+  >(
+    action: ExtractResourceAction<Meta, ResourceKey>,
+    resource: [ResourceKey, Resource],
+    context: GuantrContextFromMeta<Meta>,
+    serializedContext: string | undefined,
+  ): Promise<boolean> {
+    // Retrieve all rules for the given action and resource key & apply condition contextual operand replacement.
+    const rawRules = await this._storage.queryRules(action as string, resource[0] as string);
+    if (rawRules.length === 0) {
+      return false;
+    }
+    // Early exit: an unconditional deny (condition omitted/null, effect: 'deny') guarantees a false
+    // result regardless of every other rule, so we can skip all further processing.
+    if (rawRules.some((rule) => rule.condition == null && rule.effect === 'deny')) {
+      return false;
+    }
+    const rules = await Promise.all(
+      rawRules.map(async (rule) => ({
+        ...rule,
+        condition: await this.applyContextualOperands(rule.condition, context, serializedContext),
+      })),
+    );
+
+    const allowed: boolean[] = [];
+    const denied: boolean[] = [];
+    let iterationCount = 0; // Counter for circuit breaking.
+    for (const rule of rules) {
+      iterationCount++;
+      // Circuit breaker: if iterations exceed maxRuleIterations, throw an error.
+      if (iterationCount > this._maxRuleIterations) {
+        throw new GuantrCircuitBreakerError(
+          action as string,
+          resource[0] as string,
+          this._maxRuleIterations,
+        );
+      }
+      // If no condition is set, consider it as a direct allow/deny.
+      if (!rule.condition) {
+        if (rule.effect === 'allow') {
+          allowed.push(true);
+        } else {
+          // Unconditional deny → result is guaranteed false; no need to evaluate further.
+          return false;
+        }
+        continue;
+      }
+      // Evaluate the condition using the matching utility.
+      const matched = matchRuleCondition(resource[1], rule.condition);
+      if (matched) {
+        if (rule.effect === 'allow') allowed.push(true);
+        else denied.push(false);
+      } else {
+        if (rule.effect === 'allow') allowed.push(false);
+        else denied.push(true);
+      }
+    }
+
+    // Determine the final result: rule is granted if at least one positive match
+    // exists and no corresponding inverted match invalidates it.
+    return allowed.includes(true) && !denied.includes(false);
+  }
+
   private async _can<
     ResourceKey extends ExtractResourceKeys<Meta>,
     Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<
@@ -339,61 +461,50 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
       return result as T;
     };
 
-    // Retrieve all rules for the given action and resource key & apply condition contextual operand replacement.
-    const rawRules = await this._storage.queryRules(action as string, resource[0] as string);
-    if (rawRules.length === 0) {
-      return await trySetCache(false);
-    }
-    // Early exit: an unconditional deny (condition omitted/null, effect: 'deny') guarantees a false
-    // result regardless of every other rule, so we can skip all further processing.
-    if (rawRules.some((rule) => rule.condition == null && rule.effect === 'deny')) {
-      return await trySetCache(false);
-    }
-    const rules = await Promise.all(
-      rawRules.map(async (rule) => ({
-        ...rule,
-        condition: await this.applyContextualOperands(rule.condition, context, serializedContext),
-      })),
-    );
-
-    const allowed: boolean[] = [];
-    const denied: boolean[] = [];
-    let iterationCount = 0; // Counter for circuit breaking.
-    for (const rule of rules) {
-      iterationCount++;
-      // Circuit breaker: if iterations exceed maxRuleIterations, throw an error.
-      if (iterationCount > this._maxRuleIterations) {
-        throw new GuantrCircuitBreakerError(
-          action as string,
-          resource[0] as string,
-          this._maxRuleIterations,
-        );
-      }
-      // If no condition is set, consider it as a direct allow/deny.
-      if (!rule.condition) {
-        if (rule.effect === 'allow') {
-          allowed.push(true);
-        } else {
-          // Unconditional deny → result is guaranteed false; no need to evaluate further.
-          return await trySetCache(false);
-        }
-        continue;
-      }
-      // Evaluate the condition using the matching utility.
-      const matched = matchRuleCondition(resource[1], rule.condition);
-      if (matched) {
-        if (rule.effect === 'allow') allowed.push(true);
-        else denied.push(false);
-      } else {
-        if (rule.effect === 'allow') allowed.push(false);
-        else denied.push(true);
-      }
-    }
-
-    // Determine the final result: rule is granted if at least one positive match
-    // exists and no corresponding inverted match invalidates it.
-    const result = allowed.includes(true) && !denied.includes(false);
+    const result = await this._evaluateCheck(action, resource, context, serializedContext);
     return await trySetCache(result);
+  }
+
+  private async _canAll(checks: CanCheckItem<Meta>[]): Promise<boolean> {
+    const context = await this._getContext();
+    const serializedContext = this._storage.cache ? JSON.stringify(context) : undefined;
+
+    for (const [action, resource] of checks) {
+      const result = await this._evaluateCheck(
+        action as any,
+        resource as any,
+        context,
+        serializedContext,
+      );
+      if (!result) return false;
+    }
+    return true;
+  }
+
+  private async _canAny(checks: CanCheckItem<Meta>[]): Promise<boolean> {
+    const context = await this._getContext();
+    const serializedContext = this._storage.cache ? JSON.stringify(context) : undefined;
+
+    for (const [action, resource] of checks) {
+      const result = await this._evaluateCheck(
+        action as any,
+        resource as any,
+        context,
+        serializedContext,
+      );
+      if (result) return true;
+    }
+    return false;
+  }
+
+  private async _cannotAll(checks: CanCheckItem<Meta>[]): Promise<boolean> {
+    // All denied = none allowed = negated `any`
+    return !(await this._canAny(checks));
+  }
+
+  private async _cannotAny(checks: CanCheckItem<Meta>[]): Promise<boolean> {
+    // Any denied = not all allowed = negated `all`
+    return !(await this._canAll(checks));
   }
 
   private async _canAbstract<ResourceKey extends ExtractResourceKeys<Meta>>(

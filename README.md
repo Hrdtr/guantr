@@ -147,6 +147,28 @@ const post = {
 await guantr.can('read', ['post', post]); // false
 ```
 
+### Batch Checks
+
+Check multiple permissions at once — context is resolved once and shared across all checks:
+
+```js
+const canManage = await guantr.can.all([
+  ['read', ['post', post]],
+  ['update', ['post', post]],
+  ['delete', ['post', post]],
+]);
+
+const canInteract = await guantr.can.any([
+  ['update', ['post', post]],
+  ['comment', ['post', post]],
+]);
+```
+
+- `can.all(checks)` — returns `true` only if **all** checks pass; short-circuits on first `false`.
+- `can.any(checks)` — returns `true` if **any** check passes; short-circuits on first `true`.
+- `cannot.all(checks)` — returns `true` only if **all** checks are denied; short-circuits on first `true`.
+- `cannot.any(checks)` — returns `true` if **any** check is denied; short-circuits on first `false`.
+
 ## Development
 
 <details>
