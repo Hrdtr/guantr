@@ -207,7 +207,7 @@ export type GuantrRule<
     ? {
         resource: ResourceKey;
         action: ResourceMap[ResourceKey]['action'];
-        condition: GuantrRuleCondition<
+        condition?: GuantrRuleCondition<
           ResourceMap[ResourceKey]['model'],
           GuantrContextFromMeta<Meta>
         > | null;
@@ -216,7 +216,7 @@ export type GuantrRule<
     : {
         resource: string;
         action: string;
-        condition: GuantrRuleCondition | null;
+        condition?: GuantrRuleCondition | null;
         effect: 'allow' | 'deny';
       };
 

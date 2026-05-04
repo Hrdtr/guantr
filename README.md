@@ -94,16 +94,15 @@ const guantrWithContext = await createGuantr<Meta, { user: typeof user }>({
 Setting rules:
 
 ```js
-await guantr.setRules((can, cannot) => {
-  can('read', 'post');
-  cannot('read', ['post', { published: ['eq', false] }]);
+await guantr.setRules((allow, deny) => {
+  allow('read', 'post');
+  deny('read', ['post', { published: ['eq', false] }]);
 });
 // Or
 await guantr.setRules([
   {
     resource: 'post',
     action: 'read',
-    condition: null,
     effect: 'allow',
   },
   {
@@ -130,6 +129,7 @@ const guantr = await createGuantr<Meta>([
     effect: 'deny',
   },
 ]);
+// Note: `condition` is optional — omit it for unconditional rules.
 ```
 
 Authorize:

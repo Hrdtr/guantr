@@ -9,7 +9,7 @@ Internally, every rule in Guantr follows the `GuantrRule` structure defined in t
 1.  **`effect`**: `'allow'` | `'deny'` - Determines if the rule grants or revokes permission.
 2.  **`action`**: `string` - The **single** operation being attempted (e.g., `'read'`, `'update'`, `'publish'`).
 3.  **`resource`**: `string` - The _type_ or _key_ identifying the resource (e.g., `'article'`, `'user'`).
-4.  **`condition`**: `GuantrRuleCondition | null` - An optional object specifying conditions that must be met for the rule to apply. This enables attribute-based and context-aware checks. If `null`, the rule applies based only on action and resource type.
+4.  **`condition`**: `GuantrRuleCondition | null` (optional) - An object specifying conditions that must be met for the rule to apply. This enables attribute-based and context-aware checks. When omitted (or set to `null`), the rule applies unconditionally based only on action and resource type.
 
 ## Methods for Setting Rules
 
@@ -89,7 +89,7 @@ const rules: GuantrRule</*Meta substitute*/ {
   };
   Context: Context;
 }>[] = [
-  { effect: 'allow', action: 'read', resource: 'article', condition: null },
+  { effect: 'allow', action: 'read', resource: 'article' },
   {
     effect: 'allow',
     action: 'create',
@@ -114,7 +114,7 @@ const rules: GuantrRule</*Meta substitute*/ {
     resource: 'article',
     condition: { status: ['eq', 'published'] },
   },
-  { effect: 'allow', action: 'read', resource: 'user', condition: null },
+  { effect: 'allow', action: 'read', resource: 'user' },
   { effect: 'deny', action: 'read', resource: 'user', condition: { private: ['eq', true] } },
   {
     effect: 'allow',
