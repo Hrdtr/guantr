@@ -1,4 +1,4 @@
-import { GuantrAnyRule } from '../types';
+import { GuantrRule } from '../types';
 
 /**
  * Interface representing a storage mechanism for managing rules and cache.
@@ -10,13 +10,13 @@ export interface Storage {
    * @param rules - Array of rules to set.
    * @returns A promise that resolves when the rules are set.
    */
-  setRules: (rules: GuantrAnyRule[]) => Promise<void>;
+  setRules: (rules: GuantrRule[]) => Promise<void>;
 
   /**
    * Retrieves all stored rules.
    * @returns A promise that resolves to an array of stored rules.
    */
-  getRules: () => Promise<GuantrAnyRule[]>;
+  getRules: () => Promise<GuantrRule[]>;
 
   /**
    * Queries rules for a given action and resource.
@@ -24,7 +24,7 @@ export interface Storage {
    * @param resource - The resource to filter by.
    * @returns A promise that resolves to an array of matching rules, or an empty array if none exist.
    */
-  queryRules: (action: string, resource: string) => Promise<GuantrAnyRule[]>;
+  queryRules: (action: string, resource: string) => Promise<GuantrRule[]>;
 
   /**
    * Optional cache mechanism for storing and retrieving data.

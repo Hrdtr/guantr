@@ -14,12 +14,12 @@ A string representing the operation a user attempts to perform on a `Resource` (
 
 ## **Condition**
 
-An optional property within a `Rule`. It's an object defining specific criteria that must be met for the rule to apply. Keys correspond to `Resource` model properties, and values are `Condition Expressions`. Conditions enable fine-grained control for ABAC and ReBAC patterns. Defined as `GuantrRuleCondition` / `GuantrAnyRuleCondition`.
+An optional property within a `Rule`. It's an object defining specific criteria that must be met for the rule to apply. Keys correspond to `Resource` model properties, and values are `Condition Expressions`. Conditions enable fine-grained control for ABAC and ReBAC patterns. Defined as `GuantrRuleCondition`.
 
 ## **Condition Expression**
 
 The value associated with a key inside a `Condition` object. It defines the specific comparison logic, typically using an array format
-`[Operator, Operand, Options?]` (e.g., `['eq', 'value']`, `['in', ['a', 'b']]`). Defined as `GuantrAnyRuleConditionExpression`.
+`[Operator, Operand, Options?]` (e.g., `['eq', 'value']`, `['in', ['a', 'b']]`). Defined as `GuantrRuleConditionExpression`.
 
 ## **Context**
 
@@ -59,7 +59,7 @@ The entity or type of entity being acted upon (e.g., an article, a user profile,
 
 ## **Rule**
 
-The fundamental unit defining a permission statement in Guantr. It consists of an `effect` (`'allow'` or `'deny'`), an `action` (string), a `resource` key (string), and an optional `condition` object. Defined as `GuantrRule` / `GuantrAnyRule`. Rules are managed via the `setRules` method.
+The fundamental unit defining a permission statement in Guantr. It consists of an `effect` (`'allow'` or `'deny'`), an `action` (string), a `resource` key (string), and an optional `condition` object. Defined as `GuantrRule`. Rules are managed via the `setRules` method.
 
 ## **Storage**
 

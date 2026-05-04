@@ -92,16 +92,16 @@ Evaluates a full rule condition object against a model (plain object). This is t
 ```ts
 function matchRuleCondition<Model extends Record<string, unknown>>(
   model: Model,
-  condition: NonNullable<GuantrAnyRule['condition']>,
+  condition: NonNullable<GuantrRule['condition']>,
 ): boolean;
 ```
 
 ### Parameters
 
-| Parameter   | Type                                      | Description                                                                                                          |
-| ----------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `model`     | `Model extends Record<string, unknown>`   | The plain object to evaluate the condition against (e.g., a resource instance).                                      |
-| `condition` | `NonNullable<GuantrAnyRule['condition']>` | The condition object from a rule. Each key maps to either a condition expression array or a nested condition object. |
+| Parameter   | Type                                    | Description                                                                                                          |
+| ----------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `model`     | `Model extends Record<string, unknown>` | The plain object to evaluate the condition against (e.g., a resource instance).                                      |
+| `condition` | `NonNullable<GuantrRule['condition']>`  | The condition object from a rule. Each key maps to either a condition expression array or a nested condition object. |
 
 ### Returns
 
@@ -116,9 +116,9 @@ function matchRuleCondition<Model extends Record<string, unknown>>(
 
 ```ts
 import { matchRuleCondition } from 'guantr';
-import type { GuantrAnyRuleCondition } from 'guantr';
+import type { GuantrRuleCondition } from 'guantr';
 
-const condition: GuantrAnyRuleCondition = {
+const condition: GuantrRuleCondition = {
   status: ['eq', 'published'],
   author: {
     role: ['in', ['editor', 'admin']],
@@ -159,7 +159,7 @@ Evaluates a single condition expression (a `[operator, operand, ?options]` tuple
 function matchConditionExpression(data: {
   value: unknown;
   expression: Extract<
-    NonNullable<GuantrAnyRule['condition']>[keyof NonNullable<GuantrAnyRule['condition']>],
+    NonNullable<GuantrRule['condition']>[keyof NonNullable<GuantrRule['condition']>],
     Array<any>
   >;
 }): boolean;
@@ -238,7 +238,7 @@ See [Rule Validation](../guides/defining-rules/rule-validation) for a full expla
 ```ts
 function isConditionExpressionLike(
   maybeExpression: unknown,
-): maybeExpression is GuantrAnyRuleConditionExpression;
+): maybeExpression is GuantrRuleConditionExpression;
 ```
 
 ### Parameters
@@ -249,7 +249,7 @@ function isConditionExpressionLike(
 
 ### Returns
 
-- `boolean` — `true` if the value is an array with at least 2 elements and the first element is a string. Acts as a TypeScript type guard, narrowing to `GuantrAnyRuleConditionExpression`.
+- `boolean` — `true` if the value is an array with at least 2 elements and the first element is a string. Acts as a TypeScript type guard, narrowing to `GuantrRuleConditionExpression`.
 
 ### Example
 
@@ -272,15 +272,15 @@ Recursively validates a condition object, throwing `GuantrInvalidConditionError`
 ### Signature
 
 ```ts
-function validateCondition(condition: GuantrAnyRule['condition'], _path?: string): void;
+function validateCondition(condition: GuantrRule['condition'], _path?: string): void;
 ```
 
 ### Parameters
 
-| Parameter   | Type                         | Description                                                                    |
-| ----------- | ---------------------------- | ------------------------------------------------------------------------------ |
-| `condition` | `GuantrAnyRule['condition']` | The condition object to validate. `null` and `undefined` are accepted (no-op). |
-| `_path`     | `string` (optional)          | Dot-notation prefix for error messages. Used internally during recursion.      |
+| Parameter   | Type                      | Description                                                                    |
+| ----------- | ------------------------- | ------------------------------------------------------------------------------ |
+| `condition` | `GuantrRule['condition']` | The condition object to validate. `null` and `undefined` are accepted (no-op). |
+| `_path`     | `string` (optional)       | Dot-notation prefix for error messages. Used internally during recursion.      |
 
 ### Throws
 

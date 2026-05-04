@@ -2,9 +2,9 @@ import { GuantrInvalidConditionError, GuantrInvalidConditionOperatorError } from
 import {
   ConditionOperator,
   ConditionOptions,
-  GuantrAnyRuleCondition,
-  GuantrAnyRuleConditionExpression,
-  GuantrAnyRule,
+  GuantrRuleCondition,
+  GuantrRuleConditionExpression,
+  GuantrRule,
 } from './types';
 
 /**
@@ -95,11 +95,11 @@ export const KNOWN_OPERATORS: ReadonlySet<string> = new Set<ConditionOperator>([
  * `matchConditionExpression` (at evaluation time).
  *
  * @param {unknown} maybeExpression - The value to check.
- * @return {maybeExpression is GuantrAnyRuleConditionExpression} - Returns true if the value is a structurally valid condition expression, otherwise returns false.
+ * @return {maybeExpression is GuantrRuleConditionExpression} - Returns true if the value is a structurally valid condition expression, otherwise returns false.
  */
 export const isConditionExpressionLike = (
   maybeExpression: unknown,
-): maybeExpression is GuantrAnyRuleConditionExpression => {
+): maybeExpression is GuantrRuleConditionExpression => {
   if (
     !Array.isArray(maybeExpression) ||
     maybeExpression.length < 2 ||
@@ -118,11 +118,11 @@ export const isConditionExpressionLike = (
  * This is called by `setRules` to catch problems at definition time rather than
  * throwing at evaluation time.
  *
- * @param {GuantrAnyRule['condition']} condition - The condition to validate.
+ * @param {GuantrRule['condition']} condition - The condition to validate.
  * @param {string} [_path] - Dot-notation path used for error messages (populated by recursion).
  * @throws {GuantrInvalidConditionError}
  */
-export function validateCondition(condition: GuantrAnyRule['condition'], _path: string = ''): void {
+export function validateCondition(condition: GuantrRule['condition'], _path: string = ''): void {
   if (condition === null || condition === undefined) return;
   if (!isPlainObject(condition)) {
     throw new GuantrInvalidConditionError(
@@ -158,7 +158,7 @@ function _validateConditionValue(value: unknown, path: string): void {
       (operator === 'some' || operator === 'every' || operator === 'none') &&
       isPlainObject(value[1])
     ) {
-      validateCondition(value[1] as GuantrAnyRuleCondition, path);
+      validateCondition(value[1] as GuantrRuleCondition, path);
     }
   } else if (isPlainObject(value)) {
     // Could be a nested condition object (possibly with a $expr sibling key)
@@ -166,7 +166,7 @@ function _validateConditionValue(value: unknown, path: string): void {
     if ($expr !== undefined) {
       _validateConditionValue($expr, `${path}.$expr`);
     }
-    validateCondition(nested as GuantrAnyRuleCondition, path);
+    validateCondition(nested as GuantrRuleCondition, path);
   } else {
     throw new GuantrInvalidConditionError(
       value,
@@ -562,7 +562,7 @@ function checkComplexCondition(
 
       return matchRuleCondition(
         item[key] as Record<string, unknown>,
-        expressionOrNestedCondition as GuantrAnyRuleCondition,
+        expressionOrNestedCondition as GuantrRuleCondition,
       );
     } else {
       throw new TypeError(
@@ -576,12 +576,12 @@ function checkComplexCondition(
  * Checks if the given model matches the rule condition.
  *
  * @param {Model} model - The model to check against the rule condition.
- * @param {GuantrAnyRule & { condition: NonNullable<GuantrAnyRule['condition']> }} condition - The condition to match.
+ * @param {GuantrRule & { condition: NonNullable<GuantrRule['condition']> }} condition - The condition to match.
  * @returns {boolean} Returns true if the model matches the rule condition, false otherwise.
  */
 export const matchRuleCondition = <Model extends Record<string, unknown>>(
   model: Model,
-  condition: NonNullable<GuantrAnyRule['condition']>,
+  condition: NonNullable<GuantrRule['condition']>,
 ): boolean => {
   if (!model) {
     return false;
@@ -623,7 +623,7 @@ export const matchRuleCondition = <Model extends Record<string, unknown>>(
  *
  * @param {Object} data - The data object containing the value and expression.
  * @param {unknown} data.value - The value to evaluate the condition against.
- * @param {NonNullable<GuantrAnyRule['condition']>[keyof NonNullable<GuantrAnyRule['condition']>]} data.expression - The condition expression to evaluate.
+ * @param {NonNullable<GuantrRule['condition']>[keyof NonNullable<GuantrRule['condition']>]} data.expression - The condition expression to evaluate.
  * @return {boolean} The result of evaluating the condition expression against the value.
  * @throws {GuantrInvalidConditionOperatorError} If the operator is not a known ConditionOperator.
  * @throws {TypeError} If the model value type is unexpected or the operand type is invalid.
@@ -631,7 +631,7 @@ export const matchRuleCondition = <Model extends Record<string, unknown>>(
 export const matchConditionExpression = (data: {
   value: unknown;
   expression: Extract<
-    NonNullable<GuantrAnyRule['condition']>[keyof NonNullable<GuantrAnyRule['condition']>],
+    NonNullable<GuantrRule['condition']>[keyof NonNullable<GuantrRule['condition']>],
     Array<any>
   >;
 }): boolean => {

@@ -137,14 +137,19 @@ type ArrayConditionExpressionBasic<
       options?: string extends T[number] ? { caseInsensitive?: boolean } : never,
     ];
 
+// Internal self-referential type for untyped conditions (index signature)
+interface _GuantrUntypedRuleCondition {
+  [key: string]: GuantrRuleConditionExpression | _GuantrUntypedRuleCondition;
+}
+
 // Untyped version for ArrayConditionExpressionObject to avoid circular reference
 type ArrayConditionExpressionObjectUntyped =
   | [operator: 'some', operand: Record<string, any>]
   | [operator: 'every', operand: Record<string, any>]
   | [operator: 'none', operand: Record<string, any>];
 
-// Export the any-typed version for runtime use
-export type GuantrAnyRuleConditionExpression =
+// The untyped condition expression (default when no generics provided)
+export type GuantrRuleConditionExpression =
   | NullishConditionExpression<null | undefined>
   | StringConditionExpression
   | NumberConditionExpression
@@ -161,36 +166,37 @@ type ArrayConditionExpressionObject<
   | [
       operator: 'some',
       operand: Typed extends false
-        ? Record<string, GuantrAnyRuleConditionExpression>
+        ? Record<string, GuantrRuleConditionExpression>
         : GuantrRuleCondition<T[number], Context>,
     ]
   | [
       operator: 'every',
       operand: Typed extends false
-        ? Record<string, GuantrAnyRuleConditionExpression>
+        ? Record<string, GuantrRuleConditionExpression>
         : GuantrRuleCondition<T[number], Context>,
     ]
   | [
       operator: 'none',
       operand: Typed extends false
-        ? Record<string, GuantrAnyRuleConditionExpression>
+        ? Record<string, GuantrRuleConditionExpression>
         : GuantrRuleCondition<T[number], Context>,
     ];
 
-export interface GuantrAnyRuleCondition {
-  [key: string]: GuantrAnyRuleConditionExpression | GuantrAnyRuleCondition;
-}
+/**
+ * Extracts the Context type from a GuantrMeta, or defaults to Record<string, unknown>.
+ */
+export type GuantrContextFromMeta<Meta extends GuantrMeta<GuantrResourceMap> | undefined> =
+  Meta extends GuantrMeta<any, infer C> ? C : Record<string, unknown>;
 
-export type GuantrAnyRule = {
-  resource: string;
-  action: string;
-  condition: GuantrAnyRuleCondition | null;
-  effect: 'allow' | 'deny';
-};
-
+/**
+ * A rule in the authorization system.
+ *
+ * - When `Meta` is provided (typed mode), `resource`, `action`, and `condition` are
+ *   narrowed based on the resource map.
+ * - When `Meta` is omitted (untyped mode), all fields accept plain strings / any condition.
+ */
 export type GuantrRule<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
   ResourceKey extends Meta extends GuantrMeta<infer U> ? keyof U : string = Meta extends GuantrMeta<
     infer U
   >
@@ -201,10 +207,18 @@ export type GuantrRule<
     ? {
         resource: ResourceKey;
         action: ResourceMap[ResourceKey]['action'];
-        condition: GuantrRuleCondition<ResourceMap[ResourceKey]['model'], Context> | null;
+        condition: GuantrRuleCondition<
+          ResourceMap[ResourceKey]['model'],
+          GuantrContextFromMeta<Meta>
+        > | null;
         effect: 'allow' | 'deny';
       }
-    : GuantrAnyRule;
+    : {
+        resource: string;
+        action: string;
+        condition: GuantrRuleCondition | null;
+        effect: 'allow' | 'deny';
+      };
 
 export type LeafKeysValuePair<Obj extends Record<string, unknown>> = {
   [P in string & LeafKeys<Obj>]: Value<Obj, P>;
@@ -244,12 +258,20 @@ type ResolveConditionExpression<
     ? GuantrRuleCondition<T, Context>
     : ConditionExpression<T, Context>;
 
+/**
+ * A condition object for a rule.
+ *
+ * - Without generics: accepts any keys with `GuantrRuleConditionExpression` values
+ *   or nested conditions (index-signature fallback).
+ * - With `<Model, Context>`: keys are narrowed to the model's properties and the
+ *   expression types are narrowed accordingly.
+ */
 export type GuantrRuleCondition<
-  Model extends Record<string, unknown>,
+  Model extends Record<string, unknown> = Record<string, unknown>,
   Context extends Record<string, unknown> = Record<string, unknown>,
-> = Model extends any
-  ? Partial<{ [K in keyof Model]: ResolveConditionExpression<Model[K], Context> }>
-  : never;
+> = string extends keyof Model
+  ? _GuantrUntypedRuleCondition
+  : Partial<{ [K in keyof Model]: ResolveConditionExpression<Model[K], Context> }>;
 
 // Optimized LeafKeys with depth limit to prevent infinite recursion
 type LeafKeys<

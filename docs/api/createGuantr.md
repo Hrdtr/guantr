@@ -15,40 +15,31 @@ import type { GuantrMeta, GuantrRule, GuantrOptions } from 'guantr'; // Import r
 
 ```ts
 // Initialize with options (including context and storage)
-declare function createGuantr<
-  Meta extends GuantrMeta<any> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
->(options?: GuantrOptions<Context>): Promise<Guantr<Meta, Context>>;
+declare function createGuantr<Meta extends GuantrMeta<any> | undefined = undefined>(
+  options?: GuantrOptions,
+): Promise<Guantr<Meta>>;
 
 // Initialize with rules array and optionally options
-declare function createGuantr<
-  Meta extends GuantrMeta<any> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
->(
-  rules: GuantrRule<Meta, Context>[],
-  options?: GuantrOptions<Context>,
-): Promise<Guantr<Meta, Context>>;
+declare function createGuantr<Meta extends GuantrMeta<any> | undefined = undefined>(
+  rules: GuantrRule<Meta>[],
+  options?: GuantrOptions,
+): Promise<Guantr<Meta>>;
 
 // Initialize with rules callback and optionally options
-declare function createGuantr<
-  Meta extends GuantrMeta<any> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
->(
-  setRulesCallback: SetRulesCallback<Meta, Context>,
-  options?: GuantrOptions<Context>,
-): Promise<Guantr<Meta, Context>>;
+declare function createGuantr<Meta extends GuantrMeta<any> | undefined = undefined>(
+  setRulesCallback: SetRulesCallback<Meta>,
+  options?: GuantrOptions,
+): Promise<Guantr<Meta>>;
 
 // Initialize with no arguments (uses defaults)
-declare function createGuantr<
-  Meta extends GuantrMeta<any> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
->(): Promise<Guantr<Meta, Context>>;
+declare function createGuantr<Meta extends GuantrMeta<any> | undefined = undefined>(): Promise<
+  Guantr<Meta>
+>;
 ```
 
 ## Generics
 
 - `Meta`: (Optional) Extends `GuantrMeta`. Provides strong typing for resources, actions, models, and context if defined. Enhances type safety during rule definition and checks.
-- `Context`: (Optional) Extends `Record<string, unknown>`. Defines the shape of the context object returned by `getContext`. Defaults to `Record<string, unknown>`.
 
 ## Parameters
 
@@ -63,7 +54,7 @@ declare function createGuantr<
 
 ## Returns
 
-- `Promise<Guantr<Meta, Context>>`: A promise that resolves to a fully initialized `Guantr` instance.
+- `Promise<Guantr<Meta>>`: A promise that resolves to a fully initialized `Guantr` instance.
 
 ## Examples
 
@@ -99,7 +90,7 @@ import { getCurrentUser } from './auth';
 
 type MyContext = { userId: string | null };
 
-const guantrWithOptions = await createGuantr<MyMeta, MyContext>({
+const guantrWithOptions = await createGuantr<MyMeta>({
   storage: new MyCustomStorage(),
   getContext: async () => {
     const user = await getCurrentUser();
@@ -111,7 +102,7 @@ const guantrWithOptions = await createGuantr<MyMeta, MyContext>({
 **With Rules and Options**
 
 ```ts
-const guantrCombo = await createGuantr<MyMeta, MyContext>(
+const guantrCombo = await createGuantr<MyMeta>(
   async (allow, deny) => {
     // Rules callback
     allow('read', 'publicInfo');

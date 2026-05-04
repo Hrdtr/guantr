@@ -12,18 +12,14 @@ import type { GuantrMeta, GuantrOptions } from 'guantr';
 ## Constructor Signature
 
 ```ts
-class Guantr<
-  Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
-> {
-  constructor(options?: GuantrOptions<Context>);
+class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined> {
+  constructor(options?: GuantrOptions<GuantrContextFromMeta<Meta>>);
 }
 ```
 
 ## Generics
 
-- `Meta`: (Optional) Extends `GuantrMeta`. Provides strong typing for resources, actions, models, and context.
-- `Context`: (Optional) Extends `Record<string, unknown>`. Defines the shape of the context object returned by `getContext`. Defaults to `Record<string, unknown>`.
+- `Meta`: (Optional) Extends `GuantrMeta`. Provides strong typing for resources, actions, models, and context. The `Context` is inferred from `Meta` via `GuantrContextFromMeta<Meta>`.
 
 ## Parameters
 
@@ -34,7 +30,7 @@ class Guantr<
 
 ## Returns
 
-- A `Guantr<Meta, Context>` instance.
+- A `Guantr<Meta>` instance.
 
 ## Comparison with `createGuantr()`
 
@@ -80,7 +76,7 @@ import { MyCustomStorage } from './my-storage-adapter';
 
 type MyContext = { userId: string | null };
 
-const guantr = new Guantr<MyMeta, MyContext>({
+const guantr = new Guantr<MyMeta>({
   storage: new MyCustomStorage(),
   getContext: async () => {
     const user = await getCurrentUser();

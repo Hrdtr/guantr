@@ -233,10 +233,10 @@ function validateRulesFromDatabase(rules: unknown[]) {
 
 ### `validateCondition` Reference
 
-| Parameter   | Type                         | Description                                                                    |
-| ----------- | ---------------------------- | ------------------------------------------------------------------------------ |
-| `condition` | `GuantrAnyRule['condition']` | The condition object to validate. `null` and `undefined` are accepted (no-op). |
-| `_path`     | `string` (optional)          | Dot-notation prefix for error messages. Used internally during recursion.      |
+| Parameter   | Type                      | Description                                                                    |
+| ----------- | ------------------------- | ------------------------------------------------------------------------------ |
+| `condition` | `GuantrRule['condition']` | The condition object to validate. `null` and `undefined` are accepted (no-op). |
+| `_path`     | `string` (optional)       | Dot-notation prefix for error messages. Used internally during recursion.      |
 
 **Throws:** `GuantrInvalidConditionError` if the condition contains any malformed expression, unknown operator, or invalid value type.
 

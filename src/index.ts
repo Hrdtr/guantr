@@ -1,10 +1,10 @@
 import type { Storage } from './storage/types';
 import type {
   GuantrMeta,
-  GuantrAnyRule,
   GuantrRule,
   GuantrResourceMap,
   GuantrOptions,
+  GuantrContextFromMeta,
 } from './types';
 import { GuantrCircuitBreakerError } from './errors';
 import { InMemoryStorage } from './storage';
@@ -31,9 +31,8 @@ export type {
   GuantrResourceMap,
   GuantrRule,
   GuantrRuleCondition,
-  GuantrAnyRuleCondition,
-  GuantrAnyRuleConditionExpression,
-  GuantrAnyRule,
+  GuantrRuleConditionExpression,
+  GuantrContextFromMeta,
 } from './types';
 
 export {
@@ -112,12 +111,9 @@ type CannotMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
   ): Promise<boolean>;
 };
 
-export class Guantr<
-  Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
-> {
+export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined> {
   private _storage: Storage;
-  private _getContext: () => Context | PromiseLike<Context>;
+  private _getContext: () => GuantrContextFromMeta<Meta> | PromiseLike<GuantrContextFromMeta<Meta>>;
   private readonly _maxRuleIterations: number;
   /**
    * Check whether an action is permitted on a resource.
@@ -136,15 +132,15 @@ export class Guantr<
   readonly cannot!: CannotMethod<Meta>;
 
   /**
-   * Initializes a new instance of the Guantr class with an optional ctx.
+   * Initializes a new instance of the Guantr class.
    *
    * @param {Object} options - An optional object containing the context & storage configuration.
-   * @param {Context} options.context - Optional context object to set.
    * @param {Storage} options.storage - Optional storage object to use. Defaults to InMemoryStorage.
    */
-  constructor(options?: GuantrOptions<Context>) {
+  constructor(options?: GuantrOptions<GuantrContextFromMeta<Meta>>) {
     this._storage = options?.storage || new InMemoryStorage();
-    this._getContext = options?.getContext || (() => Promise.resolve({} as Context));
+    this._getContext =
+      options?.getContext || (() => Promise.resolve({} as GuantrContextFromMeta<Meta>));
 
     const maxRuleIterations = options?.maxRuleIterations ?? 1000;
     if (!Number.isInteger(maxRuleIterations) || maxRuleIterations < 1) {
@@ -197,34 +193,32 @@ export class Guantr<
    * @param {Function} callback.can - The function to set rules when allowed.
    * @param {Function} callback.cannot - The function to set rules when denied.
    */
-  async setRules(callback: SetRulesCallback<Meta, Context>): Promise<void>;
+  async setRules(callback: SetRulesCallback<Meta>): Promise<void>;
   /**
    * Sets the rules for the Guantr instance.
    *
-   * @param {GuantrRule<Meta, Context>[]} rules - The array of rules to set.
+   * @param {GuantrRule<Meta>[]} rules - The array of rules to set.
    */
-  async setRules(rules: GuantrRule<Meta, Context>[]): Promise<void>;
-  async setRules(
-    callbackOrRules: SetRulesCallback<Meta, Context> | GuantrRule<Meta, Context>[],
-  ): Promise<void> {
-    let nextRules: GuantrAnyRule[];
+  async setRules(rules: GuantrRule<Meta>[]): Promise<void>;
+  async setRules(callbackOrRules: SetRulesCallback<Meta> | GuantrRule<Meta>[]): Promise<void> {
+    let nextRules: GuantrRule[];
 
     if (Array.isArray(callbackOrRules)) {
-      nextRules = callbackOrRules as GuantrAnyRule[];
+      nextRules = callbackOrRules as GuantrRule[];
       for (const rule of nextRules) {
         if (rule.condition !== null) {
           validateCondition(rule.condition);
         }
       }
     } else {
-      const rules: GuantrAnyRule[] = [];
+      const rules: GuantrRule[] = [];
       await callbackOrRules(
         (action, resource) =>
           rules.push({
             action,
             resource: typeof resource === 'string' ? resource : resource[0],
             condition:
-              typeof resource === 'string' ? null : (resource[1] as GuantrAnyRule['condition']),
+              typeof resource === 'string' ? null : (resource[1] as GuantrRule['condition']),
             effect: 'allow',
           }),
         (action, resource) =>
@@ -232,7 +226,7 @@ export class Guantr<
             action,
             resource: typeof resource === 'string' ? resource : resource[0],
             condition:
-              typeof resource === 'string' ? null : (resource[1] as GuantrAnyRule['condition']),
+              typeof resource === 'string' ? null : (resource[1] as GuantrRule['condition']),
             effect: 'deny',
           }),
       );
@@ -251,17 +245,17 @@ export class Guantr<
   }
 
   /**
-   * Returns the rules of the Guantr instance as a read-only array of GuantrAnyRule objects.
+   * Returns the rules of the Guantr instance as a read-only array of GuantrRule objects.
    *
-   * @return {Promise<ReadonlyArray<GuantrAnyRule>>} The rules of the Guantr instance.
+   * @return {Promise<ReadonlyArray<GuantrRule>>} The rules of the Guantr instance.
    */
-  async getRules(): Promise<ReadonlyArray<GuantrAnyRule>> {
+  async getRules(): Promise<ReadonlyArray<GuantrRule>> {
     const cacheKey = 'getRules';
     if (this._storage.cache) {
-      let cached: ReadonlyArray<GuantrAnyRule> | undefined;
+      let cached: ReadonlyArray<GuantrRule> | undefined;
       try {
         if (await this._storage.cache.has(cacheKey)) {
-          cached = await this._storage.cache.get<ReadonlyArray<GuantrAnyRule>>(cacheKey);
+          cached = await this._storage.cache.get<ReadonlyArray<GuantrRule>>(cacheKey);
         }
       } catch {
         // Swallow cache adapter errors and treat as cache miss
@@ -285,13 +279,13 @@ export class Guantr<
    * @param {ResourceKey} resource - The resource key to filter rules.
    * @param {Object} options - An optional object containing the applyConditionContextualOperands flag.
    * @param {boolean} options.applyConditionContextualOperands - A flag indicating whether to apply contextual operands to each rules condition.
-   * @return {GuantrAnyRule[]} The filtered rules based on the action and resource.
+   * @return {GuantrRule[]} The filtered rules based on the action and resource.
    */
   async relatedRulesFor<ResourceKey extends ExtractResourceKeys<Meta>>(
     action: ExtractResourceAction<Meta, ResourceKey>,
     resource: ResourceKey,
     options?: { applyConditionContextualOperands?: boolean },
-  ): Promise<GuantrAnyRule[]> {
+  ): Promise<GuantrRule[]> {
     const rules = await this._storage.queryRules(action as string, resource as string);
     if (options?.applyConditionContextualOperands) {
       return await Promise.all(
@@ -451,11 +445,11 @@ export class Guantr<
   }
 
   private async applyContextualOperands(
-    condition: GuantrAnyRule['condition'],
-    context?: Context,
+    condition: GuantrRule['condition'],
+    context?: GuantrContextFromMeta<Meta>,
     /** Pre-serialized context string, forwarded from the caller to avoid a redundant stringify. */
     serializedContext?: string,
-  ): Promise<GuantrAnyRule['condition']> {
+  ): Promise<GuantrRule['condition']> {
     if (condition == null) {
       return null;
     }
@@ -467,10 +461,10 @@ export class Guantr<
       // Reuse the pre-serialized context from the caller when available.
       const serializedCtx = serializedContext ?? JSON.stringify(resolvedContext);
       cacheKey = `applyContextualOperands/${JSON.stringify(condition)}:${serializedCtx}`;
-      let cachedResult: GuantrAnyRule['condition'] | undefined = undefined;
+      let cachedResult: GuantrRule['condition'] | undefined = undefined;
       try {
         if (await this._storage.cache.has(cacheKey)) {
-          cachedResult = await this._storage.cache.get<GuantrAnyRule['condition']>(cacheKey);
+          cachedResult = await this._storage.cache.get<GuantrRule['condition']>(cacheKey);
         }
       } catch {
         // Swallow cache adapter errors and treat as cache miss
@@ -514,52 +508,39 @@ export class Guantr<
   }
 }
 
-type SetRulesCallback<
-  Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
-> = (
+type SetRulesCallback<Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined> = (
   can: <ResourceKey extends ExtractResourceKeys<Meta>>(
-    action: GuantrRule<Meta, Context, ResourceKey>['action'],
+    action: GuantrRule<Meta, ResourceKey>['action'],
     resource:
-      | GuantrRule<Meta, Context, ResourceKey>['resource']
-      | [
-          GuantrRule<Meta, Context, ResourceKey>['resource'],
-          GuantrRule<Meta, Context, ResourceKey>['condition'],
-        ],
+      | GuantrRule<Meta, ResourceKey>['resource']
+      | [GuantrRule<Meta, ResourceKey>['resource'], GuantrRule<Meta, ResourceKey>['condition']],
   ) => void,
   cannot: <ResourceKey extends ExtractResourceKeys<Meta>>(
-    action: GuantrRule<Meta, Context, ResourceKey>['action'],
+    action: GuantrRule<Meta, ResourceKey>['action'],
     resource:
-      | GuantrRule<Meta, Context, ResourceKey>['resource']
-      | [
-          GuantrRule<Meta, Context, ResourceKey>['resource'],
-          GuantrRule<Meta, Context, ResourceKey>['condition'],
-        ],
+      | GuantrRule<Meta, ResourceKey>['resource']
+      | [GuantrRule<Meta, ResourceKey>['resource'], GuantrRule<Meta, ResourceKey>['condition']],
   ) => void,
 ) => void | Promise<void>;
 
 export async function createGuantr<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
->(options: GuantrOptions<Context>): Promise<Guantr<Meta, Context>>;
+>(options: GuantrOptions<GuantrContextFromMeta<Meta>>): Promise<Guantr<Meta>>;
 export async function createGuantr<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
 >(
-  setRules: SetRulesCallback<Meta, Context>,
-  options?: GuantrOptions<Context>,
-): Promise<Guantr<Meta, Context>>;
+  setRules: SetRulesCallback<Meta>,
+  options?: GuantrOptions<GuantrContextFromMeta<Meta>>,
+): Promise<Guantr<Meta>>;
 export async function createGuantr<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
 >(
-  setRules: GuantrRule<Meta, Context>[],
-  options?: GuantrOptions<Context>,
-): Promise<Guantr<Meta, Context>>;
+  setRules: GuantrRule<Meta>[],
+  options?: GuantrOptions<GuantrContextFromMeta<Meta>>,
+): Promise<Guantr<Meta>>;
 export async function createGuantr<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
->(): Promise<Guantr<Meta, Context>>;
+>(): Promise<Guantr<Meta>>;
 /**
  * Creates a new instance of the Guantr class.
  *
@@ -567,24 +548,21 @@ export async function createGuantr<
  */
 export async function createGuantr<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
 >(
   setRulesOrOptions?:
-    | SetRulesCallback<Meta, Context>
-    | GuantrRule<Meta, Context>[]
-    | GuantrOptions<Context>,
-  _options?: GuantrOptions<Context>,
-): Promise<Guantr<Meta, Context>> {
-  const isSetRulesArgument = (
-    arg: unknown,
-  ): arg is GuantrRule<Meta, Context>[] | SetRulesCallback<Meta, Context> => {
+    | SetRulesCallback<Meta>
+    | GuantrRule<Meta>[]
+    | GuantrOptions<GuantrContextFromMeta<Meta>>,
+  _options?: GuantrOptions<GuantrContextFromMeta<Meta>>,
+): Promise<Guantr<Meta>> {
+  const isSetRulesArgument = (arg: unknown): arg is GuantrRule<Meta>[] | SetRulesCallback<Meta> => {
     return Array.isArray(arg) || typeof arg === 'function';
   };
   const rules = isSetRulesArgument(setRulesOrOptions) ? setRulesOrOptions : undefined;
   const options =
     _options ?? (isSetRulesArgument(setRulesOrOptions) ? undefined : setRulesOrOptions);
 
-  const instance = new Guantr<Meta, Context>(options);
+  const instance = new Guantr<Meta>(options);
   if (rules) {
     await instance.setRules(rules as any);
   }

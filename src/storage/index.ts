@@ -1,12 +1,12 @@
-import { GuantrAnyRule } from '../types';
+import { GuantrRule } from '../types';
 import { Storage } from './types';
 
 export type { Storage } from './types';
 
 export class InMemoryStorage implements Storage {
   private storage = {
-    // Two-level index: Map<action, Map<resource, GuantrAnyRule[]>>
-    rules: new Map<string, Map<string, GuantrAnyRule[]>>(),
+    // Two-level index: Map<action, Map<resource, GuantrRule[]>>
+    rules: new Map<string, Map<string, GuantrRule[]>>(),
     cache: new Map<string, unknown>(),
   };
 
@@ -14,7 +14,7 @@ export class InMemoryStorage implements Storage {
    * Atomically replaces all stored rules with the provided rules.
    * @param rules - Array of rules to set.
    */
-  async setRules(rules: GuantrAnyRule[]) {
+  async setRules(rules: GuantrRule[]) {
     this.storage.rules.clear();
 
     for (const rule of rules) {
@@ -38,7 +38,7 @@ export class InMemoryStorage implements Storage {
    * @returns An array of all stored rules.
    */
   async getRules() {
-    const allRules: GuantrAnyRule[] = [];
+    const allRules: GuantrRule[] = [];
     for (const resourceMap of this.storage.rules.values()) {
       for (const ruleArray of resourceMap.values()) {
         allRules.push(...ruleArray);

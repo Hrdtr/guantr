@@ -130,7 +130,7 @@ await guantr.setRules(async (allow, deny) => {
 You can also pass an array of rule objects. Remember that the `effect` property should be `'allow'` or `'deny'`, and conditions follow the `[operator, value]` format.
 
 ```ts
-import type { GuantrRule } from 'guantr'; // Or GuantrAnyRule if not using Meta
+import type { GuantrRule } from 'guantr';
 
 // Define types if using TypeScript without Meta for clarity in this example
 type Action = 'read' | 'edit';
