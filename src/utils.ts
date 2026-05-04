@@ -8,13 +8,13 @@ import {
 } from './types';
 
 /**
- * Checks if the given path is a string and starts with either '$ctx.' or 'ctx.'.
+ * Checks if the given path is a string and starts with '$ctx.'.
  *
  * @param {unknown} path - The path to check.
- * @return {boolean} - Returns true if the path is a string and starts with either '$ctx.' or 'ctx.', otherwise returns false.
+ * @return {boolean} - Returns true if the path is a string and starts with '$ctx.', otherwise returns false.
  */
 export const isContextualOperand = (path: unknown): path is string =>
-  typeof path === 'string' && (path.startsWith('$ctx.') || path.startsWith('ctx.'));
+  typeof path === 'string' && path.startsWith('$ctx.');
 
 /**
  * Type guard for checking if a value is a string
@@ -192,7 +192,7 @@ export const getContextValue = <T extends Record<string, unknown>, U>(
     return undefined as U;
   }
 
-  const normalizedPath = path.replace(/^(\$?ctx\.)/, '').replaceAll('?.', '.');
+  const normalizedPath = path.replace(/^\$ctx\./, '').replaceAll('?.', '.');
 
   let current: any = context;
   for (const part of normalizedPath.split('.')) {
