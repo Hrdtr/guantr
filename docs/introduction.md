@@ -24,9 +24,9 @@ Use the `setRules` method to specify allowed (`can`) or denied (`cannot`) action
 ```ts
 const guantr = await createGuantr();
 
-await guantr.setRules((can, cannot) => {
-  can('read', 'post'); // Allow reading any post
-  cannot('read', ['post', { archived: ['eq', true] }]); // Deny reading archived posts
+await guantr.setRules((allow, deny) => {
+  allow('read', 'post'); // Allow reading any post
+  deny('read', ['post', { archived: ['eq', true] }]); // Deny reading archived posts
 });
 ```
 
@@ -49,9 +49,9 @@ Permissions can depend on dynamic context, like the current user's ID.
 const contextGuantr = await createGuantr({ getContext: () => ({ userId: '123' }) });
 
 // Set rules using context
-await contextGuantr.setRules((can, cannot) => {
-  can('delete', 'post'); // Allow deleting posts in general
-  cannot('delete', ['post', { ownerId: ['eq', '$ctx.userId'] }]); // Deny if owner
+await contextGuantr.setRules((allow, deny) => {
+  allow('delete', 'post'); // Allow deleting posts in general
+  deny('delete', ['post', { ownerId: ['eq', '$ctx.userId'] }]); // Deny if owner
 });
 // Check permission for a specific post
 const post = { id: 1, title: 'My Post', ownerId: '123' };

@@ -190,8 +190,8 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
    * Sets rules based on the provided callback functions.
    *
    * @param {Function} callback - The callback function that defines rules.
-   * @param {Function} callback.can - The function to set rules when allowed.
-   * @param {Function} callback.cannot - The function to set rules when denied.
+   * @param {Function} callback.allow - The function to set rules when allowed.
+   * @param {Function} callback.deny - The function to set rules when denied.
    */
   async setRules(callback: SetRulesCallback<Meta>): Promise<void>;
   /**
@@ -206,7 +206,7 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
     if (Array.isArray(callbackOrRules)) {
       nextRules = callbackOrRules as GuantrRule[];
       for (const rule of nextRules) {
-        if (rule.condition !== null) {
+        if (rule.condition != null) {
           validateCondition(rule.condition);
         }
       }
@@ -232,7 +232,7 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
       );
 
       for (const rule of rules) {
-        if (rule.condition !== null) {
+        if (rule.condition != null) {
           validateCondition(rule.condition);
         }
       }
@@ -342,9 +342,9 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
     if (rawRules.length === 0) {
       return await trySetCache(false);
     }
-    // Early exit: an unconditional deny (condition: null, effect: 'deny') guarantees a false
+    // Early exit: an unconditional deny (condition omitted/null, effect: 'deny') guarantees a false
     // result regardless of every other rule, so we can skip all further processing.
-    if (rawRules.some((rule) => rule.condition === null && rule.effect === 'deny')) {
+    if (rawRules.some((rule) => rule.condition == null && rule.effect === 'deny')) {
       return await trySetCache(false);
     }
     const rules = await Promise.all(
@@ -509,13 +509,13 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
 }
 
 type SetRulesCallback<Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined> = (
-  can: <ResourceKey extends ExtractResourceKeys<Meta>>(
+  allow: <ResourceKey extends ExtractResourceKeys<Meta>>(
     action: GuantrRule<Meta, ResourceKey>['action'],
     resource:
       | GuantrRule<Meta, ResourceKey>['resource']
       | [GuantrRule<Meta, ResourceKey>['resource'], GuantrRule<Meta, ResourceKey>['condition']],
   ) => void,
-  cannot: <ResourceKey extends ExtractResourceKeys<Meta>>(
+  deny: <ResourceKey extends ExtractResourceKeys<Meta>>(
     action: GuantrRule<Meta, ResourceKey>['action'],
     resource:
       | GuantrRule<Meta, ResourceKey>['resource']

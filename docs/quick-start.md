@@ -123,6 +123,11 @@ await guantr.setRules(async (allow, deny) => {
   // Allow editing a post only if the user is the owner
   // allow('edit', ['post', { ownerId: ['eq', '$ctx.userId'] }]);
 });
+
+// Note: when using a tuple [resourceKey, condition], the condition is optional.
+// Both of these are valid:
+allow('read', 'post'); // No condition (unconditional)
+allow('read', ['post', { published: ['eq', true] }]); // With condition
 ```
 
 ### Using a Direct Array of Rule Objects
@@ -146,7 +151,7 @@ const rules: GuantrRule<{
     effect: 'allow',
     action: 'read',
     resource: 'post',
-    condition: null, // No condition for general read access
+    // `condition` is optional — omit it for unconditional rules
   },
   {
     effect: 'deny', // Use 'deny', not 'cannot'
