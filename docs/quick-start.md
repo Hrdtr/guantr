@@ -165,8 +165,8 @@ await guantr.setRules(rules);
 Use the `can` (or `cannot`) method to check if an action is permitted. Pass the specific resource object when checking rules that involve conditions.
 
 ```ts
-// Check general permission to read posts
-const canReadAnyPost = await guantr.can('read', 'post');
+// Abstract check — verify any allow rule exists for this resource type (for UI hints)
+const canReadAnyPost = await guantr.can.abstract('read', 'post');
 console.log('Can read any post?', canReadAnyPost); // Likely true based on rules above
 
 // Check permission to read a specific archived post

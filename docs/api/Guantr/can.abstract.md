@@ -48,21 +48,26 @@ const canRead = await guantr.can('read', ['post', unpublishedPost]);
 
 ## Contrast with `can()`
 
-| Behaviour            | `can(action, 'resource')` _(deprecated)_ | `can.abstract(action, 'resource')` | `can(action, ['resource', instance])` |
-| -------------------- | ---------------------------------------- | ---------------------------------- | ------------------------------------- |
-| Checks allow rules   | ✅                                       | ✅                                 | ✅                                    |
-| Evaluates conditions | ❌                                       | ❌                                 | ✅                                    |
-| Evaluates deny rules | ❌                                       | ❌                                 | ✅                                    |
-| Recommended for      | — _(use can.abstract)_                   | UI hints                           | Access control                        |
+| Behaviour            | `can.abstract(action, 'resource')` | `can(action, ['resource', instance])` |
+| -------------------- | ---------------------------------- | ------------------------------------- |
+| Checks allow rules   | ✅                                 | ✅                                    |
+| Evaluates conditions | ❌                                 | ✅                                    |
+| Evaluates deny rules | ❌                                 | ✅                                    |
+| Recommended for      | UI hints                           | Access control                        |
 
-## Migration from `can()` string-mode
+## Migration from v1.x
+
+The string overload `can(action, 'resourceKey')` was deprecated in v1.1.0 and **removed in v2.0.0**. Replace all such calls with `can.abstract`:
 
 ```ts
-// Before (v1.0.x) — implicit, easy to misuse
+// v1.x — removed in v2.0.0
 await guantr.can('read', 'post');
 
-// After (v1.1.0) — explicit intent
+// v2.0.0 — use can.abstract for abstract checks
 await guantr.can.abstract('read', 'post');
+
+// v2.0.0 — use the tuple form for full evaluation
+await guantr.can('read', ['post', postInstance]);
 ```
 
 See also: [`cannot.abstract`](./cannot.abstract), [`can`](./can), [Concepts: Abstract vs Resource-Aware Checks](../../guides/abstract-vs-resource-aware).

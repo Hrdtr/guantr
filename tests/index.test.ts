@@ -138,7 +138,7 @@ describe('Guantr', () => {
 });
 
 describe('Guantr.can', () => {
-  it('should return true if user has rule', async () => {
+  it('should return true if user has rule (abstract)', async () => {
     const guantr = await createGuantr<MockMeta>();
     await guantr.setRules([
       {
@@ -149,17 +149,17 @@ describe('Guantr.can', () => {
       },
     ]);
 
-    expect(await guantr.can('read', 'post')).toBe(true);
+    expect(await guantr.can.abstract('read', 'post')).toBe(true);
   });
 
-  it('should return false if user does not have rule', async () => {
+  it('should return false if user does not have rule (abstract)', async () => {
     const guantr = await createGuantr<MockMeta>();
     await guantr.setRules([]);
 
-    expect(await guantr.can('read', 'post')).toBe(false);
+    expect(await guantr.can.abstract('read', 'post')).toBe(false);
   });
 
-  it('should return false if resource or action not found in rules', async () => {
+  it('should return false if resource or action not found in rules (abstract)', async () => {
     const guantr = await createGuantr<MockMeta>();
     await guantr.setRules([
       {
@@ -170,10 +170,10 @@ describe('Guantr.can', () => {
       },
     ]);
 
-    expect(await guantr.can('create', 'post')).toBe(false);
+    expect(await guantr.can.abstract('create', 'post')).toBe(false);
   });
 
-  it('should return false if user has inverted rule', async () => {
+  it('should return false if user has inverted rule (abstract)', async () => {
     const guantr = await createGuantr<MockMeta>();
     await guantr.setRules([
       {
@@ -184,7 +184,7 @@ describe('Guantr.can', () => {
       },
     ]);
 
-    expect(await guantr.can('delete', 'post')).toBe(false);
+    expect(await guantr.can.abstract('delete', 'post')).toBe(false);
   });
 
   it('should be able to match condition for nested resource condition', async () => {
@@ -515,7 +515,7 @@ describe('Guantr.can', () => {
       },
     ]);
 
-    expect(await guantr.can('read', 'post')).toBe(true);
+    expect(await guantr.can.abstract('read', 'post')).toBe(true);
     const post = {
       id: 1,
       title: 'Hello World',
@@ -546,7 +546,7 @@ describe('Guantr.can', () => {
       },
     ]);
 
-    expect(await guantr.can('read', 'post')).toBe(true);
+    expect(await guantr.can.abstract('read', 'post')).toBe(true);
     const post = {
       id: 1,
       title: 'Hello World',
@@ -577,7 +577,7 @@ describe('Guantr.can', () => {
       },
     ]);
 
-    expect(await guantr.can('read', 'post')).toBe(true);
+    expect(await guantr.can.abstract('read', 'post')).toBe(true);
     const post = {
       id: 1,
       title: 'Hello World',
@@ -608,7 +608,7 @@ describe('Guantr.can', () => {
       },
     ]);
 
-    expect(await guantr.can('read', 'post')).toBe(true);
+    expect(await guantr.can.abstract('read', 'post')).toBe(true);
     const post = {
       id: 1,
       title: 'Hello World',
@@ -639,7 +639,7 @@ describe('Guantr.can', () => {
       },
     ]);
 
-    expect(await guantr.can('read', 'post')).toBe(false);
+    expect(await guantr.can.abstract('read', 'post')).toBe(false);
     const post = {
       id: 1,
       title: 'Hello World',
@@ -670,7 +670,7 @@ describe('Guantr.can', () => {
       },
     ]);
 
-    expect(await guantr.can('read', 'post')).toBe(false);
+    expect(await guantr.can.abstract('read', 'post')).toBe(false);
     const post = {
       id: 1,
       title: 'Hello World',
@@ -701,7 +701,7 @@ describe('Guantr.can', () => {
       },
     ]);
 
-    expect(await guantr.can('read', 'post')).toBe(true);
+    expect(await guantr.can.abstract('read', 'post')).toBe(true);
     const post = {
       id: 1,
       title: 'Hello World',
@@ -732,7 +732,7 @@ describe('Guantr.can', () => {
       },
     ]);
 
-    expect(await guantr.can('read', 'post')).toBe(true);
+    expect(await guantr.can.abstract('read', 'post')).toBe(true);
     const post = {
       id: 1,
       title: 'Hello World',

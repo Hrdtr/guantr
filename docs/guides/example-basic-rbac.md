@@ -83,11 +83,11 @@ app.delete('/api/articles/:id', async (req, res) => {
   // Get Guantr instance for this request/user
   const guantr = await getGuantrForRequest(req); // Or setupGuantrForRole(userRole)
 
-  // Check if the user's role allows deleting 'article'
-  // This checks the general action type based on the loaded rules.
-  const canDelete = await guantr.can('delete', 'article');
+  // Abstract check — verify any allow rule exists for 'delete' on 'article'.
+  // Use this for early UI-layer guards. For actual enforcement, always check against a specific instance.
+  const canDelete = await guantr.can.abstract('delete', 'article');
 
-  // If the rules involved conditions, you would check against the specific instance:
+  // For full evaluation against a specific resource instance:
   // const canDeleteSpecific = await guantr.can('delete', ['article', article]);
 
   if (!canDelete) {

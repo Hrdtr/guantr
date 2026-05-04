@@ -1,6 +1,8 @@
 # API: `Guantr.prototype.cannot`
 
-The `cannot` method checks if a specific action is explicitly or implicitly denied on a given resource. It is the logical negation of the `can` method.
+The `cannot` method checks if a specific action is explicitly or implicitly denied on a given resource instance. It is the logical negation of the `can` method.
+
+> For an abstract check that only tests whether any allow rule is absent (without evaluating conditions or deny rules), see [`cannot.abstract`](./cannot.abstract).
 
 ## Signature
 
@@ -8,7 +10,7 @@ The `cannot` method checks if a specific action is explicitly or implicitly deni
 interface Guantr<Meta, Context> {
   cannot(
     action: string, // Or specific action type from Meta
-    resource: string | [resourceKey: string, resourceInstance: object], // Or typed resource key/instance from Meta
+    resource: [resourceKey: string, resourceInstance: object], // Or typed resource key/instance from Meta
   ): Promise<boolean>;
 }
 ```
@@ -16,9 +18,7 @@ interface Guantr<Meta, Context> {
 ## Parameters
 
 - `action`: (`string`) The action being attempted (e.g., `'read'`, `'update'`).
-- `resource`: (`string` | `[string, object]`) The resource being acted upon.
-  - If a `string` (e.g., `'post'`) is provided, it checks rules defined for the general resource type _without_ evaluating instance-specific conditions.
-  - If a tuple `[resourceKey: string, resourceInstance: object]` (e.g., `['post', { id: 1, status: 'draft' }]`) is provided, it checks rules for the `resourceKey` and evaluates any conditions against the properties of the `resourceInstance` and the current context.
+- `resource`: (`[string, object]`) A tuple of `[resourceKey, resourceInstance]` (e.g., `['post', { id: 1, status: 'draft' }]`). Rules for the `resourceKey` are retrieved and any conditions are evaluated against the `resourceInstance` and the current context.
 
 ## Returns
 
@@ -33,7 +33,7 @@ Essentially, `guantr.cannot(...)` is equivalent to `!await guantr.can(...)`.
 It follows the same internal logic as the `can` method but returns the opposite boolean result.
 
 1.  Retrieves relevant rules.
-2.  Evaluates conditions if a `resourceInstance` is provided.
+2.  Evaluates conditions against the `resourceInstance` and the current context.
 3.  Determines the outcome based on matching `allow` and `deny` rules.
 4.  Returns `true` if the effective permission is "deny", `false` otherwise.
 
@@ -64,8 +64,6 @@ const cannotEditOwn = await guantr.cannot('edit', ['article', activeArticle]);
 
 const cannotEditElse = await guantr.cannot('edit', ['article', someoneElsesArticle]);
 // -> true (editing someone else's article is implicitly denied as no rule allows it)
-
-// Check action not defined in rules
-const cannotPublish = await guantr.cannot('publish', 'article');
-// -> true (implicitly denied as no 'allow publish article' rule exists)
 ```
+
+> To check whether no permission exists for a resource type without a specific instance (e.g., for hiding a UI button), use [`cannot.abstract`](./cannot.abstract).

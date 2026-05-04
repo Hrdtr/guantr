@@ -35,7 +35,7 @@ await guantr.setRules((can, cannot) => {
 Verify permissions easily using the `can` or `cannot` methods.
 
 ```ts
-await guantr.can('read', 'post'); // Check if reading posts is generally allowed
+await guantr.can.abstract('read', 'post'); // Check if reading posts is generally allowed (abstract, for UI hints)
 const post = { id: 1, title: 'Hello, World!', archived: true };
 await guantr.cannot('read', ['post', post]); // Check if reading *this specific* archived post is denied
 ```

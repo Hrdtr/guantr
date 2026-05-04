@@ -135,8 +135,10 @@ const guantr = await createGuantr<Meta>([
 Authorize:
 
 ```js
-await guantr.can('read', 'post'); // true
+// Abstract check — verify any allow rule exists (for UI hints)
+await guantr.can.abstract('read', 'post'); // true
 
+// Resource-aware check — full evaluation against a specific instance
 const post = {
   id: 1,
   title: 'Hello World',
