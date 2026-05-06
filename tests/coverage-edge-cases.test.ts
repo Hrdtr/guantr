@@ -31,6 +31,7 @@ describe('Coverage edge cases', () => {
   it('unconditional deny with falsy non-null condition reaches loop else branch', async () => {
     const storage = {
       rules: [] as GuantrRule[],
+      // oxlint-disable-next-line typescript/no-explicit-any
       cache: undefined as any,
       setRules: async function (rules: GuantrRule[]) {
         this.rules = rules;
@@ -39,12 +40,15 @@ describe('Coverage edge cases', () => {
         return [...this.rules];
       },
       queryRules: async function () {
+        // oxlint-disable-next-line typescript/no-explicit-any
         return this.rules.map((r: any) => ({
           ...r,
+          // oxlint-disable-next-line typescript/no-explicit-any
           condition: r.condition === null ? (0 as any) : r.condition,
         }));
       },
     };
+    // oxlint-disable-next-line typescript/no-explicit-any
     const guantr = new Guantr({ storage: storage as any });
     await guantr.setRules([{ effect: 'deny', action: 'read', resource: 'post', condition: null }]);
     expect(await guantr.can('read', ['post', { id: 1 }])).toBe(false);
@@ -63,12 +67,14 @@ describe('Coverage edge cases', () => {
           effect: 'allow' as const,
           action: 'read',
           resource: 'post',
+          // oxlint-disable-next-line typescript/no-explicit-any
           condition: { authorId: ['eq', '$ctx.userId'] } as any,
         },
       ],
     };
     const g1 = new Guantr({
       getContext: () => ({ userId: 42 }),
+      // oxlint-disable-next-line typescript/no-explicit-any
       storage: storageNoCache as any,
     });
     expect(await g1.can('read', ['post', { authorId: 42 }])).toBe(true);
@@ -116,8 +122,10 @@ describe('Coverage edge cases', () => {
         clear: async () => {},
       },
     };
+    // oxlint-disable-next-line typescript/no-explicit-any
     const g = new Guantr({ storage: storage as any, getContext: () => ({ userId: 42 }) });
     await storage.setRules([
+      // oxlint-disable-next-line typescript/no-explicit-any
       { effect: 'allow' as const, action: 'read', resource: 'post', condition: condition as any },
     ]);
     expect(await g.can('read', ['post', { authorId: 42 }])).toBe(true);
@@ -149,18 +157,22 @@ describe('Coverage edge cases', () => {
   // utils.ts:680 — matchConditionExpression early return for short expr
   // ---------------------------------------------------------------------------
   it('matchConditionExpression returns false for null expr', () => {
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(matchConditionExpression({ value: 'test', expression: null as any })).toBe(false);
   });
 
   it('matchConditionExpression returns false for short expr', () => {
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(matchConditionExpression({ value: 'test', expression: ['eq'] as any })).toBe(false);
   });
 
   it('matchConditionExpression returns false for empty expr', () => {
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(matchConditionExpression({ value: 'test', expression: [] as any })).toBe(false);
   });
 
   it('matchConditionExpression throws for invalid operator', () => {
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(() => matchConditionExpression({ value: 42, expression: ['badOp', 42] as any })).toThrow(
       GuantrInvalidConditionOperatorError,
     );
@@ -180,6 +192,7 @@ describe('Coverage edge cases', () => {
   // validateCondition edge case
   // ---------------------------------------------------------------------------
   it('validateCondition with non-null non-object condition', () => {
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(() => validateCondition('invalid' as any)).toThrow();
   });
 });

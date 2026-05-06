@@ -282,6 +282,7 @@ describe('$expr integration tests', () => {
   it('evaluates an invalid $expr (plain string instead of array) as false', () => {
     // as any needed because we intentionally pass a string where an array
     // expression is expected to test runtime fallback behavior
+    // oxlint-disable-next-line typescript/no-explicit-any
     const condition = { comments: { $expr: 'some' as any } } as any;
     expect(
       matchRuleCondition(

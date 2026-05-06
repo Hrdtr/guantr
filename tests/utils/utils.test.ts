@@ -47,6 +47,7 @@ describe('getContextValue', () => {
   it('should return undefined for null context', () => {
     // as any needed because we intentionally pass null to test the
     // getContextValue early return when context is nullish
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(getContextValue(null as any, 'any.path')).toBeUndefined();
   });
 
@@ -103,6 +104,7 @@ describe('validateValueType', () => {
   it('should return false for unknown type string in switch default case', () => {
     // as any needed because we intentionally pass an unknown type string
     // to test the switch default branch in validateValueType
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(() => validateValueType('test', ['unknownType' as any], 'eq', 'value')).toThrowError(
       TypeError,
     );

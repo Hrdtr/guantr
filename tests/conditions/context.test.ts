@@ -84,6 +84,7 @@ describe('Context operands ($ctx.)', () => {
 
     // address.line1 in condition is a top-level key that doesn't exist on mockUser
     // When the key doesn't exist on the model, matchRuleCondition throws
+    // oxlint-disable-next-line typescript/no-explicit-any
     const condition = { 'address.line1': ['eq', '$ctx.address.line1'] } as any;
     try {
       matchRuleCondition(mockUser, condition);

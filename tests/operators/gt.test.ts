@@ -38,6 +38,7 @@ describe('gt operator', () => {
   it('should throw TypeError for unexpected resource value type', () => {
     // as any needed because we intentionally pass an object as value to test
     // the runtime TypeError for the gt operator
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['gt', 10] as any;
     expect(() => matchConditionExpression({ value: { key: 'value' }, expression })).toThrow(
       TypeError,
@@ -47,6 +48,7 @@ describe('gt operator', () => {
   it('should throw TypeError for invalid operand type', () => {
     // as any needed because we intentionally pass an object as operand to test
     // the runtime TypeError for the gt operator
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['gt', { key: 'value' }] as any;
     expect(() => matchConditionExpression({ value: 10, expression })).toThrow(TypeError);
   });

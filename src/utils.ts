@@ -198,7 +198,8 @@ export const getContextValue = <T extends Record<string, unknown>, U>(
 
   const normalizedPath = path.replace(/^\$ctx\./, '').replaceAll('?.', '.');
 
-  let current: any = context;
+  // oxlint-disable-next-line typescript/no-explicit-any
+  let current: Record<string, any> = context;
   for (const part of normalizedPath.split('.')) {
     if (current == null) return current;
     current = current[part];
@@ -495,6 +496,7 @@ export const conditionHandlers: Record<
       throw new TypeError(`The operand for condition with every operator must be an object.`);
     }
 
+    // oxlint-disable-next-line typescript/no-explicit-any
     if (value === null || value === undefined || (value as any[]).length === 0) {
       return false;
     }
@@ -512,6 +514,7 @@ export const conditionHandlers: Record<
       throw new TypeError(`The operand for condition with none operator must be an object.`);
     }
 
+    // oxlint-disable-next-line typescript/no-explicit-any
     if (value === null || value === undefined || (value as any[]).length === 0) {
       return true;
     }
@@ -536,6 +539,7 @@ function _evaluateComplexOperator(
     throw new TypeError(`The operand for condition with ${operator} operator must be an object.`);
   }
 
+  // oxlint-disable-next-line typescript/no-explicit-any
   if (value === null || value === undefined || (value as any[]).length === 0) {
     return operator === 'none';
   }
@@ -672,6 +676,7 @@ export const matchConditionExpression = (data: {
   value: unknown;
   expression: Extract<
     NonNullable<GuantrRule['condition']>[keyof NonNullable<GuantrRule['condition']>],
+    // oxlint-disable-next-line typescript/no-explicit-any
     Array<any>
   >;
 }): boolean => {

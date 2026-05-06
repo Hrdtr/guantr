@@ -471,7 +471,9 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
 
     for (const [action, resource] of checks) {
       const result = await this._evaluateCheck(
+        // oxlint-disable-next-line typescript/no-explicit-any
         action as any,
+        // oxlint-disable-next-line typescript/no-explicit-any
         resource as any,
         context,
         serializedContext,
@@ -487,7 +489,9 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
 
     for (const [action, resource] of checks) {
       const result = await this._evaluateCheck(
+        // oxlint-disable-next-line typescript/no-explicit-any
         action as any,
+        // oxlint-disable-next-line typescript/no-explicit-any
         resource as any,
         context,
         serializedContext,
@@ -595,6 +599,7 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
     };
 
     // Recursive helper function to traverse and process the condition.
+    // oxlint-disable-next-line typescript/no-explicit-any
     const traverse = (obj: any): any => {
       if (isContextualOperand(obj)) {
         return getContextValue(resolvedContext, obj);
@@ -605,6 +610,7 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
       }
 
       if (obj !== null && typeof obj === 'object') {
+        // oxlint-disable-next-line typescript/no-explicit-any
         const result: any = {};
         for (const key in obj) {
           if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -677,6 +683,7 @@ export async function createGuantr<
 
   const instance = new Guantr<Meta>(options);
   if (rules) {
+    // oxlint-disable-next-line typescript/no-explicit-any
     await instance.setRules(rules as any);
   }
 

@@ -73,6 +73,7 @@ describe('has operator', () => {
   it('should throw TypeError for unexpected resource value type', () => {
     // as any needed because we intentionally pass an object as value to test
     // the runtime TypeError for the has operator
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['has', 'element'] as any;
     expect(() => matchConditionExpression({ value: { key: 'value' }, expression })).toThrow(
       TypeError,
@@ -82,6 +83,7 @@ describe('has operator', () => {
   it('should throw TypeError for invalid operand type', () => {
     // as any needed because we intentionally pass an object as operand to test
     // the runtime TypeError for the has operator
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['has', { key: 'value' }] as any;
     expect(() => matchConditionExpression({ value: ['a', 'b', 'c'], expression })).toThrow(
       TypeError,

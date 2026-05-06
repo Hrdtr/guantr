@@ -74,18 +74,21 @@ describe('validateCondition', () => {
 
   it('throws GuantrInvalidConditionError for an unknown operator', () => {
     // as any needed because 'unknownOp' is not a valid ConditionOperator
+    // oxlint-disable-next-line typescript/no-explicit-any
     const condition = { id: ['unknownOp', 1] } as any;
     expect(() => validateCondition(condition)).toThrow(GuantrInvalidConditionError);
   });
 
   it('throws for a malformed expression (too short)', () => {
     // as any needed because ['eq'] is too short to be a valid expression
+    // oxlint-disable-next-line typescript/no-explicit-any
     const condition = { id: ['eq'] } as any;
     expect(() => validateCondition(condition)).toThrow(GuantrInvalidConditionError);
   });
 
   it('throws for a malformed expression (non-string operator)', () => {
     // as any needed because the operator is a number, not a string
+    // oxlint-disable-next-line typescript/no-explicit-any
     const condition = { id: [123, 'value'] } as any;
     expect(() => validateCondition(condition)).toThrow(GuantrInvalidConditionError);
   });
@@ -95,12 +98,14 @@ describe('validateCondition additional edge cases', () => {
   it('throws for a condition that is not null and not a plain object', () => {
     // as any needed because we intentionally pass an invalid type to
     // validateCondition to test the runtime error handling
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(() => validateCondition('not an object' as any)).toThrow(GuantrInvalidConditionError);
   });
 
   it('throws for a condition value that is neither array nor plain object', () => {
     // as any needed because we intentionally pass a string value inside
     // a condition to test the _validateConditionValue error path
+    // oxlint-disable-next-line typescript/no-explicit-any
     const condition = { id: 'just a string' } as any;
     expect(() => validateCondition(condition)).toThrow(GuantrInvalidConditionError);
   });
@@ -110,6 +115,7 @@ describe('matchConditionExpression — operator validation', () => {
   it('throws GuantrInvalidConditionOperatorError for an unknown operator', () => {
     // as any needed because we intentionally pass an invalid operator
     // to verify that matchConditionExpression throws the right error
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['unknownOp', 'value'] as any;
     expect(() => matchConditionExpression({ value: 'test', expression })).toThrow(
       GuantrInvalidConditionOperatorError,
@@ -119,6 +125,7 @@ describe('matchConditionExpression — operator validation', () => {
   it('includes the operator in the thrown error', () => {
     let caught: unknown;
     try {
+      // oxlint-disable-next-line typescript/no-explicit-any
       const expression = ['badOp', 'value'] as any;
       matchConditionExpression({ value: 'test', expression });
     } catch (e) {
@@ -131,10 +138,13 @@ describe('matchConditionExpression — operator validation', () => {
   it('evaluates known operators normally', () => {
     // as any needed because we're testing matchConditionExpression directly
     // with valid but dynamically typed expressions
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(matchConditionExpression({ value: 'test', expression: ['eq', 'test'] as any })).toBe(
       true,
     );
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(matchConditionExpression({ value: 5, expression: ['gt', 3] as any })).toBe(true);
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(matchConditionExpression({ value: 5, expression: ['gte', 5] as any })).toBe(true);
   });
 });
@@ -150,6 +160,7 @@ describe('Guantr setRules — validation at definition time', () => {
   it('throws GuantrInvalidConditionError via callback form when an operator is unknown', async () => {
     const guantr = await createGuantr();
     // as any needed because 'unknownOp' is not a valid ConditionOperator
+    // oxlint-disable-next-line typescript/no-explicit-any
     const condition = { title: ['unknownOp', 'test'] } as any;
     await expect(
       guantr.setRules((allow) => {
@@ -167,6 +178,7 @@ describe('Guantr setRules — validation at definition time', () => {
           effect: 'allow',
           action: 'read',
           resource: 'post',
+          // oxlint-disable-next-line typescript/no-explicit-any
           condition: { title: ['unknownOp', 'test'] } as any,
         },
       ]),
@@ -178,6 +190,7 @@ describe('Guantr setRules — validation at definition time', () => {
     // as any needed because ['eq'] is too short to be a valid expression
     await expect(
       guantr.setRules([
+        // oxlint-disable-next-line typescript/no-explicit-any
         { effect: 'allow', action: 'read', resource: 'post', condition: { title: ['eq'] } as any },
       ]),
     ).rejects.toThrow(GuantrInvalidConditionError);
@@ -199,6 +212,7 @@ describe('Guantr setRules — validation at definition time', () => {
           effect: 'allow',
           action: 'read',
           resource: 'post',
+          // oxlint-disable-next-line typescript/no-explicit-any
           condition: { comments: ['some', { authorId: ['unknownOp', 1] }] } as any,
         },
       ]),
@@ -216,6 +230,7 @@ describe('conditionHandlers direct tests (some/every/none implementations)', () 
   });
 
   it('conditionHandlers.some throws for non-object operand', () => {
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(() => conditionHandlers.some([{ id: 1 }], 42 as any)).toThrow(TypeError);
   });
 
@@ -232,6 +247,7 @@ describe('conditionHandlers direct tests (some/every/none implementations)', () 
   });
 
   it('conditionHandlers.every throws for non-object operand', () => {
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(() => conditionHandlers.every([{ id: 1 }], 42 as any)).toThrow(TypeError);
   });
 
@@ -272,6 +288,7 @@ describe('conditionHandlers direct tests (some/every/none implementations)', () 
   });
 
   it('conditionHandlers.none throws for non-object operand', () => {
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(() => conditionHandlers.none([{ id: 1 }], 42 as any)).toThrow(TypeError);
   });
 
@@ -328,12 +345,14 @@ describe('matchRuleCondition edge cases', () => {
   it('returns false for nullish model', () => {
     // as any needed because we intentionally pass null as the model
     // to test the matchRuleCondition early return
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(matchRuleCondition(null as any, { id: ['eq', 1] })).toBe(false);
   });
 
   it('throws TypeError for unexpected expression value type', () => {
     // as any needed because we intentionally pass a number as the
     // condition value to test the runtime TypeError
+    // oxlint-disable-next-line typescript/no-explicit-any
     expect(() => matchRuleCondition({ title: 'test' }, { title: 42 as any })).toThrow(TypeError);
   });
 
@@ -341,6 +360,7 @@ describe('matchRuleCondition edge cases', () => {
     // as any needed because we intentionally pass a number as the
     // nested condition value to test the checkComplexCondition TypeError
     expect(() =>
+      // oxlint-disable-next-line typescript/no-explicit-any
       matchRuleCondition({ items: [{ id: 1 }] }, { items: ['some', { id: 42 as any }] }),
     ).toThrow(TypeError);
   });

@@ -79,6 +79,7 @@ describe('matchConditionExpression / matchRuleCondition - equals operator', () =
     // as any is required here because we intentionally pass a plain object value
     // to the eq handler via matchConditionExpression to test the runtime
     // TypeError validation. The type system would normally prevent this.
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['eq', 'test'] as any;
     expect(() => matchConditionExpression({ value: { key: 'value' }, expression })).toThrow(
       TypeError,
@@ -88,6 +89,7 @@ describe('matchConditionExpression / matchRuleCondition - equals operator', () =
   it('should throw TypeError for invalid operand type', () => {
     // as any is required here because we intentionally pass a plain object
     // as the eq operand to test the runtime TypeError validation.
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['eq', { key: 'value' }] as any;
     expect(() => matchConditionExpression({ value: 'test', expression })).toThrow(TypeError);
   });

@@ -108,6 +108,7 @@ describe('contains operator', () => {
   it('should throw TypeError for unexpected resource value type', () => {
     // as any needed because we intentionally pass a number as value to test
     // the runtime TypeError for the contains operator
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['contains', 'test'] as any;
     expect(() => matchConditionExpression({ value: 123, expression })).toThrow(TypeError);
   });
@@ -115,6 +116,7 @@ describe('contains operator', () => {
   it('should throw TypeError for invalid operand type', () => {
     // as any needed because we intentionally pass a number as operand to test
     // the runtime TypeError for the contains operator
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['contains', 123] as any;
     expect(() => matchConditionExpression({ value: 'test', expression })).toThrow(TypeError);
   });

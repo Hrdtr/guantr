@@ -144,8 +144,11 @@ interface _GuantrUntypedRuleCondition {
 
 // Untyped version for ArrayConditionExpressionObject to avoid circular reference
 type ArrayConditionExpressionObjectUntyped =
+  // oxlint-disable-next-line typescript/no-explicit-any
   | [operator: 'some', operand: Record<string, any>]
+  // oxlint-disable-next-line typescript/no-explicit-any
   | [operator: 'every', operand: Record<string, any>]
+  // oxlint-disable-next-line typescript/no-explicit-any
   | [operator: 'none', operand: Record<string, any>];
 
 // The untyped condition expression (default when no generics provided)
@@ -186,6 +189,7 @@ type ArrayConditionExpressionObject<
  * Extracts the Context type from a GuantrMeta, or defaults to Record<string, unknown>.
  */
 export type GuantrContextFromMeta<Meta extends GuantrMeta<GuantrResourceMap> | undefined> =
+  // oxlint-disable-next-line typescript/no-explicit-any
   Meta extends GuantrMeta<any, infer C> ? C : Record<string, unknown>;
 
 /**
@@ -274,8 +278,9 @@ export type GuantrRuleCondition<
   : Partial<{ [K in keyof Model]: ResolveConditionExpression<Model[K], Context> }>;
 
 // Optimized LeafKeys with depth limit to prevent infinite recursion
-type LeafKeys<
+export type LeafKeys<
   Obj extends Record<string, unknown>,
+  // oxlint-disable-next-line typescript/no-explicit-any
   TypeFilter = any,
   Prefix extends string = '',
   Depth extends number = 5, // Add depth limit
@@ -284,7 +289,8 @@ type LeafKeys<
   : {
       [K in keyof Obj]: K extends string | number
         ? NonNullable<Obj[K]> extends Record<string, unknown>
-          ? NonNullable<Obj[K]> extends any[] // Check if array to prevent recursion into arrays
+          ? // oxlint-disable-next-line typescript/no-explicit-any
+            NonNullable<Obj[K]> extends any[] // Check if array to prevent recursion into arrays
             ? TypeFilter extends NonNullable<Obj[K]>
               ? `${Prefix}${K}`
               : never

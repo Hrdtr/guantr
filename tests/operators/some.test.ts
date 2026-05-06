@@ -173,6 +173,7 @@ describe('some operator', () => {
   it('should throw TypeError for unexpected resource value type', () => {
     // as any needed because we intentionally pass an object as value to test
     // the runtime TypeError for the some operator
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['some', { value: ['gt', 10] }] as any;
     expect(() => matchConditionExpression({ value: { key: 'value' }, expression })).toThrow(
       TypeError,
@@ -182,6 +183,7 @@ describe('some operator', () => {
   it('should throw TypeError for invalid nested condition value in operand', () => {
     // as any needed because we intentionally pass a string instead of a valid
     // condition expression to test the runtime TypeError validation
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['some', { id: 'value' }] as any;
     expect(() => matchConditionExpression({ value: [{ id: 1, value: 10 }], expression })).toThrow(
       TypeError,
@@ -191,6 +193,7 @@ describe('some operator', () => {
   it('should throw TypeError for unexpected operand type', () => {
     // as any needed because we intentionally pass a number as operand to test
     // the runtime TypeError for the some operator
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['some', 42] as any;
     expect(() => matchConditionExpression({ value: [{ id: 1, value: 10 }], expression })).toThrow(
       TypeError,

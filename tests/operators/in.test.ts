@@ -60,12 +60,14 @@ describe('in operator', () => {
   it('returns false for null value', () => {
     // as any needed because the array contains mixed types (string | number)
     // which is not allowed by the typed in operator operand signature
+    // oxlint-disable-next-line typescript/no-explicit-any
     const condition = { value: ['in', ['null', 0]] } as any;
     expect(matchRuleCondition({ value: null }, condition)).toBe(false);
   });
 
   it('returns false for undefined value', () => {
     // as any needed because the array contains mixed types (string | number)
+    // oxlint-disable-next-line typescript/no-explicit-any
     const condition = { value: ['in', ['undefined', 0]] } as any;
     expect(matchRuleCondition({ value: undefined }, condition)).toBe(false);
   });
@@ -97,6 +99,7 @@ describe('in operator', () => {
   it('should throw TypeError for unexpected resource value type', () => {
     // as any needed because we intentionally pass an object as value to test
     // the runtime TypeError for the in operator
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['in', [1, 2, 3]] as any;
     expect(() => matchConditionExpression({ value: { key: 'value' }, expression })).toThrow(
       TypeError,
@@ -106,6 +109,7 @@ describe('in operator', () => {
   it('should throw TypeError for invalid operand type', () => {
     // as any needed because we intentionally pass a non-array as operand to test
     // the runtime TypeError for the in operator
+    // oxlint-disable-next-line typescript/no-explicit-any
     const expression = ['in', 'not an array'] as any;
     expect(() => matchConditionExpression({ value: 'test', expression })).toThrow(TypeError);
   });
