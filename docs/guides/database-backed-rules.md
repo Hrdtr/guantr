@@ -300,6 +300,13 @@ class ScopedStorage implements Storage {
       ON CONFLICT DO NOTHING
     `;
   }
+
+  async assignRuleToRole(roleId: string, ruleId: string): Promise<void> {
+    await this.db.sql`
+      INSERT INTO role_rules (role_id, rule_id) VALUES (${roleId}, ${ruleId})
+      ON CONFLICT DO NOTHING
+    `;
+  }
 }
 ```
 
