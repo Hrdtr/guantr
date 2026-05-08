@@ -205,8 +205,7 @@ CREATE TABLE rules (
   action     TEXT NOT NULL,
   resource   TEXT NOT NULL,
   effect     TEXT NOT NULL CHECK (effect IN ('allow', 'deny')),
-  condition  JSONB,
-  UNIQUE (action, resource, effect)
+  condition  JSONB
 );
 
 CREATE TABLE users ( id UUID PRIMARY KEY DEFAULT gen_random_uuid() );

@@ -91,14 +91,14 @@ await guantr.can.abstract('delete', 'post'); // false (no 'delete' allow rule ex
 
 ## Contrast with `can()`
 
-| Behaviour                  | `can.abstract(action, 'resource')`   | `can(action, ['resource', instance])`              |
-| -------------------------- | ------------------------------------ | -------------------------------------------------- |
-| Checks allow rules         | ✅                                   | ✅                                                 |
-| Evaluates conditions       | ❌                                   | ✅                                                 |
-| Considers deny rules       | ❌                                   | ✅                                                 |
-| Requires resource instance | ❌ (key only)                        | ✅                                                 |
-| Caching key                | `can.abstract/${action}:${resource}` | `can/${action}:${resource}:${instance}:${context}` |
-| Recommended use            | UI hints, layout decisions           | Access control, authorization gating               |
+| Behaviour                  | `can.abstract(action, 'resource')`   | `can()` / `can.all` / `can.any`                                                         |
+| -------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------- |
+| Checks allow rules         | ✅                                   | ✅                                                                                      |
+| Evaluates conditions       | ❌                                   | ✅                                                                                      |
+| Considers deny rules       | ❌                                   | ✅                                                                                      |
+| Requires resource instance | ❌ (key only)                        | ✅                                                                                      |
+| Caching key                | `can.abstract/${action}:${resource}` | `can/${action}:${resourceKey}:${stableStringify(instance)}:${stableStringify(context)}` |
+| Recommended use            | UI hints, layout decisions           | Access control, authorization gating                                                    |
 
 ## Migration from v1.x
 
@@ -119,5 +119,5 @@ await guantr.can('read', ['post', postInstance]);
 
 - [`cannot.abstract`](./cannot.abstract) — Negated abstract check.
 - [`can()`](./can) — Full evaluation with conditions and deny rules.
-- [`can.all`](./can.all) — Batch abstract-equivalent: all must have an allow rule.
-- [`can.any`](./can.any) — Batch abstract-equivalent: any must have an allow rule.
+- [`can.all`](./can.all) — Batch check: all must pass (full resource-aware evaluation like `can()`).
+- [`can.any`](./can.any) — Batch check: any must pass (full resource-aware evaluation like `can()`).

@@ -44,8 +44,18 @@ can(
 When the storage adapter provides a `cache`, results are cached with the key pattern:
 
 ```text
-can/${action}:${resourceKey}:${JSON.stringify(resourceInstance)}:${JSON.stringify(context)}
+can/${action}:${resourceKey}:${stableStringify(resourceInstance)}:${stableStringify(context)}
 ```
+
+The serializer used is [`stableStringify`](#), not `JSON.stringify`. Unlike `JSON.stringify`, `stableStringify`:
+
+- **Sorts object keys** for consistent output regardless of insertion order.
+- **Converts `Date`** to ISO strings.
+- **Converts `BigInt`** to its string representation.
+- **Throws on `Map` and `Set`** (with a descriptive path) rather than silently producing `{}`.
+- **Detects circular references** and throws a `TypeError`.
+
+This guarantees deterministic cache keys regardless of property order, object constructor, or value types, which is essential for reliable cache lookups across different evaluation paths (`can()`, `can.all`, `can.any` all share the same key scheme).
 
 | Scenario                                  | Behavior                                           |
 | ----------------------------------------- | -------------------------------------------------- |

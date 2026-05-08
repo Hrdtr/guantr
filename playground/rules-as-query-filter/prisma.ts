@@ -958,3 +958,4 @@ if (exitCode === 0) {
 } else {
   console.log('  Some assertions FAILED — see above.\n');
 }
+process.exitCode = exitCode;

@@ -93,17 +93,27 @@ function stableStringify(
 
   if (Array.isArray(value)) {
     seen.add(value);
-    return `[${value.map((item, i) => stableStringify(item, seen, `${keyPath}[${i}]`)).join(',')}]`;
+    try {
+      return `[${value
+        .map((item, i) => stableStringify(item, seen, `${keyPath}[${i}]`))
+        .join(',')}]`;
+    } finally {
+      seen.delete(value);
+    }
   }
 
   seen.add(value);
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  const pairs = keys.map((k) => {
-    const nextKeyPath = keyPath ? `${keyPath}.${k}` : k;
-    return `${JSON.stringify(k)}:${stableStringify(record[k], seen, nextKeyPath)}`;
-  });
-  return `{${pairs.join(',')}}`;
+  try {
+    const record = value as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
+    const pairs = keys.map((k) => {
+      const nextKeyPath = keyPath ? `${keyPath}.${k}` : k;
+      return `${JSON.stringify(k)}:${stableStringify(record[k], seen, nextKeyPath)}`;
+    });
+    return `{${pairs.join(',')}}`;
+  } finally {
+    seen.delete(value);
+  }
 }
 
 /**
@@ -491,13 +501,13 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
    *
    * @returns A promise resolving to all stored {@link GuantrRule} objects.
    */
-  async getRules(): Promise<ReadonlyArray<GuantrRule>> {
+  async getRules(): Promise<ReadonlyArray<GuantrRule<Meta>>> {
     const cacheKey = 'getRules';
     if (this._storage.cache) {
-      let cached: ReadonlyArray<GuantrRule> | undefined;
+      let cached: ReadonlyArray<GuantrRule<Meta>> | undefined;
       try {
         if (await this._storage.cache.has(cacheKey)) {
-          cached = await this._storage.cache.get<ReadonlyArray<GuantrRule>>(cacheKey);
+          cached = await this._storage.cache.get<ReadonlyArray<GuantrRule<Meta>>>(cacheKey);
         }
       } catch {
         cached = undefined;
@@ -510,7 +520,7 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
     } catch {
       // Swallow cache adapter errors and return uncached rules
     }
-    return rules;
+    return rules as unknown as ReadonlyArray<GuantrRule<Meta>>;
   }
 
   /**
@@ -526,8 +536,10 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
   async relatedRulesFor<ResourceKey extends ExtractResourceKeys<Meta>>(
     action: ExtractResourceAction<Meta, ResourceKey>,
     resource: ResourceKey,
-  ): Promise<GuantrRule[]> {
-    return this._storage.queryRules(action as string, resource as string);
+  ): Promise<GuantrRule<Meta>[]> {
+    return this._storage.queryRules(action as string, resource as string) as Promise<
+      GuantrRule<Meta>[]
+    >;
   }
 
   private async _evaluateCheck<
