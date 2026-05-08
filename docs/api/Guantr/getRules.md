@@ -79,4 +79,3 @@ if (rules.length === 0) {
 
 - [`setRules()`](./setRules) — Set or replace all rules.
 - [`relatedRulesFor()`](./relatedRulesFor) — Query rules by action/resource pair.
-- [Condition Builder](../../guides/condition-builder) — Understanding serialized conditions.

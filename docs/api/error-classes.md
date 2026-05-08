@@ -210,4 +210,3 @@ try {
 
 - [`can()`](./Guantr/can) — Permission checking (where these errors are thrown).
 - [`evaluateCondition()`](./utilities#evaluatecondition) — Standalone condition evaluation.
-- [Condition Builder guide](../../guides/condition-builder) — Building safe conditions.
