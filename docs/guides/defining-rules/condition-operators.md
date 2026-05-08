@@ -389,6 +389,8 @@ in<V extends ValueRef>(
 ): Condition
 ```
 
+> **Note:** `in` is a JavaScript reserved word and cannot be used in destructuring shorthand. When destructuring the condition object, alias it (e.g., `{ in: inOp }`) or use property access instead (e.g., `conditions.in(...)`). This is the same pattern used by other operators like `has(array, value)`.
+
 Returns `true` when `value` is an element of `array`. If `array` resolves to a non-array value at runtime, returns `false`.
 
 The `array` argument is type-checked to ensure it carries an array phantom type — passing a scalar field (e.g., `resource('status')`) to the array position is caught at compile time. However, element-type compatibility between `value` and `array` is not enforced at the type level. Unlike `has(array, value)` where the array unambiguously constrains the value type, `in(value, array)` has no clear direction: the value could be a narrow literal while the array is a broad field type, or the value could be a broad field while the array is a narrow literal array. Type mismatches are caught at runtime by `evaluateCondition`.
@@ -574,7 +576,7 @@ every<A extends ValueRef, E extends Record<string, unknown>>(
 Returns `true` when every array element satisfies the nested condition. Returns `true` for empty arrays (vacuous truth). If no nested condition is provided, returns `true` (all elements trivially satisfy nothing). Returns `false` for non-array operands.
 
 ```ts
-every(resource('checks'), ({ eq, resource }) => eq(resource('status'), literal('passed')));
+every(resource('checks'), ({ eq, resource, literal }) => eq(resource('status'), literal('passed')));
 ```
 
 **Serialized JSON** — same structure as `some`, with `"operator": "every"`.
@@ -591,7 +593,7 @@ none<A extends ValueRef, E extends Record<string, unknown>>(
 Returns `true` when **no** array element satisfies the nested condition. Returns `true` for empty arrays. If no nested condition is provided, returns `true`. Returns `false` for non-array operands.
 
 ```ts
-none(resource('issues'), ({ eq, resource }) => eq(resource('isBlocking'), literal(true)));
+none(resource('issues'), ({ eq, resource, literal }) => eq(resource('isBlocking'), literal(true)));
 ```
 
 **Serialized JSON** — same structure as `some`, with `"operator": "none"`.

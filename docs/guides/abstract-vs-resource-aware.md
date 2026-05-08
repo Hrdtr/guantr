@@ -17,8 +17,8 @@ An **abstract** check answers: _"Has any permission been granted at all for this
 - Results are cached by `can.abstract/<action>:<resourceKey>`.
 
 ```ts
-guantr.can.abstract(  action, resourceKey: string): Promise<boolean>
-guantr.cannot.abstract(action, resourceKey: string): Promise<boolean>
+guantr.can.abstract(action: string, resourceKey: string): Promise<boolean>
+guantr.cannot.abstract(action: string, resourceKey: string): Promise<boolean>
 ```
 
 ```ts

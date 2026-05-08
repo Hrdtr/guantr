@@ -62,7 +62,7 @@ await guantr.can.any([
 
 ## Caching
 
-Individual check results within a `can.any` call are **not** independently cached — `_evaluateCheck` is called directly. Subsequent individual `can()` calls may hit the cache.
+Individual check results within a `can.any` call are **not** independently cached — the raw evaluation path is called directly without consulting the cache. Subsequent individual `can()` calls may still hit the cache.
 
 ## Short-circuit behavior
 

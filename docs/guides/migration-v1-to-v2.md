@@ -45,7 +45,7 @@ The `setRules` callback parameters have been renamed to clearly communicate that
 
 This is the largest change. v1.x conditions were expressed as nested object/tuple structures:
 
-```
+```ts
 { field: [operator, operand, options?] }
 ```
 
@@ -165,7 +165,7 @@ allow('view', ['post', ({ lte, resource, literal }) => lte(resource('viewCount')
 
   // v2.0 — nested builder function (resource() scoped to array element)
 + allow('moderate', ['post', ({ some, resource }) =>
-+   some(resource('comments'), ({ eq, resource }) =>
++   some(resource('comments'), ({ eq, resource, literal }) =>
 +     eq(resource('approved'), literal(true))
 +   )
 + ]);

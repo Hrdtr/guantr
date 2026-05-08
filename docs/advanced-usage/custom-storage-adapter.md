@@ -49,7 +49,7 @@ The `Condition` type and its AST nodes (`OperatorNode`, `LogicalNode`, `ValueRef
 
 Guantr's default `InMemoryStorage` uses a two-level `Map` index:
 
-```
+```text
 Map<action, Map<resource, GuantrRule[]>>
 ```
 
@@ -73,17 +73,17 @@ import type { Storage } from 'guantr/storage';
 const db = new Database(':memory:');
 db.exec(`
   CREATE TABLE IF NOT EXISTS rules (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
     action   TEXT NOT NULL,
     resource TEXT NOT NULL,
     effect   TEXT NOT NULL CHECK (effect IN ('allow', 'deny')),
     matchCondition TEXT,
-    PRIMARY KEY (action, resource, effect)
   );
   CREATE INDEX IF NOT EXISTS idx_rules_lookup ON rules(action, resource);
 `);
 
 const insertStmt = db.prepare(
-  'INSERT OR REPLACE INTO rules (action, resource, effect, matchCondition) VALUES (?, ?, ?, ?)',
+  'INSERT INTO rules (action, resource, effect, matchCondition) VALUES (?, ?, ?, ?)',
 );
 const clearStmt = db.prepare('DELETE FROM rules');
 const getAllStmt = db.prepare('SELECT action, resource, effect, matchCondition FROM rules');
@@ -146,12 +146,12 @@ Key points:
 
 ```prisma
 model Rule {
+  id             Int    `@id` `@default`(autoincrement())
   action         String
   resource       String
   effect         String
   matchCondition Json?
 
-  @@id([action, resource, effect])
   @@index([action, resource])
 }
 ```
@@ -211,13 +211,14 @@ With Prisma, the `Json` column type handles serialization automatically. The con
 ### PostgreSQL (Drizzle ORM)
 
 ```ts
-import { eq, and as sqlAnd } from 'drizzle-orm';
+import { eq, and as sqlAnd, serial } from 'drizzle-orm';
 import { pgTable, text, jsonb } from 'drizzle-orm/pg-core';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { GuantrRule } from 'guantr';
 import type { Storage } from 'guantr/storage';
 
 const rulesTable = pgTable('rules', {
+  id: serial('id').primaryKey(),
   action: text('action').notNull(),
   resource: text('resource').notNull(),
   effect: text('effect', { enum: ['allow', 'deny'] }).notNull(),

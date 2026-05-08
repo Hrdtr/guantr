@@ -95,32 +95,35 @@ Inside rule conditions, access context properties via the builder's `context()` 
 ```ts
 await guantr.setRules((allow, deny) => {
   // Ownership check (ReBAC pattern)
-  allow('edit', ['article', ({ eq, resource, context }) =>
-    eq(resource('authorId'), context('userId'))
+  allow('edit', [
+    'article',
+    ({ eq, resource, context }) => eq(resource('authorId'), context('userId')),
   ]);
 
   // Role-based access
-  allow('access', ['adminPanel', ({ in: inOp, context, literal }) =>
-    inOp(context('role'), literal(['admin', 'superadmin']))
+  allow('access', [
+    'adminPanel',
+    ({ in: inOp, context, literal }) => inOp(context('role'), literal(['admin', 'superadmin'])),
   ]);
 
   // Combining resource and context attributes
-  allow('publish', ['article', ({ and, eq, resource, context, literal }) =>
-    and(
-      eq(resource('status'), literal('approved')),
-      eq(resource('authorId'), context('userId')),
-    )
+  allow('publish', [
+    'article',
+    ({ and, eq, resource, context, literal }) =>
+      and(eq(resource('status'), literal('approved')), eq(resource('authorId'), context('userId'))),
   ]);
 
   // Numeric comparison with context
-  allow('view', ['report', ({ gte, resource, context }) =>
-    gte(resource('minAccessLevel'), context('userClearanceLevel'))
-  );
+  allow('view', [
+    'report',
+    ({ gte, resource, context }) => gte(resource('minAccessLevel'), context('userClearanceLevel')),
+  ]);
 
   // Nested context properties
-  allow('debug', ['system', ({ eq, resource, context }) =>
-    eq(resource('environment'), context('env.name'))
-  );
+  allow('debug', [
+    'system',
+    ({ eq, resource, context }) => eq(resource('environment'), context('env.name')),
+  ]);
 });
 ```
 
@@ -130,8 +133,8 @@ Context values can appear anywhere a value reference is accepted — as either o
 // Context on either side of a comparison
 eq(context('role'), resource('requiredRole'));
 gt(resource('minLevel'), context('userLevel'));
-has(resource('teams'), context('userTeam')) in
-  (context('department'), resource('allowedDepartments'));
+has(resource('teams'), context('userTeam'));
+in(context('department'), resource('allowedDepartments'));
 ```
 
 ---

@@ -14,7 +14,7 @@ async relatedRulesFor<ResourceKey>(
 ## Parameters
 
 - **`action`**: (`string`) The action to filter by (e.g. `'read'`, `'update'`).
-- **`resource`**: (`string`) The resource key to filter by (e.g. `'post'`, `'comment'`).
+- **`resource`**: (`ResourceKey`) The resource key to filter by. `ResourceKey` is a generic type parameter representing the allowed resource keys (e.g. `'post'`, `'comment'`).
 
 ## Returns
 

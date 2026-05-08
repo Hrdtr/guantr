@@ -26,7 +26,7 @@ cannot.all(
 ## Implementation
 
 ```ts
-cannot.all(checks) === !(await can.any(checks));
+(await cannot.all(checks)) === !(await can.any(checks));
 ```
 
 This means:

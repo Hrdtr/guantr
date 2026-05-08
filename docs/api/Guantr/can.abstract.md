@@ -44,7 +44,7 @@ The method answers: **"Has any permission been granted at all for this resource 
 
 When the storage adapter provides a `cache`, results are cached with the key pattern:
 
-```
+```text
 can.abstract/${action}:${resource}
 ```
 

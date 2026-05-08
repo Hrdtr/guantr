@@ -4,7 +4,7 @@ Guantr is built TypeScript-first. The `GuantrMeta` type anchors the entire type 
 
 ## Core Concepts
 
-```
+```text
 GuantrMeta<ResourceMap, Context>
             ↑             ↑
     What resources       Who is asking

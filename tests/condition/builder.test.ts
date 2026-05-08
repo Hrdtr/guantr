@@ -77,7 +77,7 @@ describe('builder.resource()', () => {
     expect(ref.path).toBe('metadata.views');
   });
 
-  it('works with optional paths (address?.name)', () => {
+  it('works with optional paths (author?.name)', () => {
     const builder = createBuilder();
     const ref = builder.resource('author?.name');
 

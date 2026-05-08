@@ -12,7 +12,7 @@ The transpiler walks the AST and maps each node to a Prisma filter. The result i
 
 Before writing the transpiler, you must understand the exact evaluation logic in `_evaluateCheck` (from `src/index.ts`):
 
-```
+```text
 For each rule:
   unconditional allow          → allowed.push(true)
   conditional allow + matches  → allowed.push(true)
@@ -203,8 +203,14 @@ const visitOperatorNode = (
       return {};
   }
 
+  const STRING_OPS = new Set(['eq', 'ne', 'contains', 'startsWith', 'endsWith']);
   const fieldClause = clause[field];
-  if (options?.caseInsensitive && fieldClause && typeof fieldClause === 'object') {
+  if (
+    options?.caseInsensitive &&
+    STRING_OPS.has(operator) &&
+    fieldClause &&
+    typeof fieldClause === 'object'
+  ) {
     (fieldClause as Record<string, unknown>).mode = 'insensitive';
   }
 

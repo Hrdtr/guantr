@@ -137,8 +137,9 @@ matchCondition: ({ eq, resource, literal }) => eq(resource('profile?.bio'), lite
 ### Example
 
 ```ts
-import { Guantr, GuantrInvalidConditionKeyError } from 'guantr';
+import { createGuantr, GuantrInvalidConditionKeyError } from 'guantr';
 
+const guantr = await createGuantr();
 await guantr.setRules([
   {
     effect: 'allow',

@@ -45,21 +45,64 @@ export type {
 export { createMatchConditionBuilder } from './condition/builder';
 export { evaluateCondition } from './condition/evaluate';
 
-function stableStringify(value: unknown, seen: WeakSet<object> = new WeakSet()): string {
+/**
+ * Deterministically serializes a value to a JSON string for use as a cache key.
+ *
+ * Unlike `JSON.stringify`, this function:
+ * - Sorts object keys for consistent output regardless of insertion order.
+ * - Throws on {@link Map} and {@link Set} (with a descriptive path) rather than producing `{}`.
+ * - Converts {@link Date} to ISO strings.
+ * - Converts {@link BigInt} to its string representation.
+ * - Detects circular references and throws a `TypeError`.
+ *
+ * @param value - The value to serialize.
+ * @param seen - Internal set of already-visited objects for cycle detection.
+ * @param keyPath - Internal path tracking for descriptive error messages.
+ * @returns A deterministic JSON string.
+ */
+function stableStringify(
+  value: unknown,
+  seen: WeakSet<object> = new WeakSet(),
+  keyPath: string = '',
+): string {
   if (value === null || typeof value !== 'object') {
+    if (typeof value === 'bigint') {
+      return JSON.stringify(value.toString());
+    }
     return JSON.stringify(value);
   }
-  if (seen.has(value as object)) {
+
+  if (seen.has(value)) {
     throw new TypeError('Converting circular structure to JSON');
   }
+  if (value instanceof Date) {
+    return JSON.stringify(value.toISOString());
+  }
+
+  const path = keyPath || 'root';
+  if (value instanceof Map) {
+    throw new TypeError(
+      `Cannot serialize Map at "${path}": Map is not supported. Use a plain object instead.`,
+    );
+  }
+  if (value instanceof Set) {
+    throw new TypeError(
+      `Cannot serialize Set at "${path}": Set is not supported. Use an array instead.`,
+    );
+  }
+
   if (Array.isArray(value)) {
     seen.add(value);
-    return `[${value.map((item) => stableStringify(item, seen)).join(',')}]`;
+    return `[${value.map((item, i) => stableStringify(item, seen, `${keyPath}[${i}]`)).join(',')}]`;
   }
-  seen.add(value as object);
+
+  seen.add(value);
   const record = value as Record<string, unknown>;
   const keys = Object.keys(record).sort();
-  const pairs = keys.map((k) => `${JSON.stringify(k)}:${stableStringify(record[k], seen)}`);
+  const pairs = keys.map((k) => {
+    const nextKeyPath = keyPath ? `${keyPath}.${k}` : k;
+    return `${JSON.stringify(k)}:${stableStringify(record[k], seen, nextKeyPath)}`;
+  });
   return `{${pairs.join(',')}}`;
 }
 
@@ -181,7 +224,7 @@ type CanCheckItem<Meta extends GuantrMeta<GuantrResourceMap> | undefined> =
     : [action: string, resource: [key: string, instance: Record<string, unknown>]];
 
 /**
- * Typed callable for `guantr.can`. Supports two call signatures and nested `.abstract()`, `.all()`, `.any()` sub-methods.
+ * Typed callable for `guantr.can`. Supports the main call signature and nested `.abstract()`, `.all()`, `.any()` sub-methods.
  */
 type CanMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
   /**
@@ -227,7 +270,7 @@ type CanMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
 /**
  * Typed callable for `guantr.cannot`. Logical negation of `CanMethod`.
  */
-type CannotMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
+type CannotMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined> = {
   <
     ResourceKey extends ExtractResourceKeys<Meta>,
     Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<
@@ -239,13 +282,28 @@ type CannotMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
     resource: [ResourceKey, Resource],
   ): Promise<boolean>;
 
+  /**
+   * Abstract permission check (negated).
+   * Returns `true` if NO allow rule exists for the given action + resource pair.
+   * Does NOT evaluate conditions or deny rules.
+   */
   abstract<ResourceKey extends ExtractResourceKeys<Meta>>(
     action: ExtractResourceAction<Meta, ResourceKey>,
     resource: ResourceKey,
   ): Promise<boolean>;
 
+  /**
+   * Checks if NONE of the specified permissions is granted.
+   * Resolves context once and shares it across all checks.
+   * Short-circuits on the first `true` result.
+   */
   all(checks: CanCheckItem<Meta>[]): Promise<boolean>;
 
+  /**
+   * Checks if ANY of the specified permissions is denied.
+   * Resolves context once and shares it across all checks.
+   * Short-circuits on the first `false` result.
+   */
   any(checks: CanCheckItem<Meta>[]): Promise<boolean>;
 };
 
@@ -505,9 +563,9 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
           this._maxRuleIterations,
         );
       }
-      // If no matchCondition is set, it's an unconditional allow.
-      // (Unconditional denies were caught by the early exit above.)
-      if (!rule.matchCondition) {
+      // If no matchCondition is set, the rule applies unconditionally.
+      // Unconditional denies were caught by the early exit above
+      if (rule.matchCondition == null) {
         allowed.push(true);
         continue;
       }
@@ -525,6 +583,35 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
     return allowed.includes(true) && !denied.includes(false);
   }
 
+  private async _cachedEvaluateCheck(
+    action: ExtractResourceAction<Meta, ExtractResourceKeys<Meta>>,
+    resource: [ExtractResourceKeys<Meta>, ExtractResourceModel<Meta, ExtractResourceKeys<Meta>>],
+    context: GuantrContextFromMeta<Meta>,
+    serializedContext: string | undefined,
+  ): Promise<boolean> {
+    let cacheKey: string | null = null;
+    if (this._storage.cache && serializedContext !== undefined) {
+      try {
+        cacheKey = `can/${String(action)}:${resource[0]}:${stableStringify(resource[1])}:${serializedContext}`;
+        if (await this._storage.cache.has(cacheKey)) {
+          const cached = await this._storage.cache.get<boolean>(cacheKey);
+          if (cached !== undefined) return cached;
+        }
+      } catch {
+        // Swallow cache errors, fall through to evaluation
+      }
+    }
+    const result = await this._evaluateCheck(action, resource, context);
+    if (cacheKey) {
+      try {
+        await this._storage.cache?.set(cacheKey, result);
+      } catch {
+        // Swallow cache adapter errors
+      }
+    }
+    return result;
+  }
+
   private async _can<
     ResourceKey extends ExtractResourceKeys<Meta>,
     Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<
@@ -536,41 +623,23 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
     resource: [ResourceKey, Resource],
   ): Promise<boolean> {
     const context = await this._resolveContext();
-
-    let cacheKey: string | null = null;
+    let serializedContext: string | undefined;
     if (this._storage.cache) {
       try {
-        const serializedContext = stableStringify(context);
-        cacheKey = `can/${String(action)}:${resource[0]}:${stableStringify(resource[1])}:${serializedContext}`;
-
-        let cachedResult: boolean | undefined = undefined;
-        try {
-          if (await this._storage.cache.has(cacheKey)) {
-            cachedResult = await this._storage.cache.get<boolean>(cacheKey);
-          }
-        } catch {
-          cachedResult = undefined;
-        }
-        if (cachedResult !== undefined) {
-          return cachedResult;
-        }
+        serializedContext = stableStringify(context);
       } catch {
-        cacheKey = null;
+        // Swallow: no caching for this check
       }
     }
-    const trySetCache = async <T>(result: T): Promise<T> => {
-      if (cacheKey) {
-        try {
-          await this._storage.cache?.set(cacheKey, result);
-        } catch {
-          // Swallow cache adapter errors
-        }
-      }
-      return result;
-    };
-
-    const result = await this._evaluateCheck(action, resource, context);
-    return await trySetCache(result);
+    return this._cachedEvaluateCheck(
+      action as ExtractResourceAction<Meta, ExtractResourceKeys<Meta>>,
+      resource as [
+        ExtractResourceKeys<Meta>,
+        ExtractResourceModel<Meta, ExtractResourceKeys<Meta>>,
+      ],
+      context,
+      serializedContext,
+    );
   }
 
   private async _canAbstract<ResourceKey extends ExtractResourceKeys<Meta>>(
@@ -619,40 +688,15 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
     }
 
     for (const [action, resource] of checks) {
-      let cacheKey: string | null = null;
-      if (this._storage.cache && serializedContext !== undefined) {
-        try {
-          cacheKey = `can/${String(action)}:${resource[0]}:${stableStringify(resource[1])}:${serializedContext}`;
-
-          if (await this._storage.cache.has(cacheKey)) {
-            const cached = await this._storage.cache.get<boolean>(cacheKey);
-            if (cached !== undefined) {
-              if (!cached) return false;
-              continue;
-            }
-          }
-        } catch {
-          // Swallow cache errors, fall through to evaluation
-        }
-      }
-
-      const result = await this._evaluateCheck(
+      const result = await this._cachedEvaluateCheck(
         action as ExtractResourceAction<Meta, ExtractResourceKeys<Meta>>,
         resource as [
           ExtractResourceKeys<Meta>,
           ExtractResourceModel<Meta, ExtractResourceKeys<Meta>>,
         ],
         context,
+        serializedContext,
       );
-
-      if (cacheKey) {
-        try {
-          await this._storage.cache?.set(cacheKey, result);
-        } catch {
-          // Swallow cache adapter errors
-        }
-      }
-
       if (!result) return false;
     }
     return true;
@@ -670,40 +714,15 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
     }
 
     for (const [action, resource] of checks) {
-      let cacheKey: string | null = null;
-      if (this._storage.cache && serializedContext !== undefined) {
-        try {
-          cacheKey = `can/${String(action)}:${resource[0]}:${stableStringify(resource[1])}:${serializedContext}`;
-
-          if (await this._storage.cache.has(cacheKey)) {
-            const cached = await this._storage.cache.get<boolean>(cacheKey);
-            if (cached !== undefined) {
-              if (cached) return true;
-              continue;
-            }
-          }
-        } catch {
-          // Swallow cache errors, fall through to evaluation
-        }
-      }
-
-      const result = await this._evaluateCheck(
+      const result = await this._cachedEvaluateCheck(
         action as ExtractResourceAction<Meta, ExtractResourceKeys<Meta>>,
         resource as [
           ExtractResourceKeys<Meta>,
           ExtractResourceModel<Meta, ExtractResourceKeys<Meta>>,
         ],
         context,
+        serializedContext,
       );
-
-      if (cacheKey) {
-        try {
-          await this._storage.cache?.set(cacheKey, result);
-        } catch {
-          // Swallow cache adapter errors
-        }
-      }
-
       if (result) return true;
     }
     return false;

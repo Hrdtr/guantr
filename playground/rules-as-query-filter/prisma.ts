@@ -169,8 +169,14 @@ const visitOperatorNode = (
       return {};
   }
 
+  const STRING_OPS = new Set(['eq', 'ne', 'contains', 'startsWith', 'endsWith']);
   const fieldClause = clause[field];
-  if (options?.caseInsensitive && fieldClause && typeof fieldClause === 'object') {
+  if (
+    options?.caseInsensitive &&
+    STRING_OPS.has(operator) &&
+    fieldClause &&
+    typeof fieldClause === 'object'
+  ) {
     (fieldClause as Record<string, unknown>).mode = 'insensitive';
   }
 

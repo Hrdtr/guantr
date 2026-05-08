@@ -97,7 +97,7 @@ describe('builder.eq()', () => {
     const cond = b.eq(b.resource('description'), b.literal(undefined));
     const op = cond.node as OperatorNode;
     expect(op.operator).toBe('eq');
-    expect(op.operands[1]).toEqual({ type: 'literal', value: undefined });
+    expect(op.operands[1]).toStrictEqual({ type: 'literal', value: undefined });
   });
 
   it('works with boolean comparison', () => {

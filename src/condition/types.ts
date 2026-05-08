@@ -142,9 +142,7 @@ export interface Condition {
 
 /**
  * The builder object passed to user-defined `matchCondition` functions.
- *
- * In the completed DSL this interface carries all operator methods (`eq`,
- * `and`, …) in addition to the value-source factories listed here.
+ * Carries value-source factories and all operator methods.
  */
 export interface MatchConditionBuilder<
   Model extends Record<string, unknown> = Record<string, unknown>,

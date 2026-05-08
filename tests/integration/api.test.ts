@@ -1468,3 +1468,89 @@ describe('batch cache coverage', () => {
     expect(result).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 18. stableStringify coverage — BigInt, Date, Map, Set
+// ---------------------------------------------------------------------------
+
+describe('stableStringify coverage', () => {
+  it('_can serializes BigInt in context', async () => {
+    const guantr = await createGuantr<ContextMeta>({
+      context: () => ({ userId: BigInt(1), role: 'admin' }) as unknown as AppContext,
+    });
+
+    await guantr.setRules([
+      { resource: 'post', action: 'read', effect: 'allow', matchCondition: null },
+    ]);
+
+    const result = await guantr.can('read', ['post', samplePost]);
+    expect(result).toBe(true);
+  });
+
+  it('_can serializes Date in context', async () => {
+    const guantr = await createGuantr<ContextMeta>({
+      context: () => ({ userId: 1, role: 'admin', at: new Date() }) as unknown as AppContext,
+    });
+
+    await guantr.setRules([
+      { resource: 'post', action: 'read', effect: 'allow', matchCondition: null },
+    ]);
+
+    const result = await guantr.can('read', ['post', samplePost]);
+    expect(result).toBe(true);
+  });
+
+  it('_can falls back to no-cache with Map in context', async () => {
+    const guantr = await createGuantr<ContextMeta>({
+      context: () => ({ userId: 1, role: 'admin', m: new Map() }) as unknown as AppContext,
+    });
+
+    await guantr.setRules([
+      { resource: 'post', action: 'read', effect: 'allow', matchCondition: null },
+    ]);
+
+    const result = await guantr.can('read', ['post', samplePost]);
+    expect(result).toBe(true);
+  });
+
+  it('_can falls back to no-cache with Set in context', async () => {
+    const guantr = await createGuantr<ContextMeta>({
+      context: () => ({ userId: 1, role: 'admin', s: new Set() }) as unknown as AppContext,
+    });
+
+    await guantr.setRules([
+      { resource: 'post', action: 'read', effect: 'allow', matchCondition: null },
+    ]);
+
+    const result = await guantr.can('read', ['post', samplePost]);
+    expect(result).toBe(true);
+  });
+
+  it('_can falls back to no-cache with nested Map in context', async () => {
+    const guantr = await createGuantr<ContextMeta>({
+      context: () =>
+        ({ userId: 1, role: 'admin', nested: { m: new Map() } }) as unknown as AppContext,
+    });
+
+    await guantr.setRules([
+      { resource: 'post', action: 'read', effect: 'allow', matchCondition: null },
+    ]);
+
+    const result = await guantr.can('read', ['post', samplePost]);
+    expect(result).toBe(true);
+  });
+
+  it('_can falls back to no-cache with nested Set in context', async () => {
+    const guantr = await createGuantr<ContextMeta>({
+      context: () =>
+        ({ userId: 1, role: 'admin', nested: { s: new Set() } }) as unknown as AppContext,
+    });
+
+    await guantr.setRules([
+      { resource: 'post', action: 'read', effect: 'allow', matchCondition: null },
+    ]);
+
+    const result = await guantr.can('read', ['post', samplePost]);
+    expect(result).toBe(true);
+  });
+});

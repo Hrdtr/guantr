@@ -24,7 +24,7 @@ Guantr's default `InMemoryStorage` keeps rules in process memory. You call `setR
 
 Two phases, decoupled:
 
-```
+```text
 SEED (migration, runs once)
 ─────────────────────────────
   rules/catalog.ts          serializeRules()

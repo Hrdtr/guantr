@@ -10,6 +10,15 @@ import type { Storage } from './storage';
  * that returns the context (optionally async). When a plain object is passed,
  * it is wrapped internally as `() => Promise.resolve(obj)` — context is still
  * resolved on every check, but the value is the same static object.
+ *
+ * **Important:** The context (and any resource models used with caching) must
+ * be plain JSON-serializable values (numbers, strings, booleans, null, arrays,
+ * and plain objects). Non-plain types are handled as follows:
+ * - `Date`: serialized via `toISOString()`.
+ * - `BigInt`: serialized as a string (e.g. `"1"`).
+ * - `Map` / `Set`: throw a `TypeError` — use plain objects or arrays instead.
+ * - Functions, symbols, and other non-serializable values will cause
+ *   `JSON.stringify`-level errors.
  */
 export type GuantrOptions<Context extends Record<string, unknown> = Record<string, unknown>> = {
   context?: Context | (() => Context | Promise<Context>);

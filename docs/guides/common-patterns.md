@@ -63,8 +63,10 @@ await guantr.setRules((allow) => {
     'document',
     ({ eq, resource, context }) => eq(resource('ownerId'), context('userId')),
   ]);
-  // If context('userId') resolves to null, eq(null, null) is true
-  // — guest can't own anything, so this naturally fails.
+  // If context('userId') resolves to null, eq(null, null) is true,
+  // which would incorrectly treat guests as owners of documents with a
+  // null ownerId. Guard against this by requiring context('userId') to be
+  // non-null (e.g., using isDefined or neq(null)) before applying eq.
 });
 ```
 

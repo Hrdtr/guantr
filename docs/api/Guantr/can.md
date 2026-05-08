@@ -43,7 +43,7 @@ can(
 
 When the storage adapter provides a `cache`, results are cached with the key pattern:
 
-```
+```text
 can/${action}:${resourceKey}:${JSON.stringify(resourceInstance)}:${JSON.stringify(context)}
 ```
 
