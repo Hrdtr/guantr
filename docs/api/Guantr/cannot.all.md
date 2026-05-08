@@ -1,47 +1,56 @@
 # API: `Guantr.prototype.cannot.all`
 
-The `cannot.all` sub-method performs a **batch permission check** — it returns `true` only if **all** of the specified permissions are denied. It resolves the context once and shares it across every check. It is the logical negation of [`can.any`](./can.any): `cannot.all(checks) === !can.any(checks)`.
+The `cannot.all` sub-method performs a **batch permission check** — it returns `true` only if **every** check in the array is denied. It is the logical negation of [`can.any`](./can.any).
 
-> **Use this for UI decisions** that need to verify a set of actions are all unavailable (e.g. "should we hide the entire management section?"). For single permission checks, use [`cannot(action, [resourceKey, instance])`](./cannot).
+> **Use this for decisions that need to verify a set of actions are all unavailable** (e.g. "should we hide the entire management section?").
 
 ## Signature
 
 ```ts
-guantr.cannot.all(
-  checks: Array<[action, [resourceKey, resourceInstance]]>,
-): Promise<boolean>
-```
-
-### Type signature (with Meta)
-
-```ts
-// With typed Meta, each check tuple is narrowed to the resource map:
-guantr.cannot.all([
-  [action: PostAction, resource: ['post', Post]],
-  [action: UserAction, resource: ['user', User]],
-  // ...
-])
+cannot.all(
+  checks: Array<[action: string, resource: [resourceKey: string, resourceInstance: object]]>,
+): Promise<boolean>;
 ```
 
 ## Parameters
 
-- `checks`: An array of check tuples. Each tuple is:
-  - `action`: (`string`) The action being checked (e.g. `'read'`, `'update'`).
-  - `resource`: (`[string, object]`) A tuple of `[resourceKey, resourceInstance]` (e.g. `['post', { id: 1, status: 'draft' }]`).
+- **`checks`**: An array of check tuples. Each tuple is `[action, [resourceKey, resourceInstance]]`.
 
 ## Returns
 
-- `Promise<boolean>`: Resolves to:
-  - `true` if **every** check in the array is denied.
+- `Promise<boolean>`:
+  - `true` if **every** check is denied.
   - `false` as soon as **any** check is granted (short-circuits).
+  - `true` for an **empty array** (vacuous truth).
 
-## How it Works
+## Implementation
 
-`cannot.all` is implemented as `!can.any(checks)`. It:
+```ts
+cannot.all(checks) === !(await can.any(checks));
+```
 
-1. Resolves context once.
-2. Delegates to `can.any` — if any check is granted, `can.any` returns `true`, so `cannot.all` returns `false`.
-3. If no check is granted, `can.any` returns `false`, so `cannot.all` returns `true`.
+This means:
+
+- If any check is granted → `can.any` returns `true` → `cannot.all` returns `false`.
+- If no check is granted → `can.any` returns `false` → `cannot.all` returns `true`.
+
+## How it works
+
+1. Resolves context **once** and shares it across all checks.
+2. Delegates to `can.any` — if any check passes, returns `false`; otherwise returns `true`.
+3. Short-circuits when a check is granted (via `can.any`'s short-circuit on first `true`).
+
+## Empty array behavior
+
+Returns `true` (vacuous truth — all zero checks are denied):
+
+```ts
+await guantr.cannot.all([]); // true
+```
+
+## Context sharing
+
+Context is resolved once, then shared across all checks through the underlying `can.any` call.
 
 ## Examples
 
@@ -54,31 +63,49 @@ const cannotDestroy = await guantr.cannot.all([
   ['archive', ['post', post]],
   ['ban', ['user', user]],
 ]);
-// → true only if ALL actions are denied
+// true only if ALL actions are denied
 ```
 
 ### With no rules (implicitly denied)
 
 ```ts
-// When no rules exist, all permissions are implicitly denied
+// No rules exist → all permissions are implicitly denied
 const result = await guantr.cannot.all([
   ['delete', ['post', { id: 1 }]],
   ['archive', ['post', { id: 1 }]],
 ]);
-// → true (both are implicitly denied)
+// true (both are implicitly denied)
 ```
 
-### Empty checks array
-
-Returns `true` (vacuous truth — all zero checks are denied).
+### Short-circuit: any check is allowed
 
 ```ts
-await guantr.cannot.all([]); // → true
+// user can read, so not all are denied
+const result = await guantr.cannot.all([
+  ['read', ['post', post]], // allowed → short-circuit, return false
+  ['delete', ['post', post]], // never evaluated
+  ['archive', ['post', post]], // never evaluated
+]);
+// false
 ```
 
-## See Also
+### UI pattern: hide a section entirely
 
-- [`cannot.any`](./cannot.any) — check if ANY permission is denied
-- [`can.all`](./can.all) — check if ALL permissions are granted
-- [`can.any`](./can.any) — check if ANY permission is granted
-- [`cannot`](./cannot) — single permission check
+```ts
+const shouldHide = await guantr.cannot.all([
+  ['read', ['dashboard', {}]],
+  ['viewReports', ['dashboard', {}]],
+  ['manageUsers', ['dashboard', {}]],
+]);
+
+if (shouldHide) {
+  // Don't render the dashboard section at all
+}
+```
+
+## See also
+
+- [`cannot.any`](./cannot.any) — Check if **any** permission is denied.
+- [`can.all`](./can.all) — Check if **all** permissions are granted.
+- [`can.any`](./can.any) — Check if **any** permission is granted.
+- [`cannot`](./cannot) — Single permission check.

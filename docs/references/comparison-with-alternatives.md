@@ -12,7 +12,7 @@ Choosing an authorization solution involves considering various factors like you
   - **Embedded Logic:** Rules live alongside your application code, which can simplify development workflows for smaller teams or monoliths.
   - **Flexible Condition System:** Offers a clear `[operator, operand]` syntax for defining attribute-based and relationship-based conditions.
   - **Customizable:** Pluggable `Storage` adapter interface allows using different backends (in-memory, DBs, custom) for rule persistence and caching.
-  - **Context-Aware:** Integrates easily with request-specific or user-specific data via the `getContext` mechanism.
+  - **Context-Aware:** Integrates easily with request-specific or user-specific data via the `context` mechanism.
 - **Trade-offs:**
   - Primarily targets the JS/TS ecosystem.
   - Policy logic is coupled with application code, unlike decoupled policy engines.

@@ -1,147 +1,106 @@
 # Advanced Usage: Custom Storage Adapter
 
-By default, Guantr uses `InMemoryStorage`to store permission rules. This is convenient for getting started and for scenarios where rules don't need to persist beyond the application's runtime. However, for persistent rules or sharing rules across multiple application instances, you'll need a custom storage adapter.
+By default, Guantr uses `InMemoryStorage` to store permission rules. For persistent rules or sharing rules across multiple application instances, implement a custom storage adapter.
+
+> **Want the bigger picture?** This page covers the `Storage` interface contract and adapter implementations. For the _why_ and real-world patterns — persisting rules across restarts, per-user permission sets, multi-tenant setups — see the [Database-Backed Rule Management](/guides/database-backed-rules) guide.
 
 ## The `Storage` Interface
 
-To create a custom adapter, you need to implement the `Storage` interface defined in `guantr/storage/types`. This interface mandates several asynchronous methods for rule management and includes an optional property for caching.
+```ts
+import type { Storage } from 'guantr/storage';
+import type { GuantrRule } from 'guantr';
+```
 
-**Required Methods:**
+### Required Methods
 
-- `setRules(rules: GuantrRule[]): Promise<void>`: Atomically replaces all stored rules with the provided rules.
-- `getRules(): Promise<GuantrRule[]>`: Retrieves all currently stored rules.
-- `queryRules(action: string, resource: string): Promise<GuantrRule[]>`: Retrieves only the rules matching a specific action and resource key. Implementing this efficiently (filtering at the source) is crucial for performance with large rule sets.
+| Method       | Signature                                                     | Description                                                                                                                                           |
+| ------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `setRules`   | `(rules: GuantrRule[]) => Promise<void>`                      | Atomically replaces **all** stored rules. The adapter should clear existing rules, then insert the new set.                                           |
+| `getRules`   | `() => Promise<GuantrRule[]>`                                 | Returns **all** stored rules.                                                                                                                         |
+| `queryRules` | `(action: string, resource: string) => Promise<GuantrRule[]>` | Returns rules matching a specific action and resource key. Filter at the storage layer — returning all rules and filtering in JS defeats the purpose. |
 
-**Optional Property:**
+### Optional Cache
 
-- `cache?: { set, get, has, clear }`: An optional object implementing caching logic. If provided, `has` is **required** (no fallback logic; Guantr uses `has` to check cache hits and `get` to retrieve values). `get` must return `undefined` for cache misses. See the [Caching Guide](./caching.md) for details.
+```ts
+cache?: {
+  set: <T>(key: string, value: T) => Promise<void>;
+  get: <T>(key: string) => Promise<T | undefined>;  // undefined for misses
+  has: (key: string) => Promise<boolean>;            // REQUIRED when cache is provided
+  clear: () => Promise<void>;
+}
+```
+
+The `cache` contract is strict: `get` **must** return `undefined` for misses (never `null`), and `has` is **required** — there is no fallback `get`-then-check behavior. See the [Caching guide](/advanced-usage/caching) for details.
+
+## Condition Serialization
+
+Rules carry a `matchCondition` field that is either a function (at definition time) or a serialized `Condition` AST (at storage time). During `setRules()`, every function-based `matchCondition` is executed with a builder and replaced by the resulting `Condition` object. When you later call `getRules()` or `queryRules()`, `matchCondition` will be `Condition | null | undefined` — **never a function**.
+
+The `Condition` type and its AST nodes (`OperatorNode`, `LogicalNode`, `ValueRef`) are plain JSON-serializable objects. See [Utilities > Condition Types](/api/utilities#condition-types) for the full type reference and JSON format examples.
+
+### Key points for adapter authors
+
+- Store `matchCondition` as a JSON string (`JSON.stringify` on write, `JSON.parse` on read) or use a native JSON column type (`jsonb`, `Json`).
+- `null` conditions mean the rule is unconditional. Store as SQL `NULL`, never the string `"null"`.
+- Context references (`{ "type": "context", "path": "..." }`) are stored as-is. Context is resolved at evaluation time, not storage time.
+- The AST is minimal — `options` and nested `condition` fields are only present when set.
+
+## InMemoryStorage Behavior
+
+Guantr's default `InMemoryStorage` uses a two-level `Map` index:
+
+```
+Map<action, Map<resource, GuantrRule[]>>
+```
+
+- **Constructor** takes no arguments.
+- **`setRules`** clears the entire map, then populates it rule by rule. Rules for the same `(action, resource)` pair are appended to an array.
+- **`getRules`** iterates over both map levels and collects all rules into a flat array.
+- **`queryRules`** performs a direct `Map.get(action)?.get(resource)` lookup — O(1) after the first map level.
+- **Cache** is a separate `Map<string, unknown>` with `set`, `get`, `has`, and `clear` methods. Same strict contract as the `Storage` interface.
+
+This structure is the reference implementation. Your custom adapter should produce identical results but may use any backing store.
 
 ## Example Implementations
 
-Here are examples using common storage solutions. Remember to add appropriate error handling for production environments.
-
-### Browser LocalStorage
-
-This adapter is suitable for client-side browser applications where rule persistence per user session is sufficient.
-
-**Note:** LocalStorage has size limits and stores data as strings.
+### SQLite (better-sqlite3)
 
 ```ts
+import Database from 'better-sqlite3';
 import type { GuantrRule } from 'guantr';
 import type { Storage } from 'guantr/storage';
 
-const STORAGE_KEY = 'guantr_rules';
-
-class LocalStorageAdapter implements Storage {
-  async setRules(rules: GuantrRule[]): Promise<void> {
-    try {
-      // Atomically replace the stored rules
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
-    } catch (error) {
-      console.error('Error setting Guantr rules in LocalStorage:', error);
-      // Handle potential errors (e.g., storage quota exceeded)
-    }
-  }
-
-  async getRules(): Promise<GuantrRule[]> {
-    try {
-      const storedRules = localStorage.getItem(STORAGE_KEY);
-      return storedRules ? JSON.parse(storedRules) : [];
-    } catch (error) {
-      console.error('Error getting Guantr rules from LocalStorage:', error);
-      return []; // Return empty array on error
-    }
-  }
-
-  // Note: This queryRules implementation fetches all rules and filters locally.
-  // This can be inefficient for very large rule sets compared to DB filtering.
-  async queryRules(action: string, resource: string): Promise<GuantrRule[]> {
-    const allRules = await this.getRules();
-    return allRules.filter((rule) => rule.action === action && rule.resource === resource);
-  }
-
-  // cache?: Storage['cache']; // Optional: Implement cache if needed
-}
-```
-
-### Redis
-
-Uses `ioredis` (or a similar client) to store rules in Redis, suitable for shared state between server instances.
-
-```ts
-import type { GuantrRule } from 'guantr';
-import type { Storage } from 'guantr/storage';
-import Redis from 'ioredis'; // Assuming ioredis client
-
-const redisClient = new Redis(/* Redis connection options */);
-const REDIS_KEY = 'guantr_rules';
-
-class RedisStorage implements Storage {
-  async setRules(rules: GuantrRule[]): Promise<void> {
-    // Atomically replace the stored rules
-    await redisClient.set(REDIS_KEY, JSON.stringify(rules));
-  }
-
-  async getRules(): Promise<GuantrRule[]> {
-    const storedRules = await redisClient.get(REDIS_KEY);
-    return storedRules ? JSON.parse(storedRules) : [];
-  }
-
-  // Note: This queryRules implementation fetches all rules and filters locally.
-  // Consider alternative Redis structures (e.g., sets per action/resource)
-  // for more efficient querying with very large rule sets.
-  async queryRules(action: string, resource: string): Promise<GuantrRule[]> {
-    const allRules = await this.getRules();
-    return allRules.filter((rule) => rule.action === action && rule.resource === resource);
-  }
-
-  // cache?: Storage['cache']; // Optional: Implement cache using Redis commands
-}
-```
-
-### SQLite (using `better-sqlite3` or `Bun.sqlite`)
-
-Stores rules in a structured SQLite database table.
-
-```ts
-// Assumes using better-sqlite3 or Bun.sqlite's similar API
-// import Database from 'better-sqlite3';
-// const db = new Database('guantr.db'); OR import { Database } from 'bun:sqlite'; const db = new Database(...);
-
-// --- Database Setup ---
+const db = new Database(':memory:');
 db.exec(`
   CREATE TABLE IF NOT EXISTS rules (
-    action TEXT NOT NULL,
+    action   TEXT NOT NULL,
     resource TEXT NOT NULL,
-    condition TEXT, -- Store JSON as TEXT
-    effect TEXT NOT NULL CHECK(effect IN ('allow', 'deny')),
-    PRIMARY KEY (action, resource, condition, effect) -- Example PK
+    effect   TEXT NOT NULL CHECK (effect IN ('allow', 'deny')),
+    matchCondition TEXT,
+    PRIMARY KEY (action, resource, effect)
   );
+  CREATE INDEX IF NOT EXISTS idx_rules_lookup ON rules(action, resource);
 `);
-db.exec(`CREATE INDEX IF NOT EXISTS idx_rules_action_resource ON rules (action, resource);`);
 
-// --- Prepared Statements ---
-const insertStmt = db.prepare<[string, string, string | null, string]>(
-  'INSERT OR REPLACE INTO rules (action, resource, condition, effect) VALUES (?, ?, ?, ?)',
+const insertStmt = db.prepare(
+  'INSERT OR REPLACE INTO rules (action, resource, effect, matchCondition) VALUES (?, ?, ?, ?)',
 );
-const queryStmt = db.prepare<[string, string]>(
-  'SELECT action, resource, condition, effect FROM rules WHERE action = ? AND resource = ?',
-);
-const getAllStmt = db.prepare('SELECT action, resource, condition, effect FROM rules');
 const clearStmt = db.prepare('DELETE FROM rules');
+const getAllStmt = db.prepare('SELECT action, resource, effect, matchCondition FROM rules');
+const queryStmt = db.prepare(
+  'SELECT action, resource, effect, matchCondition FROM rules WHERE action = ? AND resource = ?',
+);
 
-// --- Storage Class ---
 class SQLiteStorage implements Storage {
   async setRules(rules: GuantrRule[]): Promise<void> {
-    // Use a transaction for atomic bulk replace
     db.transaction((ruleList: GuantrRule[]) => {
-      clearStmt.run(); // Clear existing rules first
+      clearStmt.run();
       for (const rule of ruleList) {
         insertStmt.run(
           rule.action,
           rule.resource,
-          rule.condition ? JSON.stringify(rule.condition) : null,
           rule.effect,
+          rule.matchCondition ? JSON.stringify(rule.matchCondition) : null,
         );
       }
     })(rules);
@@ -151,127 +110,230 @@ class SQLiteStorage implements Storage {
     const rows = getAllStmt.all() as Array<{
       action: string;
       resource: string;
-      condition: string | null;
       effect: 'allow' | 'deny';
+      matchCondition: string | null;
     }>;
     return rows.map((row) => ({
       ...row,
-      condition: row.condition ? JSON.parse(row.condition) : null,
+      matchCondition: row.matchCondition ? JSON.parse(row.matchCondition) : null,
     }));
   }
 
   async queryRules(action: string, resource: string): Promise<GuantrRule[]> {
-    // This query efficiently filters at the database level
     const rows = queryStmt.all(action, resource) as Array<{
       action: string;
       resource: string;
-      condition: string | null;
       effect: 'allow' | 'deny';
+      matchCondition: string | null;
     }>;
     return rows.map((row) => ({
       ...row,
-      condition: row.condition ? JSON.parse(row.condition) : null,
+      matchCondition: row.matchCondition ? JSON.parse(row.matchCondition) : null,
     }));
   }
-
-  // cache?: Storage['cache']; // Optional: Could implement cache using another table or external cache
 }
 ```
+
+Key points:
+
+- `matchCondition` is stored as a JSON string (`JSON.stringify` on write, `JSON.parse` on read).
+- `null` conditions are stored as SQL `NULL` — never as the string `"null"`.
+- The `queryRules` method uses a prepared statement with indexed columns for fast lookups.
 
 ### Prisma
 
-Uses Prisma ORM for type-safe database interactions.
+**Schema:**
 
 ```prisma
-// schema.prisma
-
 model Rule {
-  id        Int     @id @default(autoincrement())
-  resource  String
-  action    String
-  condition Json? // Prisma supports JSON type
-  effect    String  // Could use an Enum here
+  action         String
+  resource       String
+  effect         String
+  matchCondition Json?
 
-  @@index([resource, action])
+  @@id([action, resource, effect])
+  @@index([action, resource])
 }
 ```
 
+**Adapter:**
+
 ```ts
+import { PrismaClient } from '@prisma/client';
 import type { GuantrRule } from 'guantr';
 import type { Storage } from 'guantr/storage';
-import { PrismaClient, Prisma } from '@prisma/client'; // Import Prisma types if needed
 
 const prisma = new PrismaClient();
 
 class PrismaStorage implements Storage {
   async setRules(rules: GuantrRule[]): Promise<void> {
-    // Use Prisma transaction API for atomicity
     await prisma.$transaction(async (tx) => {
-      await tx.rule.deleteMany(); // Clear existing rules
-
+      await tx.rule.deleteMany();
       if (rules.length > 0) {
-        // Prepare data for createMany, ensuring compatibility
-        const dataToCreate = rules.map((rule) => ({
-          action: rule.action,
-          resource: rule.resource,
-          // Prisma handles JSON serialization for the 'condition' field
-          condition: (rule.condition as Prisma.JsonValue) ?? Prisma.DbNull,
-          effect: rule.effect,
-        }));
-        await tx.rule.createMany({ data: dataToCreate });
+        await tx.rule.createMany({
+          data: rules.map((rule) => ({
+            action: rule.action,
+            resource: rule.resource,
+            effect: rule.effect,
+            matchCondition: rule.matchCondition ?? null,
+          })),
+        });
       }
     });
   }
 
   async getRules(): Promise<GuantrRule[]> {
-    const rules = await prisma.rule.findMany();
-    // Map Prisma result to GuantrRule, handling potential null condition
-    return rules.map((rule) => ({
-      ...rule,
-      condition: rule.condition as GuantrRuleCondition | null, // Cast JsonValue back
+    const rows = await prisma.rule.findMany();
+    return rows.map((row) => ({
+      effect: row.effect as 'allow' | 'deny',
+      action: row.action,
+      resource: row.resource,
+      matchCondition: row.matchCondition as GuantrRule['matchCondition'],
     }));
   }
 
   async queryRules(action: string, resource: string): Promise<GuantrRule[]> {
-    // Efficiently filters at the database level
-    const rules = await prisma.rule.findMany({
+    const rows = await prisma.rule.findMany({
       where: { action, resource },
     });
-    return rules.map((rule) => ({
-      ...rule,
-      condition: rule.condition as GuantrRuleCondition | null,
+    return rows.map((row) => ({
+      effect: row.effect as 'allow' | 'deny',
+      action: row.action,
+      resource: row.resource,
+      matchCondition: row.matchCondition as GuantrRule['matchCondition'],
+    }));
+  }
+}
+```
+
+With Prisma, the `Json` column type handles serialization automatically. The condition AST contains plain objects without class instances, so Prisma's JSON round-trip preserves them intact.
+
+### PostgreSQL (Drizzle ORM)
+
+```ts
+import { eq, and as sqlAnd } from 'drizzle-orm';
+import { pgTable, text, jsonb } from 'drizzle-orm/pg-core';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import type { GuantrRule } from 'guantr';
+import type { Storage } from 'guantr/storage';
+
+const rulesTable = pgTable('rules', {
+  action: text('action').notNull(),
+  resource: text('resource').notNull(),
+  effect: text('effect', { enum: ['allow', 'deny'] }).notNull(),
+  matchCondition: jsonb('match_condition'),
+});
+
+const db = drizzle(pool, { schema: { rules: rulesTable } });
+
+class DrizzleStorage implements Storage {
+  async setRules(rules: GuantrRule[]): Promise<void> {
+    await db.transaction(async (tx) => {
+      await tx.delete(rulesTable);
+      if (rules.length > 0) {
+        await tx.insert(rulesTable).values(
+          rules.map((r) => ({
+            action: r.action,
+            resource: r.resource,
+            effect: r.effect,
+            matchCondition: r.matchCondition ?? null,
+          })),
+        );
+      }
+    });
+  }
+
+  async getRules(): Promise<GuantrRule[]> {
+    const rows = await db.select().from(rulesTable);
+    return rows.map((r) => ({
+      effect: r.effect as 'allow' | 'deny',
+      action: r.action,
+      resource: r.resource,
+      matchCondition: r.matchCondition as GuantrRule['matchCondition'],
     }));
   }
 
-  // cache?: Storage['cache']; // Optional: Implement cache if needed
+  async queryRules(action: string, resource: string): Promise<GuantrRule[]> {
+    const rows = await db
+      .select()
+      .from(rulesTable)
+      .where(sqlAnd(eq(rulesTable.action, action), eq(rulesTable.resource, resource)));
+    return rows.map((r) => ({
+      effect: r.effect as 'allow' | 'deny',
+      action: r.action,
+      resource: r.resource,
+      matchCondition: r.matchCondition as GuantrRule['matchCondition'],
+    }));
+  }
 }
 ```
 
-## Using the Custom Adapter
+## Error Handling
 
-Once your adapter is implemented, simply pass an instance of it to `createGuantr` in the options:
+- **`setRules` failures**: Surfaced to the caller. If your adapter writes rules partially before failing, the next `queryRules`/`getRules` call may return an inconsistent set. Use database transactions to ensure atomicity.
+- **`getRules` / `queryRules` failures**: Surfaced directly. Ensure your adapter returns `[]` (not throws) when no rules match — `queryRules` should return an empty array for queries that find nothing.
+- **JSON parse failures**: If `JSON.parse` throws on a corrupted `matchCondition` column, it will propagate up. Consider wrapping in a try/catch and discarding malformed rows, or running data integrity checks after migrations.
+
+## Usage
+
+### With `setRules()` at startup
 
 ```ts
 import { createGuantr } from 'guantr';
-// Assuming MyMeta and MyLocalStorageAdapter are defined
-// import type { MyMeta } from './meta';
-// import { MyLocalStorageAdapter } from './localstorage-adapter';
 
-async function initializeGuantr() {
-  const customStorage = new MyLocalStorageAdapter();
-  // Or new RedisStorage(), new SQLiteStorage(), new PrismaStorage()
+const storage = new MyCustomStorage();
+const guantr = await createGuantr({
+  storage,
+  context: () => ({ userId: '123' }),
+});
 
-  const guantr = await createGuantr</* MyMeta */>({
-    storage: customStorage,
-    // getContext function if needed
-  });
+await guantr.setRules((allow, deny) => {
+  allow('read', [
+    'post',
+    ({ eq, resource, literal }) => eq(resource('status'), literal('published')),
+  ]);
+});
 
-  // Guantr instance now uses your custom storage
-  // await guantr.setRules(...);
-  // const canAccess = await guantr.can(...);
-}
-
-initializeGuantr();
+const canRead = await guantr.can('read', ['post', { id: 1, status: 'published' }]);
 ```
 
-By implementing a custom storage adapter, you gain control over how and where Guantr rules are stored, enabling persistence, sharing, and integration with various backend systems. Remember to consider the efficiency of your `queryRules` implementation for optimal performance.
+### With pre-seeded database (no `setRules()` needed)
+
+When rules are already persisted in the database (e.g., from a migration using `serializeRules()`), the storage adapter serves them directly via `queryRules()`. No `setRules()` call is needed at runtime. See the [Database-Backed Rule Management](/guides/database-backed-rules) guide for the full pattern.
+
+```ts
+import { createGuantr } from 'guantr';
+
+const storage = new PostgresStorage(sql); // queryRules reads from seeded rows
+const guantr = await createGuantr<AppMeta>({
+  storage,
+  context: () => ({ userId: request.user.id }),
+});
+
+const ok = await guantr.can('read', ['post', post]);
+```
+
+## Migration from v1.x
+
+In v1.x, conditions were stored as tuple expressions on a `condition` field:
+
+```ts
+{ effect: 'allow', action: 'read', resource: 'post', condition: { status: ['eq', 'draft'] } }
+```
+
+In v2.0, the field is renamed to `matchCondition` and conditions use the builder DSL, producing a `Condition` AST:
+
+```ts
+{
+  effect: 'allow', action: 'read', resource: 'post',
+  matchCondition: { type: 'condition', node: { type: 'operator', operator: 'eq', operands: [...] } }
+}
+```
+
+If you're migrating a v1.x storage adapter, ensure you:
+
+- Rename `condition` → `matchCondition` in your schema and queries.
+- Convert legacy tuple expressions to the v2 `Condition` AST format.
+- Remove `clearRules` — use `setRules([])` instead.
+- Make `cache.has` required if you provide a `cache` property.
+- See the full [Migration Guide](/guides/migration-v1-to-v2) for all breaking changes.

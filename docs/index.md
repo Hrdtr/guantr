@@ -15,13 +15,27 @@ hero:
       link: /introduction
 
 features:
-  - title: Flexible Authorization
-    details: Guantr offers flexible authorization and permission checking, allowing you to manage permission rules and control access with minimal overhead and a simple API.
-    icon: 🦾
-  - title: Type-Safe JavaScript Library
-    details: Guantr is a type-safe JavaScript library for efficient authorization and permission checking, ensuring type safety in your codebase.
-    icon: 🛡️
-  - title: Context-Aware Access Control
-    details: Guantr provides context-aware access control, enabling you to set rules based on contextual information, enhancing the security and flexibility of your application.
-    icon: 🧩
+  - icon: 🔒
+    title: Type-safe
+    details: Misspelled an action? Wrong field in a condition? TypeScript catches it before your code runs.
+    link: /guides/typescript-integration
+  - icon: 🏗️
+    title: Builder DSL
+    details: <code>eq</code>, <code>and</code>, <code>some</code>, <code>contains</code> — 17 operators with operand types enforced at compile time.
+    link: /guides/defining-rules/condition-operators
+  - icon: 📦
+    title: Serializable to JSON
+    details: Conditions become plain JSON. Store them wherever you want — database, config file, edge KV.
+    link: /api/utilities#serializerules
+  - icon: 🌐
+    title: Any runtime, any framework
+    details: Node, Deno, Bun, edge, browser. No opinions on your server or framework.
+  - icon: 💾
+    title: Bring your own storage
+    details: Adapters for SQLite, PostgreSQL, Prisma, Drizzle — or write your own.
+    link: /advanced-usage/custom-storage-adapter
+  - icon: ⚡
+    title: Deny wins, always
+    details: Unconditional denies short-circuit. Conditional denies override allows. Simple, predictable.
+    link: /guides/defining-rules#rule-precedence
 ---

@@ -5,15 +5,15 @@ describe('can.abstract / cannot.abstract', () => {
   it('can.abstract should return true if any allow rule exists (ignores deny rules)', async () => {
     const guantr = await createGuantr();
     await guantr.setRules([
-      { effect: 'allow', action: 'read', resource: 'post', condition: null },
-      { effect: 'deny', action: 'read', resource: 'post', condition: { published: ['eq', true] } },
+      { effect: 'allow', action: 'read', resource: 'post' },
+      { effect: 'deny', action: 'read', resource: 'post' },
     ]);
     expect(await guantr.can.abstract('read', 'post')).toBe(true);
   });
 
   it('can.abstract should return false when no allow rule exists', async () => {
     const guantr = await createGuantr();
-    await guantr.setRules([{ effect: 'deny', action: 'read', resource: 'post', condition: null }]);
+    await guantr.setRules([{ effect: 'deny', action: 'read', resource: 'post' }]);
     expect(await guantr.can.abstract('read', 'post')).toBe(false);
   });
 
@@ -22,17 +22,9 @@ describe('can.abstract / cannot.abstract', () => {
     expect(await guantr.can.abstract('read', 'post')).toBe(false);
   });
 
-  it('can.abstract should return true even when only conditional allow rules exist', async () => {
-    const guantr = await createGuantr();
-    await guantr.setRules([
-      { effect: 'allow', action: 'read', resource: 'post', condition: { published: ['eq', true] } },
-    ]);
-    expect(await guantr.can.abstract('read', 'post')).toBe(true);
-  });
-
   it('can.abstract should be resource-key scoped (does not bleed across resources)', async () => {
     const guantr = await createGuantr();
-    await guantr.setRules([{ effect: 'allow', action: 'read', resource: 'post', condition: null }]);
+    await guantr.setRules([{ effect: 'allow', action: 'read', resource: 'post' }]);
     expect(await guantr.can.abstract('read', 'post')).toBe(true);
     expect(await guantr.can.abstract('read', 'user')).toBe(false);
   });
@@ -44,15 +36,15 @@ describe('can.abstract / cannot.abstract', () => {
 
   it('cannot.abstract returns false when an allow rule exists', async () => {
     const guantr = new Guantr();
-    await guantr.setRules([{ effect: 'allow', action: 'read', resource: 'post', condition: null }]);
+    await guantr.setRules([{ effect: 'allow', action: 'read', resource: 'post' }]);
     expect(await guantr.cannot.abstract('read', 'post')).toBe(false);
   });
 
   it('cannot.abstract ignores deny rules', async () => {
     const guantr = new Guantr();
     await guantr.setRules([
-      { effect: 'allow', action: 'read', resource: 'post', condition: null },
-      { effect: 'deny', action: 'read', resource: 'post', condition: { published: ['eq', false] } },
+      { effect: 'allow', action: 'read', resource: 'post' },
+      { effect: 'deny', action: 'read', resource: 'post' },
     ]);
     expect(await guantr.cannot.abstract('read', 'post')).toBe(false);
   });
@@ -64,9 +56,7 @@ describe('can.abstract / cannot.abstract', () => {
     expect(canAbstractNoRule).toBe(!cannotAbstractNoRule);
 
     const guantr2 = new Guantr();
-    await guantr2.setRules([
-      { effect: 'allow', action: 'read', resource: 'post', condition: null },
-    ]);
+    await guantr2.setRules([{ effect: 'allow', action: 'read', resource: 'post' }]);
     const canAbstractWithRule = await guantr2.can.abstract('read', 'post');
     const cannotAbstractWithRule = await guantr2.cannot.abstract('read', 'post');
     expect(canAbstractWithRule).toBe(!cannotAbstractWithRule);

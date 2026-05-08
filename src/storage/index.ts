@@ -12,6 +12,10 @@ export class InMemoryStorage implements Storage {
 
   /**
    * Atomically replaces all stored rules with the provided rules.
+   * Because JavaScript is single-threaded and {@link Map.clear} followed by
+   * {@link Map.set} runs synchronously within the same call, this operation
+   * is effectively atomic — no concurrent `queryRules` can observe an
+   * intermediate state.
    * @param rules - Array of rules to set.
    */
   async setRules(rules: GuantrRule[]) {
