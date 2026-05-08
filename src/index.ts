@@ -1,3 +1,5 @@
+// type MatchConditionBuilder import needed for JSDoc @link
+// oxlint-disable-next-line eslint/no-unused-vars
 import type { Condition, MatchConditionFn, MatchConditionBuilder } from './condition/types';
 import type { Storage } from './storage/types';
 import type {
