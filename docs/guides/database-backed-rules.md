@@ -226,6 +226,8 @@ CREATE TABLE user_rules (
   rule_id UUID NOT NULL REFERENCES rules(id) ON DELETE CASCADE,
   PRIMARY KEY (user_id, rule_id)
 );
+
+CREATE INDEX idx_rules_lookup ON rules (action, resource);
 ```
 
 A user's effective permissions are the union of direct assignments (`user_rules`) and role-inherited ones (`user_roles` → `role_rules`).
