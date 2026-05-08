@@ -1,7 +1,18 @@
-import { Storage } from './storage';
+/* v8 ignore file */
 
+import type { MatchConditionFn, Condition } from './condition/types';
+import type { Storage } from './storage';
+
+/**
+ * Options for configuring a {@link Guantr} instance.
+ *
+ * The `context` option accepts either a static context object or a function
+ * that returns the context (optionally async). When a plain object is passed,
+ * it is wrapped internally as `() => Promise.resolve(obj)` — context is still
+ * resolved on every check, but the value is the same static object.
+ */
 export type GuantrOptions<Context extends Record<string, unknown> = Record<string, unknown>> = {
-  getContext?: () => Context | PromiseLike<Context>;
+  context?: Context | (() => Context | Promise<Context>);
   storage?: Storage;
   /**
    * Maximum number of rule iterations before the circuit breaker trips.
@@ -31,160 +42,6 @@ export type GuantrResourceMap<
   T extends Record<string, GuantrResource> = Record<string, GuantrResource>,
 > = T;
 
-export type ConditionOperator =
-  | 'eq'
-  | 'in'
-  | 'contains'
-  | 'startsWith'
-  | 'endsWith'
-  | 'gt'
-  | 'gte'
-  | 'has'
-  | 'hasSome'
-  | 'hasEvery'
-  | 'some'
-  | 'every'
-  | 'none';
-
-export interface ConditionOptions {
-  caseInsensitive?: boolean;
-}
-
-type AnyContextProp = `$ctx.${string}` & {};
-
-// Helper type to extract context leaf keys once and reuse
-type ContextStringKeys<Context extends Record<string, unknown>> = LeafKeys<
-  Context,
-  string,
-  '$ctx.'
->;
-type ContextStringArrayKeys<Context extends Record<string, unknown>> = LeafKeys<
-  Context,
-  string[],
-  '$ctx.'
->;
-type ContextNumberKeys<Context extends Record<string, unknown>> = LeafKeys<
-  Context,
-  number,
-  '$ctx.'
->;
-type ContextNumberArrayKeys<Context extends Record<string, unknown>> = LeafKeys<
-  Context,
-  number[],
-  '$ctx.'
->;
-type ContextBooleanKeys<Context extends Record<string, unknown>> = LeafKeys<
-  Context,
-  boolean,
-  '$ctx.'
->;
-
-type NullishConditionExpression<T extends null | undefined> = [operator: 'eq', operand: T];
-
-type StringConditionExpression<Context extends Record<string, unknown> = Record<string, unknown>> =
-  | [
-      operator: 'eq',
-      operand: (string & {}) | AnyContextProp | ContextStringKeys<Context>,
-      options?: { caseInsensitive?: boolean },
-    ]
-  | [
-      operator: 'in',
-      operand: (string & {})[] | AnyContextProp | ContextStringArrayKeys<Context>,
-      options?: { caseInsensitive?: boolean },
-    ]
-  | [
-      operator: 'contains',
-      operand: (string & {}) | AnyContextProp | ContextStringKeys<Context>,
-      options?: { caseInsensitive?: boolean },
-    ]
-  | [
-      operator: 'startsWith',
-      operand: (string & {}) | AnyContextProp | ContextStringKeys<Context>,
-      options?: { caseInsensitive?: boolean },
-    ]
-  | [
-      operator: 'endsWith',
-      operand: (string & {}) | AnyContextProp | ContextStringKeys<Context>,
-      options?: { caseInsensitive?: boolean },
-    ];
-
-type NumberConditionExpression<Context extends Record<string, unknown> = Record<string, unknown>> =
-  | [operator: 'eq', operand: number | AnyContextProp | ContextNumberKeys<Context>]
-  | [operator: 'in', operand: number[] | AnyContextProp | ContextNumberArrayKeys<Context>]
-  | [operator: 'gt', operand: number | AnyContextProp | ContextNumberKeys<Context>]
-  | [operator: 'gte', operand: number | AnyContextProp | ContextNumberKeys<Context>];
-
-type BooleanConditionExpression<Context extends Record<string, unknown> = Record<string, unknown>> =
-  [operator: 'eq', operand: boolean | AnyContextProp | ContextBooleanKeys<Context>];
-
-type ArrayConditionExpressionBasic<
-  T extends (string | number | boolean)[] = (string | number | boolean)[],
-  Context extends Record<string, unknown> = Record<string, unknown>,
-> =
-  | [
-      operator: 'has',
-      operand: T[number] | AnyContextProp | LeafKeys<Context, T[number], '$ctx.'>,
-      options?: string extends T[number] ? { caseInsensitive?: boolean } : never,
-    ]
-  | [
-      operator: 'hasSome',
-      operand: T | AnyContextProp | LeafKeys<Context, T, '$ctx.'>,
-      options?: string extends T[number] ? { caseInsensitive?: boolean } : never,
-    ]
-  | [
-      operator: 'hasEvery',
-      operand: T | AnyContextProp | LeafKeys<Context, T, '$ctx.'>,
-      options?: string extends T[number] ? { caseInsensitive?: boolean } : never,
-    ];
-
-// Internal self-referential type for untyped conditions (index signature)
-interface _GuantrUntypedRuleCondition {
-  [key: string]: GuantrRuleConditionExpression | _GuantrUntypedRuleCondition;
-}
-
-// Untyped version for ArrayConditionExpressionObject to avoid circular reference
-type ArrayConditionExpressionObjectUntyped =
-  // oxlint-disable-next-line typescript/no-explicit-any
-  | [operator: 'some', operand: Record<string, any>]
-  // oxlint-disable-next-line typescript/no-explicit-any
-  | [operator: 'every', operand: Record<string, any>]
-  // oxlint-disable-next-line typescript/no-explicit-any
-  | [operator: 'none', operand: Record<string, any>];
-
-// The untyped condition expression (default when no generics provided)
-export type GuantrRuleConditionExpression =
-  | NullishConditionExpression<null | undefined>
-  | StringConditionExpression
-  | NumberConditionExpression
-  | BooleanConditionExpression
-  | ArrayConditionExpressionBasic
-  | ArrayConditionExpressionObjectUntyped;
-
-// Typed version used in the generic GuantrRuleCondition
-type ArrayConditionExpressionObject<
-  T extends Record<string, unknown>[] = Record<string, unknown>[],
-  Context extends Record<string, unknown> = Record<string, unknown>,
-  Typed extends boolean = true,
-> =
-  | [
-      operator: 'some',
-      operand: Typed extends false
-        ? Record<string, GuantrRuleConditionExpression>
-        : GuantrRuleCondition<T[number], Context>,
-    ]
-  | [
-      operator: 'every',
-      operand: Typed extends false
-        ? Record<string, GuantrRuleConditionExpression>
-        : GuantrRuleCondition<T[number], Context>,
-    ]
-  | [
-      operator: 'none',
-      operand: Typed extends false
-        ? Record<string, GuantrRuleConditionExpression>
-        : GuantrRuleCondition<T[number], Context>,
-    ];
-
 /**
  * Extracts the Context type from a GuantrMeta, or defaults to Record<string, unknown>.
  */
@@ -195,7 +52,7 @@ export type GuantrContextFromMeta<Meta extends GuantrMeta<GuantrResourceMap> | u
 /**
  * A rule in the authorization system.
  *
- * - When `Meta` is provided (typed mode), `resource`, `action`, and `condition` are
+ * - When `Meta` is provided (typed mode), `resource`, `action`, and `matchCondition` are
  *   narrowed based on the resource map.
  * - When `Meta` is omitted (untyped mode), all fields accept plain strings / any condition.
  */
@@ -211,73 +68,35 @@ export type GuantrRule<
     ? {
         resource: ResourceKey;
         action: ResourceMap[ResourceKey]['action'];
-        condition?: GuantrRuleCondition<
-          ResourceMap[ResourceKey]['model'],
-          GuantrContextFromMeta<Meta>
-        > | null;
+        matchCondition?:
+          | MatchConditionFn<ResourceMap[ResourceKey]['model'], GuantrContextFromMeta<Meta>>
+          | Condition
+          | null;
         effect: 'allow' | 'deny';
       }
     : {
         resource: string;
         action: string;
-        condition?: GuantrRuleCondition | null;
+        matchCondition?: MatchConditionFn | Condition | null;
         effect: 'allow' | 'deny';
       };
 
-export type LeafKeysValuePair<Obj extends Record<string, unknown>> = {
-  [P in string & LeafKeys<Obj>]: Value<Obj, P>;
-};
-
-type ArrayConditionExpression<
-  T extends unknown[] = unknown[],
-  Context extends Record<string, unknown> = Record<string, unknown>,
-> = T extends (string | number | boolean)[]
-  ? ArrayConditionExpressionBasic<T, Context>
-  : T extends Record<string, unknown>[]
-    ? ArrayConditionExpressionObject<T, Context>
-    : never;
-
-// Simplify condition expression resolution
-type ConditionExpression<
-  T,
-  Context extends Record<string, unknown> = Record<string, unknown>,
-> = T extends unknown[]
-  ?
-      | ArrayConditionExpression<T, Context>
-      | { length: NumberConditionExpression<Context>; $expr?: ArrayConditionExpression<T, Context> }
-  : T extends string
-    ? StringConditionExpression<Context>
-    : T extends number
-      ? NumberConditionExpression<Context>
-      : T extends boolean
-        ? BooleanConditionExpression<Context>
-        : never;
-
-type ResolveConditionExpression<
-  T,
-  Context extends Record<string, unknown> = Record<string, unknown>,
-> = T extends null | undefined
-  ? NullishConditionExpression<T>
-  : T extends Record<string, unknown>
-    ? GuantrRuleCondition<T, Context>
-    : ConditionExpression<T, Context>;
-
 /**
- * A condition object for a rule.
+ * Extracts leaf-level key paths from a nested object type as dot-notation string
+ * literals. Nested objects are recursed into, while arrays terminate recursion.
  *
- * - Without generics: accepts any keys with `GuantrRuleConditionExpression` values
- *   or nested conditions (index-signature fallback).
- * - With `<Model, Context>`: keys are narrowed to the model's properties and the
- *   expression types are narrowed accordingly.
+ * Recursion is limited to **5 levels** of depth to prevent infinite type resolution
+ * on self-referential types. Paths deeper than the limit are silently excluded.
+ * To increase the depth limit, adjust the `Depth` default and the corresponding
+ * {@link Decrement} mapping.
+ *
+ * @example
+ * ```ts
+ * type Model = { user: { name: string; address: { city: string } }; tags: string[] };
+ * type Keys = LeafKeys<Model, string>;
+ * // "user.name" | "user.address.city" | "tags"
+ * ```
  */
-export type GuantrRuleCondition<
-  Model extends Record<string, unknown> = Record<string, unknown>,
-  Context extends Record<string, unknown> = Record<string, unknown>,
-> = string extends keyof Model
-  ? _GuantrUntypedRuleCondition
-  : Partial<{ [K in keyof Model]: ResolveConditionExpression<Model[K], Context> }>;
-
-// Optimized LeafKeys with depth limit to prevent infinite recursion
 export type LeafKeys<
   Obj extends Record<string, unknown>,
   // oxlint-disable-next-line typescript/no-explicit-any
@@ -315,7 +134,7 @@ type Decrement<N extends number> = N extends 5
         : 0;
 
 // Optimized Value type with depth limit
-type Value<Obj, Path extends string, Depth extends number = 5> = Depth extends 0
+export type Value<Obj, Path extends string, Depth extends number = 5> = Depth extends 0
   ? never
   : Path extends `${infer Segment}.${infer Rest}`
     ? Segment extends `${infer Key}?`

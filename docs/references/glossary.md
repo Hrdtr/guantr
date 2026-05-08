@@ -6,7 +6,7 @@ This glossary defines key terms used in the Guantr documentation to help ensure 
 
 ## **ABAC (Attribute-Based Access Control)**
 
-An authorization model where access decisions are made based on evaluating various attributes of the subject (user), resource, action, and environment. Guantr implements ABAC through its `Condition` system. See the [ABAC Guide](/guides/example-abac.md).
+An authorization model where access decisions are made based on evaluating various attributes of the subject (user), resource, action, and environment. Guantr implements ABAC through its `Condition` system. See the [ABAC Reference](/guides/common-patterns#9-abac-attribute-to-builder-reference).
 
 ## **Action**
 
@@ -14,24 +14,24 @@ A string representing the operation a user attempts to perform on a `Resource` (
 
 ## **Condition**
 
-An optional property within a `Rule`. It's an object defining specific criteria that must be met for the rule to apply. Keys correspond to `Resource` model properties, and values are `Condition Expressions`. Conditions enable fine-grained control for ABAC and ReBAC patterns. Defined as `GuantrRuleCondition`.
+An optional property within a `Rule`. It's a serialized AST tree returned by the `matchCondition` builder DSL, comprising `AstNode`s (`OperatorNode`, `LogicalNode`) wrapped in a `Condition` object. Conditions enable fine-grained control for ABAC and ReBAC patterns. Defined as `Condition`.
 
 ## **Condition Expression**
 
-The value associated with a key inside a `Condition` object. It defines the specific comparison logic, typically using an array format
-`[Operator, Operand, Options?]` (e.g., `['eq', 'value']`, `['in', ['a', 'b']]`). Defined as `GuantrRuleConditionExpression`.
+A term from Guantr v1.x. In v2, conditions are composed using the type-safe builder DSL (
+`eq`, `ne`, `in`, `and`, `or`, etc.) rather than the legacy tuple format `[Operator, Operand, Options?]`. The builder returns a `Condition` AST that can be serialized to JSON for storage and evaluated at check time. See the [Migration Guide](/guides/migration-v1-to-v2.md) for details.
 
 ## **Context**
 
-An object containing dynamic information relevant to a permission check, usually pertaining to the user or environment (e.g., user ID, roles, IP address). It's made available during rule evaluation via the `$ctx` prefix in `Operand`s. The shape of this object is defined in `GuantrMeta` and provided by the `getContext` function.
+An object containing dynamic information relevant to a permission check, usually pertaining to the user or environment (e.g., user ID, roles, IP address). It's made available during rule evaluation via the builder's `context()` method inside `matchCondition` functions. The shape of this object is defined in `GuantrMeta` and provided by the `context` option.
 
 ## **Effect**
 
 A property of a `Rule` indicating the outcome if the rule matches. It must be either `'allow'` (granting permission) or `'deny'` (revoking permission). `deny` rules take precedence over `allow` rules.
 
-## **`getContext`**
+## **`context`**
 
-An optional asynchronous function provided in the `GuantrOptions` during `createGuantr` initialization. It's responsible for returning the `Context` object used during rule evaluation. See the [Using Context Effectively Guide](/guides/context-usage.md).
+An optional value or function provided in the `GuantrOptions` during `createGuantr` initialization. It provides the `Context` object used during rule evaluation. When a plain object is passed, it is used as a static context. When a function is passed, it is called on every `can`/`cannot` check (once per batch) to resolve the context. See the [Using Context Effectively Guide](/guides/context-usage.md).
 
 ## **`GuantrMeta`**
 
@@ -39,15 +39,15 @@ A TypeScript type (`GuantrMeta<ResourceMap, Context>`) used to define an applica
 
 ## **Operand**
 
-The value part within a `Condition Expression` (`[Operator, Operand, Options?]`) against which a resource property or context value is compared. Can be a literal value (string, number, boolean, array) or a string starting with `$ctx.` to reference a `Context` property.
+The value part within an AST node (specifically `OperatorNode.operands`). In v2, operands are `ValueRef` objects — either a `ResourceRef` (`{ type: 'resource', path: '...' }`), a `ContextRef` (`{ type: 'context', path: '...' }`), or a `LiteralRef` (`{ type: 'literal', value: ... }`). V1 used string-prefixed operands (`'$ctx.field'`), which are no longer supported.
 
 ## **Operator**
 
-The keyword within a `Condition Expression` (`[Operator, Operand, Options?]`) specifying the comparison logic (e.g., `'eq'`, `'in'`, `'contains'`, `'gt'`, `'some'`). See the [Condition Operators Explained Guide](/guides/defining-rules/condition-operators.md).
+The keyword within an AST node specifying the comparison logic (`'eq'`, `'in'`, `'contains'`, `'gt'`, `'some'`, `'and'`, `'or'`, `'not'`, etc.). In the builder DSL, each operator corresponds to a typed method on `MatchConditionBuilder` (e.g., `builder.eq()`, `builder.and()`). See the [Condition Operators Explained Guide](/guides/defining-rules/condition-operators.md).
 
 ## **RBAC (Role-Based Access Control)**
 
-An authorization model where permissions are assigned to predefined roles (e.g., 'admin', 'viewer'), and users are granted access based on the roles they hold. See the [RBAC Guide](/guides/example-basic-rbac.md).
+An authorization model where permissions are assigned to predefined roles (e.g., 'admin', 'viewer'), and users are granted access based on the roles they hold. See the [Role-Based Access pattern](/guides/common-patterns#2-role-based-access).
 
 ## **ReBAC (Relationship-Based Access Control)**
 

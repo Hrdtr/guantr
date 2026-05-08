@@ -1,10 +1,10 @@
 # Quick Start
 
-This guide will walk you through the initial steps to get up and running with Guantr in your project. Guantr provides a flexible, type-safe way to handle permissions and access control, making it a great choice for modern JavaScript and TypeScript applications.
+This guide walks through installing Guantr, defining your first permission rules, and performing authorization checks.
+
+---
 
 ## Installation
-
-First, you'll need to install the Guantr package. Depending on your package manager of choice, you can use one of the following commands:
 
 ```sh
 # ✨ Auto-detect
@@ -26,173 +26,190 @@ bun install guantr
 deno install npm:guantr
 ```
 
-This command adds Guantr to your project's dependencies.
+---
 
-## Importing Guantr
+## Import
 
-Once installed, import the necessary functions from Guantr:
-
-**ESM** (Node.js, Bun)
-
-```js
+```ts
 import { createGuantr } from 'guantr';
-// For defining typed rules (optional but recommended with TypeScript)
-// import type { GuantrRule, GuantrMeta } from "guantr";
+import type { GuantrMeta, GuantrRule } from 'guantr';
 ```
 
-**CommonJS** (Legacy Node.js)
+---
 
-```js
-const { createGuantr } = require('guantr');
+## Define Your Meta Type
+
+For TypeScript projects, define a `GuantrMeta` type that describes your resources, their allowed actions, model shapes, and context:
+
+```ts
+type MyMeta = GuantrMeta<
+  {
+    post: {
+      action: 'read' | 'edit' | 'delete';
+      model: { id: number; archived: boolean; ownerId: string };
+    };
+    comment: {
+      action: 'read' | 'create';
+      model: { id: number; postId: number };
+    };
+  },
+  { userId: string | null }
+>;
 ```
 
-**CDN** (Deno, Bun and Browsers)
+The resource map defines which actions are valid for each resource type and the shape of the model you'll pass to `can()` / `cannot()`. The second type parameter defines the evaluation context shape available to conditions.
 
-```js
-import { createGuantr } from 'https://esm.sh/guantr';
-```
+---
 
-## Initializing Guantr
+## Create an Instance
 
-Create an instance using the `createGuantr` function. `createGuantr` is asynchronous as it might interact with storage or asynchronous context.
-
-**Basic Initialization**
+### Bare Instance
 
 ```ts
 const guantr = await createGuantr();
 ```
 
-**With TypeScript (Using GuantrMeta for Type Safety)**
-
-Define your resources, actions, and context shape using `GuantrMeta` for enhanced type checking when defining and checking rules.
+### Typed Instance
 
 ```ts
-import type { GuantrMeta, GuantrRule } from 'guantr';
-
-// Define your application's specific actions, resources, models, and context
-type MyMeta = GuantrMeta<
-  {
-    // ResourceMap
-    post: { action: 'read' | 'edit'; model: { id: number; archived: boolean; ownerId: string } };
-    comment: { action: 'read' | 'create'; model: { id: number; postId: number } };
-  },
-  {
-    // Context
-    userId: string | null;
-  }
->;
-
-const typedGuantr = await createGuantr<MyMeta>();
+const guantr = await createGuantr<MyMeta>();
 ```
 
-**With Context**
-
-Provide a `getContext` function during initialization if your rules need dynamic data (like the current user ID).
+### With Dynamic Context
 
 ```ts
-const contextualGuantr = await createGuantr({
-  // This function will be called whenever context is needed for rule evaluation
-  getContext: async () => {
-    // In a real app, fetch user data, session info, etc.
-    const currentUser = await getCurrentUser();
-    return {
-      userId: currentUser?.id || null,
-    };
+const guantr = await createGuantr<MyMeta>({
+  context: async () => {
+    const user = await getCurrentUser();
+    return { userId: user?.id ?? null };
   },
 });
 ```
 
-## Setting Rules
+### With Initial Rules
 
-Define permissions using the `setRules` method. You can provide rules via a callback function or an array of rule objects.
-
-### Using the Callback Function
-
-Pass an asynchronous function that receives `allow` and `deny` helpers.
+You can pass rules directly to the factory:
 
 ```ts
-await guantr.setRules(async (allow, deny) => {
-  // Allow reading any post
+const guantr = await createGuantr<MyMeta>(async (allow, deny) => {
+  allow('read', 'post');
+  deny('delete', ['post', ({ eq, resource, literal }) => eq(resource('archived'), literal(true))]);
+});
+```
+
+---
+
+## Set Rules
+
+Rules are defined with `setRules()`, which **replaces all existing rules** each time it's called.
+
+### Callback Style
+
+The callback receives `allow` and `deny` helper functions:
+
+```ts
+await guantr.setRules((allow, deny) => {
+  // Unconditional: any post can be read
   allow('read', 'post');
 
-  // Deny reading posts that are archived
-  // Conditions use the format: { field: [operator, value] }
-  deny('read', ['post', { archived: ['eq', true] }]);
+  // Conditional: deny reading archived posts
+  deny('read', ['post', ({ eq, resource, literal }) => eq(resource('archived'), literal(true))]);
 
-  // Example using context (if contextualGuantr was initialized with getContext)
-  // Allow editing a post only if the user is the owner
-  // allow('edit', ['post', { ownerId: ['eq', '$ctx.userId'] }]);
+  // Context-aware: allow editing only own posts
+  allow('edit', [
+    'post',
+    ({ eq, resource, context }) => eq(resource('ownerId'), context('userId')),
+  ]);
+
+  // Unconditional deny blocks everything — takes absolute precedence
+  deny('delete', 'post');
 });
-
-// Note: when using a tuple [resourceKey, condition], the condition is optional.
-// Both of these are valid:
-allow('read', 'post'); // No condition (unconditional)
-allow('read', ['post', { published: ['eq', true] }]); // With condition
 ```
 
-### Using a Direct Array of Rule Objects
+### Array Style
 
-You can also pass an array of rule objects. Remember that the `effect` property should be `'allow'` or `'deny'`, and conditions follow the `[operator, value]` format.
+Pass an array of `GuantrRule` objects — useful for loading rules from a database:
 
 ```ts
 import type { GuantrRule } from 'guantr';
 
-// Define types if using TypeScript without Meta for clarity in this example
-type Action = 'read' | 'edit';
-type ResourceKey = 'post';
-type Post = { archived: boolean };
-type Context = {}; // Empty if not needed for these rules
-
-const rules: GuantrRule<{
-  ResourceMap: { post: { action: Action; model: Post } };
-  Context: Context;
-}>[] = [
+const rules: GuantrRule<MyMeta>[] = [
+  { effect: 'allow', action: 'read', resource: 'post' },
+  {
+    effect: 'deny',
+    action: 'read',
+    resource: 'post',
+    matchCondition: ({ eq, resource, literal }) => eq(resource('archived'), literal(true)),
+  },
   {
     effect: 'allow',
-    action: 'read',
+    action: 'edit',
     resource: 'post',
-    // `condition` is optional — omit it for unconditional rules
+    matchCondition: ({ eq, resource, context }) => eq(resource('ownerId'), context('userId')),
   },
-  {
-    effect: 'deny', // Use 'deny', not 'cannot'
-    action: 'read',
-    resource: 'post',
-    // Condition format: { field: [operator, value] }
-    condition: { archived: ['eq', true] },
-  },
+  { effect: 'deny', action: 'delete', resource: 'post' },
 ];
 
 await guantr.setRules(rules);
 ```
 
-## Checking Permissions
+---
 
-Use the `can` (or `cannot`) method to check if an action is permitted. Pass the specific resource object when checking rules that involve conditions.
+## Check Permissions
+
+### Resource-Aware Check
+
+Evaluates all matching rules, including conditions and deny rules, against a concrete resource instance:
 
 ```ts
-// Abstract check — verify any allow rule exists for this resource type (for UI hints)
-const canReadAnyPost = await guantr.can.abstract('read', 'post');
-console.log('Can read any post?', canReadAnyPost); // Likely true based on rules above
+const post = { id: 1, archived: true, ownerId: 'user-abc' };
 
-// Check permission to read a specific archived post
-const archivedPost = { id: 1, archived: true, ownerId: 'user-abc' };
-const canReadArchived = await guantr.can('read', ['post', archivedPost]);
-console.log('Can read the archived post?', canReadArchived); // Expected: false (due to the 'deny' rule)
-
-// Check permission to read a specific non-archived post
-const activePost = { id: 2, archived: false, ownerId: 'user-xyz' };
-const canReadActive = await guantr.can('read', ['post', activePost]);
-console.log('Can read the active post?', canReadActive); // Expected: true (allowed by general 'read', not blocked by 'deny')
+await guantr.can('read', ['post', post]); // false — denied (archived)
+await guantr.cannot('read', ['post', post]); // true — equivalent to !can
 ```
+
+### Abstract Check
+
+Checks whether **any allow rule** exists for the action + resource pair, ignoring conditions and deny rules. Useful for rendering UI:
+
+```ts
+await guantr.can.abstract('read', 'post'); // true — at least one allow rule exists
+await guantr.cannot.abstract('delete', 'comment'); // true — no allow rule exists
+```
+
+### Batch Checks
+
+Check multiple permissions in a single call. Context is resolved once and shared across all checks:
+
+```ts
+await guantr.can.all([
+  ['read', ['post', post]],
+  ['edit', ['post', post]],
+  ['delete', ['post', post]],
+]);
+// → false (delete is unconditionally denied)
+
+await guantr.can.any([
+  ['read', ['post', post]],
+  ['edit', ['post', post]],
+]);
+// → true (at least one passes)
+```
+
+`cannot.all()` and `cannot.any()` provide the logical negations:
+
+```ts
+await guantr.cannot.all(checks); // → true when NONE of the checks pass
+await guantr.cannot.any(checks); // → true when at least ONE of the checks fails
+```
+
+---
 
 ## Next Steps
 
-You've now installed, initialized, set rules for, and checked permissions with Guantr! Explore further topics:
-
-- **Guides:** Dive deeper into [Defining Rules](./guides/defining-rules.md), [Basic RBAC](./guides/example-basic-rbac.md), and [Basic ABAC](./guides/example-abac.md).
-- **Advanced Usage:** Learn about [Caching](./advanced-usage/caching.md) and creating a custom [Storage Adapter](./advanced-usage/custom-storage-adapter.md).
-- **API Reference:** Consult the detailed [API documentation](./api/createGuantr.md).
-- **GitHub:** Explore the [source code](https://github.com/Hrdtr/guantr) and contribute.
-- **Discussions:** Ask questions and share ideas in the [community forums](https://github.com/Hrdtr/guantr/discussions).
-
-Happy coding!
+- **[Defining Rules](./guides/defining-rules)** — rule structure, condition builder DSL, precedence rules.
+- **[Condition Operators](./guides/defining-rules/condition-operators)** — complete reference of all DSL operators.
+- **[Abstract vs Resource-Aware](./guides/abstract-vs-resource-aware)** — when to use each check style.
+- **[Context Usage](./guides/context-usage)** — dynamic context patterns.
+- **[TypeScript Integration](./guides/typescript-integration)** — advanced type patterns.
+- **[Migration from v1](./guides/migration-v1-to-v2)** — upgrading from the legacy tuple-based condition syntax.

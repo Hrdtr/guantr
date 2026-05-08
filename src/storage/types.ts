@@ -1,3 +1,5 @@
+/* v8 ignore file */
+
 import { GuantrRule } from '../types';
 
 /**

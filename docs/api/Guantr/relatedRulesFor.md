@@ -1,79 +1,87 @@
 # API: `Guantr.prototype.relatedRulesFor`
 
-The `relatedRulesFor` method retrieves all stored permission rules that match a specific action and resource key. It essentially calls the `queryRules` method of the configured storage adapter.
+The `relatedRulesFor` method retrieves all stored permission rules matching a specific action and resource key. This is a low-level, direct query against the storage adapter — conditions are **not evaluated** and results are **not cached**.
 
 ## Signature
 
 ```ts
-interface Guantr<Meta> {
-  relatedRulesFor(
-    action: string,
-    resource: string,
-    options?: {
-      applyConditionContextualOperands?: boolean;
-    },
-  ): Promise<GuantrRule[]>;
-}
+async relatedRulesFor<ResourceKey>(
+  action: string,
+  resource: ResourceKey,
+): Promise<GuantrRule[]>;
 ```
 
 ## Parameters
 
-- `action`: (`string`) The specific action to filter rules by (e.g., `'read'`).
-- `resource`: (`string`) The specific resource key to filter rules by (e.g., `'article'`).
-- `options`: (`object`) Optional configuration options for the query.
-- `options.applyConditionContextualOperands`: (`boolean`) A flag indicating whether to apply contextual operands to each rules condition.
+- **`action`**: (`string`) The action to filter by (e.g. `'read'`, `'update'`).
+- **`resource`**: (`string`) The resource key to filter by (e.g. `'post'`, `'comment'`).
 
 ## Returns
 
-- `Promise<GuantrRule[]>`: A promise that resolves to an array containing only the `GuantrRule` objects from storage that exactly match the provided `action` and `resource` key. This array includes both `allow` and `deny` rules matching the criteria. It will be empty if no matching rules are found.
+- `Promise<GuantrRule[]>` — An array of matching `GuantrRule` objects, or an empty array if no rules exist for the given action and resource pair.
 
-## Usage
+## Key behaviors
 
-This method can be useful for understanding which specific rules might apply to a potential action on a type of resource, before evaluating conditions against a specific instance. It relies on the efficiency of the underlying storage adapter's `queryRules` implementation.
+- **No condition evaluation.** Rules are returned as stored, regardless of whether their `matchCondition` would match a particular resource instance. This is a raw lookup, not a permission check.
+- **No caching.** Unlike `getRules()` and `can()`/`can.abstract()`, results from `relatedRulesFor` are never cached through the storage adapter's cache layer.
+- **Returns all rules**, including both `allow` and `deny` rules, with serialized `Condition` objects (if conditions were defined).
 
-## Example
+## Use cases
+
+- **Debugging**: Inspect which rules apply to a particular action/resource combination.
+- **Custom tooling**: Build admin UIs that show the full rule set for a resource type.
+- **Pre-flight analysis**: Determine what conditions exist before evaluating against a specific instance.
+
+## Examples
+
+### Basic query
 
 ```ts
-// Assume guantr instance is initialized and rules are set:
-await guantr.setRules(async (allow, deny) => {
+await guantr.setRules((allow, deny) => {
   allow('read', 'article');
-  deny('read', ['article', { status: ['eq', 'archived'] }]);
-  allow('edit', ['article', { ownerId: ['eq', '$ctx.userId'] }]);
-  allow('read', 'comment');
+  deny('read', [
+    'article',
+    ({ eq, resource, literal }) => eq(resource('status'), literal('archived')),
+  ]);
+  allow('edit', [
+    'article',
+    ({ eq, resource, context }) => eq(resource('ownerId'), context('userId')),
+  ]);
 });
 
-// Retrieve rules specifically for reading articles
 const readArticleRules = await guantr.relatedRulesFor('read', 'article');
+console.log(readArticleRules.length); // 2
 
-console.log(readArticleRules);
-/* Expected Output:
-[
-  { effect: 'allow', action: 'read', resource: 'article', condition: null },
-  {
-    effect: 'deny',
-    action: 'read',
-    resource: 'article',
-    condition: { status: ['eq', 'archived'] }
-  }
-]
-*/
+// First rule: unconditional allow
+console.log(readArticleRules[0].effect); // 'allow'
+console.log(readArticleRules[0].matchCondition); // undefined
 
-// Retrieve rules for editing articles
-const editArticleRules = await guantr.relatedRulesFor('edit', 'article');
-
-console.log(editArticleRules);
-/* Expected Output:
-[
-  {
-    effect: 'allow',
-    action: 'edit',
-    resource: 'article',
-    condition: { ownerId: ['eq', '$ctx.userId'] }
-  }
-]
-*/
-
-// Retrieve rules for an action/resource combo with no rules
-const deleteCommentRules = await guantr.relatedRulesFor('delete', 'comment');
-console.log(deleteCommentRules); // Expected Output: []
+// Second rule: conditional deny
+console.log(readArticleRules[1].effect); // 'deny'
+console.log(typeof readArticleRules[1].matchCondition); // 'object' (serialized Condition)
 ```
+
+### No matching rules
+
+```ts
+const rules = await guantr.relatedRulesFor('delete', 'article');
+console.log(rules); // [] — no rules defined for delete/article
+```
+
+### Distinction from `can()`
+
+```ts
+// relatedRulesFor returns ALL rules for the pair, unevaluated
+const allRules = await guantr.relatedRulesFor('read', 'article');
+// → [{ effect: 'allow', ... }, { effect: 'deny', matchCondition: {...} }]
+
+// can() evaluates conditions and returns a boolean
+const result = await guantr.can('read', ['article', { status: 'archived' }]);
+// → false (deny condition matched)
+```
+
+## See also
+
+- [`getRules()`](./getRules) — Retrieve all rules across all actions and resources.
+- [`setRules()`](./setRules) — Set or replace rules.
+- [`can()`](./can) — Evaluate rules against a specific resource instance.

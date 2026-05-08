@@ -1,215 +1,461 @@
 # TypeScript Integration with `GuantrMeta`
 
-Guantr is designed with TypeScript first, offering powerful type safety features to make your authorization logic more robust, maintainable, and easier to refactor. The key to unlocking these benefits is the `GuantrMeta` type.
+Guantr is built TypeScript-first. The `GuantrMeta` type anchors the entire type system, providing compile-time validation of every action name, resource key, model property path, and context field across the full API surface — rule definition, builder DSL, and permission checks.
 
-## Why Use TypeScript and `GuantrMeta`?
+## Core Concepts
 
-While Guantr works perfectly well in plain JavaScript, using it with TypeScript and defining a `GuantrMeta` type provides significant advantages:
-
-- **Type Safety:** Catch errors at compile time instead of runtime. Prevent typos in action names, resource keys, model properties within conditions, and context properties.
-- **Autocompletion:** Get intelligent suggestions for actions, resource keys, model properties, and context properties directly in your editor.
-- **Refactoring Confidence:** Rename actions, resources, or model properties, and TypeScript will help you find all the places they need updating within your Guantr rules.
-- **Improved Readability:** Explicitly defining your authorization model makes the code easier to understand.
-
-## Core Concept: The `GuantrMeta` Type
-
-The `GuantrMeta` type acts as a central definition for your application's authorization model within Guantr. It informs the Guantr instance about the shape of your resources, the actions applicable to them, and the structure of your context object.
-
-It takes two generic type arguments:
-
-```ts
-import type {
-  GuantrMeta,
-  GuantrResourceMap,
-  GuantrResourceAction,
-  GuantrResourceModel,
-} from 'guantr';
-
-type MyMeta = GuantrMeta<
-  MyResourceMap, // 1. Defines your resources, actions, and models
-  MyContext // 2. Defines the shape of your context object
->;
+```
+GuantrMeta<ResourceMap, Context>
+            ↑             ↑
+    What resources       Who is asking
+    exist & their shape  (user, session, env)
 ```
 
-Let's break down how to define `MyResourceMap` and `MyContext`.
+Every type flows from these two definitions. Once you declare a `Meta` type and pass it to `createGuantr<Meta>()`, the entire instance is fully typed.
 
-## 1. Defining the `ResourceMap`
+---
 
-The `ResourceMap` is an object type where each key is a string representing a **resource key** (e.g., `'article'`, `'comment'`, `'userProfile'`). The value for each key describes the resource's structure using the `GuantrResource` type.
+## Step 1: Define the Resource Map
 
-A `GuantrResource` has two properties:
-
-- `action`: A union type of **string literals** representing all possible actions for this resource (e.g., `'read' | 'create' | 'delete'`).
-- `model`: The TypeScript interface or type defining the data structure of the resource instance (e.g., `interface ArticleModel { ... }`).
+Each entry maps a **resource key** (a string like `'post'` or `'comment'`) to the actions it supports and the shape of its runtime instance.
 
 ```ts
-import type { GuantrResourceMap, GuantrResourceAction, GuantrResourceModel } from 'guantr';
+import type { GuantrResourceMap } from 'guantr';
 
-// Define models for your resources
-interface ArticleModel {
-  id: string;
+interface PostModel {
+  id: number;
+  title: string;
   status: 'draft' | 'published' | 'archived';
-  authorId: string;
-  content: string;
-  tags?: string[];
+  authorId: number;
+  tags: string[];
+  viewCount: number;
 }
 
 interface CommentModel {
-  id: string;
-  articleId: string;
-  authorId: string;
+  id: number;
+  postId: number;
+  authorId: number;
   body: string;
+  approved: boolean;
 }
 
-interface UserModel {
+interface ProjectModel {
   id: string;
-  role: 'admin' | 'editor' | 'viewer';
-  department: string | null;
+  name: string;
+  orgId: string;
+  ownerId: string;
+  teamIds: string[];
+  archived: boolean;
 }
 
-// Define the ResourceMap combining keys, actions, and models
-type MyResourceMap = GuantrResourceMap<{
-  article: {
-    action: 'read' | 'create' | 'edit' | 'delete' | 'publish';
-    model: ArticleModel;
+type ResourceMap = GuantrResourceMap<{
+  post: {
+    action: 'read' | 'create' | 'update' | 'delete' | 'publish';
+    model: PostModel;
   };
   comment: {
     action: 'read' | 'create' | 'delete';
     model: CommentModel;
   };
-  user: {
-    action: 'read' | 'promote' | 'assignDepartment';
-    model: UserModel;
-  };
-  // Add other resources here...
-  adminPanel: {
-    action: 'access';
-    model: {}; // Model can be empty if no specific instance data is checked
+  project: {
+    action: 'view' | 'edit' | 'delete' | 'manage';
+    model: ProjectModel;
   };
 }>;
 ```
 
-## 2. Defining the `Context`
+- The `action` union defines every possible action string for that resource.
+- The `model` type is the shape of the instance you pass to `guantr.can()` at check time.
+- Use `Record<string, unknown>` or `{}` for resources that have no instance data (e.g. dashboard pages).
 
-The `Context` type defines the shape of the object returned by the `getContext` function you provide during `createGuantr` initialization. This object typically holds information about the current user, session, or environment relevant to permission checks.
+---
+
+## Step 2: Define the Context
+
+The context type describes the shape returned by `context`. This is typically the current user or request metadata.
 
 ```ts
-// Define the shape of your application's context
-interface MyContext {
-  userId: string | null; // ID of the logged-in user, or null if anonymous
-  userRoles: Array<'admin' | 'editor' | 'viewer'>; // Roles assigned to the user
-  ipAddress?: string; // Example environmental attribute
+interface AppContext {
+  userId: number | null;
+  role: 'admin' | 'editor' | 'viewer';
+  orgId: string | null;
+  permissions: string[];
 }
 ```
 
-## Putting it Together: Defining `GuantrMeta`
+---
 
-Now combine your `ResourceMap` and `Context` into your application's specific `GuantrMeta` type:
+## Step 3: Define `GuantrMeta`
 
 ```ts
 import type { GuantrMeta } from 'guantr';
-// Assumes MyResourceMap and MyContext are defined as above
 
-type MyAppMeta = GuantrMeta<MyResourceMap, MyContext>;
+type MyMeta = GuantrMeta<ResourceMap, AppContext>;
 ```
 
-## Using `GuantrMeta`
+If you omit `Context`, it defaults to `Record<string, unknown>`:
 
-Pass your defined `Meta` type when creating the Guantr instance and when typing rules arrays:
+```ts
+type NoContextMeta = GuantrMeta<ResourceMap>;
+```
 
-**Initialization:**
+---
+
+## Step 4: Create a Typed Instance
 
 ```ts
 import { createGuantr } from 'guantr';
-// Assumes MyAppMeta is defined as above
 
-const guantr = await createGuantr<MyAppMeta>({
-  getContext: async (): Promise<MyContext> => {
-    // Fetch current user data and return object matching MyContext
-    const user = await getCurrentUser();
+const guantr = await createGuantr<MyMeta>({
+  context: async (): Promise<AppContext> => {
+    const user = await fetchCurrentUser();
     return {
       userId: user?.id ?? null,
-      userRoles: user?.roles ?? [],
-      // ipAddress: request?.ip // Example for environmental context
+      role: user?.role ?? 'viewer',
+      orgId: user?.orgId ?? null,
+      permissions: user?.permissions ?? [],
     };
   },
-  // Optionally provide storage adapter
 });
 ```
 
-**Typing Rules Arrays:**
+The `context` type is inferred from `MyMeta` — the compiler enforces the correct shape. If the provided `context` value (whether a plain object or function return) has `{ userId: string }` but your `Context` expects `{ userId: number | null }`, you get a type error.
+
+You can also create an instance without options and call `setRules` later:
+
+```ts
+const guantr = await createGuantr<MyMeta>();
+```
+
+---
+
+## Type Safety in `setRules` — Callback Style
+
+The `allow` and `deny` helpers inside the callback are typed per-resource-key:
+
+```ts
+await guantr.setRules((allow, deny) => {
+  // ✅ 'read' is a valid action for 'post'
+  allow('read', 'post');
+
+  // ✅ 'publish' is a valid action for 'post'
+  // ✅ 'status' is a valid property on PostModel
+  allow('publish', [
+    'post',
+    ({ eq, resource, literal }) => eq(resource('status'), literal('published')),
+  ]);
+
+  // ✅ Context fields are type-checked
+  allow('update', [
+    'post',
+    ({ eq, resource, context }) => eq(resource('authorId'), context('userId')),
+  ]);
+
+  // ✅ Resource and context paths validated separately
+  deny('read', [
+    'post',
+    ({ eq, resource, literal, context }) => eq(resource('status'), literal('archived')),
+  ]);
+
+  // ── Compile-time errors ──────────────────────────────────
+
+  // ❌ TypeScript error: '"manage"' is not assignable to
+  //    '"read" | "create" | "update" | "delete" | "publish"'
+  // allow('manage', 'post');
+
+  // ❌ TypeScript error: '"unknownRes"' is not a valid resource key
+  // allow('read', 'unknownRes');
+
+  // ❌ TypeScript error: '"ownerId"' does not exist on PostModel
+  // allow('read', ['post', ({ eq, resource, literal }) =>
+  //   eq(resource('ownerId'), literal(1))
+  // ]);
+
+  // ❌ TypeScript error: Context path '"userEmail"' is invalid
+  // allow('read', ['post', ({ eq, resource, context }) =>
+  //   eq(resource('authorId'), context('userEmail'))
+  // ]);
+});
+```
+
+### Action Narrowing Per Resource
+
+The action type is narrowed to the specific resource key in the first argument. A builder closure for `'comment'` only accepts `'comment'` actions:
+
+```ts
+await guantr.setRules((allow) => {
+  // ✅ 'read' is valid for 'comment'
+  allow('read', 'comment');
+
+  // ❌ TypeScript error: '"publish"' is not a valid action for 'comment'
+  // (publish is only defined for 'post')
+  // allow('publish', 'comment');
+});
+```
+
+### Conditional vs Unconditional
+
+The `allow`/`deny` second argument can be a **plain string** (unconditional) or a **tuple** `[resourceKey, matchConditionFn]` (conditional):
+
+```ts
+await guantr.setRules((allow, deny) => {
+  // Unconditional — allow all
+  allow('read', 'post');
+
+  // Conditional — matchCondition function
+  allow('read', [
+    'post',
+    ({ eq, resource, literal }) => eq(resource('status'), literal('published')),
+  ]);
+});
+```
+
+Accepted types for the second argument:
+
+- `string` → unconditional rule
+- `[string, MatchConditionFn<Model, Context> | Condition]` → conditional rule
+
+---
+
+## Type Safety in `setRules` — Array Style
+
+Direct rule arrays use the `GuantrRule<Meta>` type:
 
 ```ts
 import type { GuantrRule } from 'guantr';
-// Assumes MyAppMeta is defined as above
 
-const rules: GuantrRule<MyAppMeta>[] = [
-  // TypeScript will validate this rule structure against MyAppMeta
+const rules: GuantrRule<MyMeta>[] = [
+  // ✅ Unconditional allow
+  { effect: 'allow', action: 'read', resource: 'post' },
+
+  // ✅ Conditional allow with typed builder
   {
     effect: 'allow',
-    action: 'edit', // Autocompletes/validated against 'article' actions
-    resource: 'article', // Autocompletes/validated against resource keys
-    condition: {
-      // 'authorId' autocompletes/validated against ArticleModel properties
-      authorId: ['eq', '$ctx.userId'], // '$ctx.userId' validated against MyContext
-    },
+    action: 'update',
+    resource: 'post',
+    matchCondition: ({ eq, resource, context }) => eq(resource('authorId'), context('userId')),
   },
+
+  // ✅ Conditional deny
+  {
+    effect: 'deny',
+    action: 'read',
+    resource: 'post',
+    matchCondition: ({ eq, resource, literal }) => eq(resource('status'), literal('archived')),
+  },
+
+  // ── Compile-time errors ──────────────────────────────────
+
+  // ❌ TypeScript error: '"manage"' is not an action for 'post'
+  // { effect: 'allow', action: 'manage', resource: 'post' },
+
+  // ❌ TypeScript error: '"unknown"' is not a valid resource key
+  // { effect: 'allow', action: 'read', resource: 'unknown' },
+
+  // ❌ TypeScript error: '"ownerId"' not on PostModel
+  // {
+  //   effect: 'allow',
+  //   action: 'read',
+  //   resource: 'post',
+  //   matchCondition: ({ eq, resource, literal }) =>
+  //     eq(resource('ownerId'), literal(1))
+  // },
 ];
 
 await guantr.setRules(rules);
 ```
 
-## Benefits in Practice
-
-Defining `GuantrMeta` provides immediate feedback in your IDE:
-
-**Type Safety in `setRules` Callback:**
+When the array is not explicitly typed as `GuantrRule<MyMeta>[]`, inference still works as long as `Meta` is passed to `createGuantr`. Inlining the array directly to `createGuantr` or `setRules` is fully type-safe:
 
 ```ts
-await guantr.setRules(async (allow, deny) => {
-  // 'allow' and 'deny' know about your Meta definition
-
-  // Correct: 'read' is a valid action for 'article'
-  allow('read', 'article');
-
-  // Error: 'update' is not a defined action for 'article' (based on MyResourceMap)
-  // allow('update', 'article'); // TypeScript Error!
-
-  allow('edit', [
-    'article',
-    {
-      // Correct: 'status' is a property of ArticleModel
-      status: ['eq', 'draft'],
-
-      // Error: 'ownerId' is not a property of ArticleModel (it's authorId)
-      // ownerId: ['eq', '$ctx.userId'] // TypeScript Error!
-
-      // Correct: 'authorId' is a property of ArticleModel, '$ctx.userId' is in MyContext
-      authorId: ['eq', '$ctx.userId'],
-    },
-  ]);
-
-  // Error: 'nonExistentResource' is not defined in MyResourceMap
-  // allow('read', 'nonExistentResource'); // TypeScript Error!
-});
+const guantr = await createGuantr<MyMeta>([
+  { effect: 'allow', action: 'read', resource: 'post' },
+  {
+    effect: 'deny',
+    action: 'read',
+    resource: 'post',
+    matchCondition: ({ eq, resource, literal }) => eq(resource('status'), literal('archived')),
+  },
+]);
 ```
 
-**Type Safety in `can`/`cannot` Checks:**
+---
+
+## Type Safety in Permission Checks
+
+### `guantr.can()` and `guantr.cannot()`
+
+Both accept `(action, [resourceKey, resourceInstance])` and are fully typed:
 
 ```ts
-const articleInstance: ArticleModel = /* ... fetched article ... */ ;
-const commentInstance: CommentModel = /* ... fetched comment ... */ ;
+const post: PostModel = {
+  id: 1,
+  title: 'Hello',
+  status: 'published',
+  authorId: 42,
+  tags: ['dev'],
+  viewCount: 100,
+};
 
-// Correct: 'read' action on 'article' resource
-await guantr.can('read', ['article', articleInstance]);
+const comment: CommentModel = {
+  id: 1,
+  postId: 1,
+  authorId: 42,
+  body: 'Nice!',
+  approved: true,
+};
 
-// Error: 'update' is not a valid action for 'article'
-// await guantr.can('update', ['article', articleInstance]); // TypeScript Error!
+// ✅ Correct: action + resource key match, instance shape matches
+const canRead = await guantr.can('read', ['post', post]);
+const canDelete = await guantr.cannot('delete', ['comment', comment]);
 
-// Error: Checking 'article' action against a 'comment' instance type
-// await guantr.can('edit', ['article', commentInstance]); // TypeScript Error!
+// ── Compile-time errors ──────────────────────────────────
+
+// ❌ TypeScript error: '"manage"' is not an action for 'post'
+// await guantr.can('manage', ['post', post]);
+
+// ❌ TypeScript error: 'comment' is not a valid resource key for PostModel
+// await guantr.can('read', ['comment', post]);
+
+// ❌ TypeScript error: PostModel is not assignable to CommentModel
+// await guantr.can('read', ['comment', post]);
 ```
 
-## Conclusion
+### `guantr.can.abstract()` and `guantr.cannot.abstract()`
 
-Leveraging TypeScript with `GuantrMeta` transforms Guantr from a flexible library into a robust, type-safe authorization framework. By defining your application's specific resources, actions, models, and context structure, you gain compile-time checks, autocompletion, and increased confidence when building and maintaining your access control logic. It is highly recommended for any significant Guantr implementation in a TypeScript project.
+Abstract checks accept `(action, resourceKey)` — **no instance needed**. They return `true` if any `allow` rule exists for that pair (deny rules and conditions are ignored):
+
+```ts
+// ✅ Correct: action matches resource key
+const canReadPosts = await guantr.can.abstract('read', 'post');
+const cannotDelete = await guantr.cannot.abstract('delete', 'post');
+
+// ❌ TypeScript error: '"manage"' not valid for 'post'
+// await guantr.can.abstract('manage', 'post');
+
+// ❌ TypeScript error: '"page"' is not a resource key
+// await guantr.can.abstract('read', 'page');
+```
+
+### Batch Checks: `can.all`, `can.any`, `cannot.all`, `cannot.any`
+
+Each check item is a tuple of `[action, [resourceKey, resourceInstance]]`:
+
+```ts
+// ✅ All checks must pass
+const canManagePost = await guantr.can.all([
+  ['read', ['post', post]],
+  ['update', ['post', post]],
+  ['delete', ['post', post]],
+]);
+
+// ✅ At least one check must pass
+const canInteract = await guantr.can.any([
+  ['read', ['post', post]],
+  ['read', ['comment', comment]],
+  ['create', ['comment', comment]],
+]);
+
+// ✅ Negated: true when all checks are denied
+const cannotManage = await guantr.cannot.all([
+  ['delete', ['post', post]],
+  ['publish', ['post', post]],
+]);
+
+// ❌ TypeScript error: '"moderate"' is not an action for 'comment'
+// await guantr.can.all([
+//   ['read', ['post', post]],
+//   ['moderate', ['comment', comment]],
+// ]);
+```
+
+Batch methods resolve `context` once and share the result across all checks. `can.all` short-circuits on the first `false`, `can.any` short-circuits on the first `true`.
+
+---
+
+## Builder DSL Type Enforcement
+
+The builder methods enforce operand type compatibility. The compiler catches mismatches between resource, context, and literal operand types.
+
+### Comparison Operators (`eq`, `ne`, `gt`, `gte`, `lt`, `lte`)
+
+```ts
+// ✅ eq/ne: same type on both sides (or nullish right operand)
+eq(resource('authorId'), context('userId')); // number vs number ✓
+eq(resource('status'), literal('published')); // string vs string ✓
+eq(resource('authorId'), literal(null)); // number vs null ✓
+
+// ❌ Type error: string vs number
+// eq(resource('title'), literal(42));
+
+// ✅ gt/gte/lt/lte: both sides numeric
+gt(resource('viewCount'), literal(100)); // number vs number ✓
+```
+
+### String Operators (`contains`, `startsWith`, `endsWith`)
+
+```ts
+// ✅ Both operands must be string-compatible
+contains(resource('title'), literal('hello'), { caseInsensitive: true });
+
+// ❌ Type error: numeric field used as string
+// startsWith(resource('viewCount'), literal('1'));
+```
+
+### Array Operators (`in`, `has`, `hasSome`, `hasEvery`)
+
+```ts
+// ✅ has: array has element
+has(resource('tags'), literal('dev'));
+
+// ✅ hasSome: array has at least one of given values
+hasSome(resource('tags'), literal(['dev', 'ops']));
+
+// ✅ in: value is in array — context array of numbers
+in(context('userId'), literal([1, 2, 3]));
+
+// ❌ Type error: checking string against number array
+// in(context('userId'), literal(['admin', 'editor']));
+```
+
+### Complex Array Operators (`some`, `every`, `none`)
+
+The nested builder function inside `some`/`every`/`none` has its `resource()` scoped to the **element** of the array:
+
+```ts
+// ✅ resource('approved') refers to a CommentModel field
+some(resource('comments'), ({ eq, resource }) => eq(resource('approved'), literal(true)));
+
+// ❌ Type error: 'ownerId' is not a field on CommentModel
+// some(resource('comments'), ({ eq, resource }) =>
+//   eq(resource('ownerId'), literal(1))
+// );
+```
+
+### Logical Operators (`and`, `or`, `not`)
+
+```ts
+// ✅ Compose conditions
+and(eq(resource('status'), literal('published')), gt(resource('viewCount'), literal(10)));
+
+or(eq(context('role'), literal('admin')), eq(context('role'), literal('editor')));
+
+not(eq(resource('status'), literal('archived')));
+```
+
+---
+
+## Summary: What TypeScript Catches at Compile Time
+
+| Error Category                | Example                                                   | Caught By                |
+| ----------------------------- | --------------------------------------------------------- | ------------------------ |
+| Invalid action name           | `allow('manage', 'post')`                                 | Action union             |
+| Invalid resource key          | `allow('read', 'unknownRes')`                             | Resource map keys        |
+| Invalid model property        | `eq(resource('ownerId'), ...)`                            | `LeafKeys<Model>`        |
+| Invalid context property      | `context('userEmail')`                                    | `LeafKeys<Context>`      |
+| Type mismatch in operator     | `eq(resource('title'), literal(42))`                      | Phantom `[ValueRefType]` |
+| Wrong model for resource key  | `can('read', ['post', comment])`                          | Generic constraint       |
+| Wrong action for resource key | `can('publish', ['comment', c])`                          | Action union per key     |
+| Array element type mismatch   | `some(resource('tags'), ...)` where element is wrong type | Generic inference        |
+
+The builder DSL is **executed once at rule-definition time** and serialized to an AST. The compiler validates every path and type at that point. Runtime evaluation uses the serialized AST against the live resource instance and context.

@@ -1,187 +1,241 @@
 # Defining Rules in Guantr
 
-Rules are the core of Guantr's authorization logic. They define what specific actions users are permitted (`allow`) or explicitly forbidden (`deny`) to perform on resources within your application. Defining these rules accurately, based on the Guantr API, is essential for robust access control.
+Rules are the core of Guantr's authorization engine. They express what actions are permitted or forbidden on which resources, optionally gated by runtime conditions.
 
-## The Structure of a Rule (`GuantrRule`)
+---
 
-Internally, every rule in Guantr follows the `GuantrRule` structure defined in the types:
+## The Structure of a Rule
 
-1.  **`effect`**: `'allow'` | `'deny'` - Determines if the rule grants or revokes permission.
-2.  **`action`**: `string` - The **single** operation being attempted (e.g., `'read'`, `'update'`, `'publish'`).
-3.  **`resource`**: `string` - The _type_ or _key_ identifying the resource (e.g., `'article'`, `'user'`).
-4.  **`condition`**: `GuantrRuleCondition | null` (optional) - An object specifying conditions that must be met for the rule to apply. This enables attribute-based and context-aware checks. When omitted (or set to `null`), the rule applies unconditionally based only on action and resource type.
+Every rule is a `GuantrRule` object with these fields:
 
-## Methods for Setting Rules
+| Field            | Type                                    | Description                                           |
+| ---------------- | --------------------------------------- | ----------------------------------------------------- |
+| `effect`         | `'allow' \| 'deny'`                     | Whether the rule grants or revokes permission         |
+| `action`         | `string`                                | A single operation (e.g. `'read'`, `'delete'`)        |
+| `resource`       | `string`                                | The resource type key (e.g. `'post'`)                 |
+| `matchCondition` | `MatchConditionFn \| Condition \| null` | Optional — a builder function or serialized condition |
 
-Guantr uses the `setRules` method to define permissions, replacing any existing rules. You can provide rules in two ways:
+When `matchCondition` is omitted or `null`, the rule applies **unconditionally** to all instances of that resource type.
 
-### 1. Using the Callback Function
+### Typed Rules
 
-This method is often the simplest for defining rules directly within your code, offering good readability and type safety, especially with TypeScript `GuantrMeta`. You pass an asynchronous function to `setRules` that receives `allow` and `deny` helper functions.
-
-**Callback Signature:**
-
-The `allow` and `deny` functions accept:
-
-`(action: string, resource: string | [resourceKey: string, condition: GuantrRuleCondition | null])`
-
-- `action`: A **single string** naming the action (e.g., `'create'`).
-- `resource`:
-  - A `string` (e.g., `'article'`) defines a rule for that resource type _without conditions_.
-  - A tuple `[resourceKey: string, condition: GuantrRuleCondition | null]` (e.g., `['article', { status: ['eq', 'draft'] }]`) defines a rule for the `resourceKey` that applies only if the `condition` evaluates to true against the resource instance.
-
-**Example:**
+When a `GuantrMeta` type is provided, `action`, `resource`, and `matchCondition` are narrowed:
 
 ```ts
-import { createGuantr } from 'guantr';
-// Assuming GuantrMeta is defined elsewhere for type safety
-// import type { GuantrMeta } from './guantr-meta';
+type MyMeta = GuantrMeta<{
+  post: { action: 'read' | 'edit'; model: { id: number; archived: boolean } };
+}>;
 
-// const guantr = await createGuantr<GuantrMeta>();
-const guantr = await createGuantr(); // Without specific Meta
+// TypedGuantrRule: resource is 'post', action is 'read' | 'edit',
+// matchCondition is scoped to the post model shape
+type TypedGuantrRule = GuantrRule<MyMeta>;
+```
 
+---
+
+## Setting Rules
+
+Rules are set with `setRules()`. Every call **replaces all existing rules**. This method accepts either a callback or an array of rule objects.
+
+### Callback Method
+
+Pass an async (or sync) function that receives `allow` and `deny` helper functions:
+
+```ts
 await guantr.setRules((allow, deny) => {
-  // Allow reading any 'article'
   allow('read', 'article');
-
-  // Allow creating 'article' if its status is 'draft'
-  allow('create', ['article', { status: ['eq', 'draft'] }]);
-  // Allow updating 'article' if its status is 'draft'
-  allow('update', ['article', { status: ['eq', 'draft'] }]);
-  // Allow deleting 'article' if its status is 'draft'
-  allow('delete', ['article', { status: ['eq', 'draft'] }]);
-
-  // Explicitly deny deleting 'article' if it's 'published'
-  deny('delete', ['article', { status: ['eq', 'published'] }]);
-
-  // Allow reading 'user' profiles
-  allow('read', 'user');
-
-  // Deny reading 'user' profiles if they are private
-  // (Negation like "ownerId != context.userId" is handled by a separate 'deny' rule)
-  deny('read', ['user', { private: ['eq', true] }]);
-  // Allow reading a user's own private profile (overrides the general deny above)
-  allow('read', ['user', { private: ['eq', true], ownerId: ['eq', '$ctx.userId'] }]);
+  deny('delete', 'article');
 });
 ```
 
-### 2. Using a Direct Array of Rule Objects
+#### Callback Signature
 
-You can also provide an array of rule objects directly to `setRules`. Each object must conform to the `GuantrRule` structure. While the callback might be simpler for direct definition, **passing an array provides more flexibility, allowing you to preprocess, generate, or fetch rules from external sources before applying them.**
+```ts
+type SetRulesCallback<Meta> = (
+  allow: (action: string, resource: string | [string, matchCondition]) => void,
+  deny: (action: string, resource: string | [string, matchCondition]) => void,
+) => void | Promise<void>;
+```
+
+The `resource` argument can be:
+
+- **A plain string** — creates an unconditional rule that applies to every instance of that resource type.
+- **A tuple `[resourceKey, matchCondition]`** — creates a conditional rule. The `matchCondition` is either a builder function (`MatchConditionFn`) or a pre-serialized `Condition` object.
+
+### Array Method
+
+Pass an array of `GuantrRule` objects directly. This is the preferred approach when loading rules from a database or external source:
 
 ```ts
 import { createGuantr } from 'guantr';
 import type { GuantrRule } from 'guantr';
 
-const guantr = await createGuantr();
-
-// Define types for demonstration if not using GuantrMeta
-type Action = 'read' | 'create' | 'update' | 'delete';
-type ResourceKey = 'article' | 'user';
-type Article = { id: number; status: 'draft' | 'published'; ownerId: string };
-type User = { id: string; private: boolean; ownerId: string };
-type Context = { userId: string };
-
-const rules: GuantrRule</*Meta substitute*/ {
-  ResourceMap: {
-    article: { action: Action; model: Article };
-    user: { action: Action; model: User };
-  };
-  Context: Context;
-}>[] = [
+const rules: GuantrRule<MyMeta>[] = [
   { effect: 'allow', action: 'read', resource: 'article' },
-  {
-    effect: 'allow',
-    action: 'create',
-    resource: 'article',
-    condition: { status: ['eq', 'draft'] },
-  },
-  {
-    effect: 'allow',
-    action: 'update',
-    resource: 'article',
-    condition: { status: ['eq', 'draft'] },
-  },
-  {
-    effect: 'allow',
-    action: 'delete',
-    resource: 'article',
-    condition: { status: ['eq', 'draft'] },
-  },
   {
     effect: 'deny',
     action: 'delete',
     resource: 'article',
-    condition: { status: ['eq', 'published'] },
-  },
-  { effect: 'allow', action: 'read', resource: 'user' },
-  { effect: 'deny', action: 'read', resource: 'user', condition: { private: ['eq', true] } },
-  {
-    effect: 'allow',
-    action: 'read',
-    resource: 'user',
-    condition: { private: ['eq', true], ownerId: ['eq', '$ctx.userId'] },
+    matchCondition: ({ eq, resource, literal }) => eq(resource('status'), literal('published')),
   },
 ];
 
 await guantr.setRules(rules);
 ```
 
-## Defining Actions
+#### How `matchCondition` Functions Are Processed
 
-Actions are **single strings** representing operations (e.g., `'view'`, `'edit'`, `'assignRole'`). If you need to allow multiple related actions under similar conditions, define separate rules for each action.
+When a `matchCondition` is a function (either from the callback or array path), it is **immediately executed** at `setRules` time with a fresh `MatchConditionBuilder` instance. The returned `Condition` AST is stored — the function itself is never serialized or stored. This means:
 
-## Defining Resource Keys
+1. Conditions are JSON-serializable from the moment `setRules` completes.
+2. You can inspect stored rules with `getRules()` and see the full AST.
+3. External systems can construct `Condition` objects directly without the builder.
 
-Resource keys are strings identifying the _type_ of resource (e.g., `'article'`, `'comment'`). They link actions to the models and conditions defined in your `GuantrMeta` (if using TypeScript) and are used in rule definitions.
+---
 
-## Defining Conditions (`GuantrRuleCondition`)
+## Unconditional vs Conditional Rules
 
-Conditions enable fine-grained control by evaluating rules against resource instance properties and/or the current context.
+### Unconditional Rules
 
-- **Structure:** A condition is an object where keys map to properties of the resource model.
-- **Values (Condition Expressions):** The value for each key must be a **Condition Expression** or a nested condition object.
-- **Condition Expression Format:** A Condition Expression is an array: `[operator, operand, options?]`.
-  - `operator`: A string specifying the comparison logic. See the table below for available operators.
-  - `operand`: The value to compare against. Can be a literal or a string starting with `$ctx.` to use a context value.
-  - `options`: (Optional) An object for operator-specific behavior (e.g., `caseInsensitive`).
+An unconditional rule has no `matchCondition`. It applies to **every instance** of the resource type:
 
-**Available Condition Operators:**
+```ts
+allow('read', 'post');
+```
 
-Guantr provides a specific set of operators. Note that direct negation operators (like `ne`, `nin`) are _not_ included; negation logic should be implemented using `deny` rules.
+This grants read permission on every post, regardless of its properties.
 
-| Operator     | Description                                   | Example Expression                                        |
-| :----------- | :-------------------------------------------- | :-------------------------------------------------------- |
-| `eq`         | Equal                                         | `status: ['eq', 'active']`                                |
-| `in`         | Value is in array                             | `role: ['in', ['admin', 'moderator']]`                    |
-| `contains`   | String contains substring                     | `title: ['contains', 'urgent']`                           |
-| `startsWith` | String starts with substring                  | `sku: ['startsWith', 'PROD-']`                            |
-| `endsWith`   | String ends with substring                    | `email: ['endsWith', '@example.com']`                     |
-| `gt`         | Greater than                                  | `priority: ['gt', 5]`                                     |
-| `gte`        | Greater than or equal to                      | `score: ['gte', 100]`                                     |
-| `has`        | Array contains element                        | `flags: ['has', 'verified']`                              |
-| `hasSome`    | Array contains _any_ element from list        | `groups: ['hasSome', ['beta', 'dev']]`                    |
-| `hasEvery`   | Array contains _all_ elements from list       | `permissions: ['hasEvery', ['read', 'write']]`            |
-| `some`       | Array of objects has _some_ matching object   | `comments: ['some', { authorId: ['eq', '$ctx.userId'] }]` |
-| `every`      | Array of objects, _all_ objects match         | `tasks: ['every', { completed: ['eq', true] }]`           |
-| `none`       | Array of objects, _none_ of the objects match | `errors: ['none', { severity: ['eq', 'critical'] }]`      |
+```ts
+deny('delete', 'post');
+```
 
-- **Nested Conditions:** Condition objects can be nested to check properties of nested objects within your resource model. For array properties, you can use the special `$expr` key to combine array-level expressions (like `some`, `every`, `has`) with nested property checks (like `length`). See [Combining Array Expressions with Nested Conditions](/guides/defining-rules/condition-operators#combining-array-expressions-with-nested-conditions-expr) for details.
+This **unconditionally denies** delete on every post. An unconditional deny is the strongest rule in the system — it causes an immediate `false` result, skipping all other rule evaluation.
 
-- **Condition Options:** Some string operators support a `caseInsensitive` option as the third element of the condition tuple (e.g., `['eq', 'hello', { caseInsensitive: true }]`). See [Condition Options](/guides/defining-rules/condition-operators#condition-options) for the full list of supported operators.
+### Conditional Rules
 
-- **Contextual Operands (`$ctx.`):** Use `$ctx.` within the `operand` to compare against values from the Guantr context provided during initialization.
+A conditional rule includes a `matchCondition` that is evaluated against the resource instance and context at check time:
 
-  ```ts
-  // Example using context
-  allow('edit', ['article', { ownerId: ['eq', '$ctx.userId'] }]);
-  ```
+```ts
+allow('edit', ['post', ({ eq, resource, context }) => eq(resource('ownerId'), context('userId'))]);
+```
 
-## Rule Precedence and Negation
+This allows editing only when the post's `ownerId` matches the current user's `userId`.
 
-Rule evaluation follows two key principles:
+```ts
+deny('read', ['post', ({ eq, resource, literal }) => eq(resource('archived'), literal(true))]);
+```
 
-1.  **`deny` rules always override `allow` rules.** If any matching `deny` rule applies, permission is refused, even if an `allow` rule also matches.
-2.  **Handle Negation with `deny`:** Because operators like `ne` (not equals) or `nin` (not in) are not provided, you should achieve negation by defining specific `deny` rules. For instance, instead of `allow('read', ['article', { status: ['ne', 'archived'] }])`, you would use `allow('read', 'article')` combined with `deny('read', ['article', { status: ['eq', 'archived'] }])`.
+This denies reading posts that are archived.
 
-By using single-string actions, the correct condition operators, and the appropriate method for setting rules (`callback` or `array`), you can accurately define your application's authorization logic with Guantr.
+---
+
+## The Condition Builder DSL
+
+Guantr's condition builder is a type-safe DSL for composing boolean expressions from resource fields, context values, and literals. The builder is documented exhaustively in the [Condition Operators Reference](/guides/defining-rules/condition-operators), covering value sources (`resource()`, `context()`, `literal()`), comparison operators (`eq`, `ne`, `gt`, `gte`, `lt`, `lte`), string operators (`contains`, `startsWith`, `endsWith`), array operators (`in`, `has`, `hasSome`, `hasEvery`), complex array operators (`some`, `every`, `none`), and logical operators (`and`, `or`, `not`).
+
+---
+
+## Rule Precedence
+
+When Guantr evaluates a permission check, it follows a strict precedence order:
+
+1. **No rules found** → `false`. Guantr is deny-by-default.
+2. **Unconditional deny** → `false` immediately. An unconditional deny rule (no `matchCondition`) short-circuits all other evaluation. Even matching allow rules are ignored.
+3. **Conditional deny match** → `false`. If any deny rule's condition evaluates to `true`, the result is `false`, even if allow rules also match.
+4. **At least one allow matches** → `true`. This requires at least one allow rule (unconditional or conditional-matched) AND no matching deny rules.
+
+Deny rules always take precedence over allow rules. A deny rule exists to revoke permission even when an allow rule would otherwise grant it.
+
+```ts
+await guantr.setRules((allow, deny) => {
+  allow('read', 'post');
+  deny('read', ['post', ({ eq, resource, literal }) => eq(resource('archived'), literal(true))]);
+});
+
+// archived: true → false (deny overrides the unconditional allow)
+await guantr.can('read', ['post', { archived: true }]);
+
+// archived: false → true (allow applies, deny condition doesn't match)
+await guantr.can('read', ['post', { archived: false }]);
+```
+
+---
+
+## Pre-Serialized Conditions
+
+Conditions are JSON-serializable AST structures. You can build them independently with `createMatchConditionBuilder` or evaluate stored conditions with `evaluateCondition`. Pre-serialized `Condition` objects can be passed directly as a `matchCondition` value — Guantr skips the builder execution step and stores the AST directly.
+
+For database-backed setups, use `serializeRules()` to convert function-based conditions in bulk before persisting to a database. See [Database-Backed Rule Management](/guides/database-backed-rules) and the [Utilities API reference](/api/utilities#serializerules) for the full workflow.
+
+---
+
+## Clearing Rules
+
+Guantr does not have a dedicated "clear rules" method. To remove all rules, call `setRules` with an empty callback or empty array:
+
+```ts
+await guantr.setRules(() => {});
+// or
+await guantr.setRules([]);
+```
+
+Calling `setRules` also clears the internal cache.
+
+---
+
+## Inspecting Rules
+
+### Get All Rules
+
+```ts
+const rules = await guantr.getRules();
+```
+
+Returns a read-only array of all stored `GuantrRule` objects with their serialized conditions.
+
+### Query by Action and Resource
+
+```ts
+const rules = await guantr.relatedRulesFor('read', 'post');
+```
+
+Returns only the rules matching a specific action and resource key. This is a low-level query — conditions are **not** evaluated.
+
+---
+
+## Error Handling
+
+### Circuit Breaker
+
+If rule evaluation exceeds the configured `maxRuleIterations` (default: 1000), a `GuantrCircuitBreakerError` is thrown:
+
+```ts
+import { GuantrCircuitBreakerError } from 'guantr';
+
+try {
+  await guantr.can('read', ['post', post]);
+} catch (err) {
+  if (err instanceof GuantrCircuitBreakerError) {
+    console.log(`Limit: ${err.limit}, Action: ${err.action}`);
+  }
+}
+```
+
+### Invalid Condition Keys
+
+If a condition references a path that does not exist on the resource or context, a `GuantrInvalidConditionKeyError` is thrown at evaluation time:
+
+```ts
+import { GuantrInvalidConditionKeyError } from 'guantr';
+
+// Throws if resource has no 'nonexistentField'
+try {
+  await guantr.can('read', ['post', post]);
+} catch (err) {
+  if (err instanceof GuantrInvalidConditionKeyError) {
+    console.log(`Missing key: ${err.key}`);
+  }
+}
+```
+
+**Nullish opt-out:** If any operand in a condition is `null` or `undefined`, the key-existence check is skipped — this signals that the field is intentionally optional.

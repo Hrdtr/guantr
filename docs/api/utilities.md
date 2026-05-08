@@ -1,324 +1,634 @@
 # API: Utilities
 
-Guantr exports several utility functions that power the internal rule evaluation engine. These are available for users who need to evaluate rule conditions outside of the core `can`/`cannot` workflow — for example, when building custom permission checks, debugging rule logic, or integrating with external systems.
+Guantr exports utility functions and types for building and evaluating conditions outside the core `can`/`cannot` workflow.
 
 ## Importing
 
-All utilities are exported from the main `'guantr'` entry:
-
 ```ts
 import {
-  isConditionExpressionLike,
-  isContextualOperand,
-  KNOWN_OPERATORS,
-  matchConditionExpression,
-  matchRuleCondition,
-  validateCondition,
+  createMatchConditionBuilder,
+  evaluateCondition,
+  serializeRules,
+  deserializeRules,
+} from 'guantr';
+
+import type {
+  Condition,
+  MatchConditionBuilder,
+  MatchConditionFn,
+  ResourceRef,
+  ContextRef,
+  LiteralRef,
+  ValueRef,
+  InferValueRef,
+  ArrayElementType,
+  OperatorNode,
+  LogicalNode,
+  AstNode,
 } from 'guantr';
 ```
 
 ---
 
-## `isContextualOperand`
+## `createMatchConditionBuilder`
 
-Type guard that checks whether a value is a string referencing a context path (prefixed with `$ctx.`).
-
-When writing rule conditions, you can reference values from the dynamic context using the `$ctx.` prefix (e.g., `$ctx.userId`). This function lets you programmatically detect such references.
+Creates a new `MatchConditionBuilder` instance for composing typed conditions. The returned builder is a plain object whose methods produce typed `ValueRef` objects carrying phantom type information, enabling type-safe operand pairing at compile time while keeping the runtime objects fully JSON-serializable.
 
 ### Signature
 
 ```ts
-function isContextualOperand(path: unknown): path is string;
+function createMatchConditionBuilder<
+  Model extends Record<string, unknown> = Record<string, unknown>,
+  Context extends Record<string, unknown> = Record<string, unknown>,
+>(): MatchConditionBuilder<Model, Context>;
 ```
 
-### Parameters
+### Generics
 
-| Parameter | Type      | Description         |
-| --------- | --------- | ------------------- |
-| `path`    | `unknown` | The value to check. |
+- **`Model`**: The TypeScript type of the resource model. Used to infer field types for `resource()`, enabling type-safe comparisons. Defaults to `Record<string, unknown>`.
+- **`Context`**: The TypeScript type of the evaluation context. Used to infer field types for `context()`. Defaults to `Record<string, unknown>`.
 
 ### Returns
 
-- `boolean` — `true` if the value is a string starting with `$ctx.`, `false` otherwise. Acts as a TypeScript type guard, narrowing to `string`.
+A `MatchConditionBuilder<Model, Context>` instance with the following methods:
+
+#### Value-source factories
+
+| Method           | Signature                                          | Returns         | Description                                 |
+| ---------------- | -------------------------------------------------- | --------------- | ------------------------------------------- |
+| `resource(path)` | `(path: LeafKeys<Model>) => ResourceRef<Model>`    | `ResourceRef`   | Reference a field on the resource model     |
+| `context(path)`  | `(path: LeafKeys<Context>) => ContextRef<Context>` | `ContextRef`    | Reference a field on the evaluation context |
+| `literal(value)` | `<T>(value: T) => LiteralRef<T>`                   | `LiteralRef<T>` | Inline literal value                        |
+
+#### Comparison operators
+
+| Operator           | Signature                                           | Description              |
+| ------------------ | --------------------------------------------------- | ------------------------ |
+| `eq(left, right)`  | `(ValueRef, ValueRef) => Condition`                 | Equal to                 |
+| `ne(left, right)`  | `(ValueRef, ValueRef) => Condition`                 | Not equal to             |
+| `gt(left, right)`  | `(numeric ValueRef, numeric ValueRef) => Condition` | Greater than             |
+| `gte(left, right)` | `(numeric ValueRef, numeric ValueRef) => Condition` | Greater than or equal to |
+| `lt(left, right)`  | `(numeric ValueRef, numeric ValueRef) => Condition` | Less than                |
+| `lte(left, right)` | `(numeric ValueRef, numeric ValueRef) => Condition` | Less than or equal to    |
+
+#### String operators
+
+| Operator                             | Signature                                                                         | Description                |
+| ------------------------------------ | --------------------------------------------------------------------------------- | -------------------------- |
+| `contains(str, substring, options?)` | `(string ValueRef, string ValueRef, { caseInsensitive?: boolean }?) => Condition` | `str` contains `substring` |
+| `startsWith(str, prefix, options?)`  | `(string ValueRef, string ValueRef, { caseInsensitive?: boolean }?) => Condition` | `str` starts with `prefix` |
+| `endsWith(str, suffix, options?)`    | `(string ValueRef, string ValueRef, { caseInsensitive?: boolean }?) => Condition` | `str` ends with `suffix`   |
+
+All string operators accept an optional `{ caseInsensitive: true }` option.
+
+#### Array membership operators
+
+| Operator                            | Signature                                                                       | Description                                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `in(value, array, options?)`        | `(ValueRef, array ValueRef, { caseInsensitive?: boolean }?) => Condition`       | `value` is an element of `array`. Array position is type-checked; element-type compatibility is verified at runtime. |
+| `has(array, value, options?)`       | `(array ValueRef, ValueRef, { caseInsensitive?: boolean }?) => Condition`       | `array` contains `value`                                                                                             |
+| `hasSome(array, values, options?)`  | `(array ValueRef, array ValueRef, { caseInsensitive?: boolean }?) => Condition` | `array` contains at least one of `values`                                                                            |
+| `hasEvery(array, values, options?)` | `(array ValueRef, array ValueRef, { caseInsensitive?: boolean }?) => Condition` | `array` contains all of `values`                                                                                     |
+
+All array membership operators accept an optional `{ caseInsensitive: true }` option.
+
+#### Complex array operators
+
+| Operator           | Signature                                         | Description                                         |
+| ------------------ | ------------------------------------------------- | --------------------------------------------------- |
+| `some(array, fn)`  | `(array ValueRef, MatchConditionFn) => Condition` | At least one element satisfies the nested condition |
+| `every(array, fn)` | `(array ValueRef, MatchConditionFn) => Condition` | Every element satisfies the nested condition        |
+| `none(array, fn)`  | `(array ValueRef, MatchConditionFn) => Condition` | No element satisfies the nested condition           |
+
+The callback `fn` receives a scoped builder where `resource()` references fields of the **array element**, not the parent resource.
+
+#### Logical operators
+
+| Operator             | Signature                       | Description                              |
+| -------------------- | ------------------------------- | ---------------------------------------- |
+| `and(...conditions)` | `(...Condition[]) => Condition` | All conditions must be satisfied         |
+| `or(...conditions)`  | `(...Condition[]) => Condition` | At least one condition must be satisfied |
+| `not(condition)`     | `(Condition) => Condition`      | Negates the condition                    |
 
 ### Example
 
 ```ts
-import { isContextualOperand } from 'guantr';
+import { createMatchConditionBuilder } from 'guantr';
 
-isContextualOperand('$ctx.userId'); // true
-isContextualOperand('ctx.role'); // false
-isContextualOperand('userId'); // false
-isContextualOperand(42); // false
-isContextualOperand(null); // false
-
-// Type guard usage:
-const operand: unknown = '$ctx.userId';
-if (isContextualOperand(operand)) {
-  // operand is now typed as `string`
-  console.log(operand.replace('$ctx.', ''));
+interface Article {
+  id: number;
+  status: 'draft' | 'published' | 'archived';
+  title: string;
+  ownerId: string;
+  tags: string[];
+  comments: Array<{ approved: boolean; text: string }>;
 }
-```
 
-### Common Use Case
+interface MyContext {
+  userId: string;
+  role: 'admin' | 'editor' | 'viewer';
+}
 
-```ts
-import { createGuantr, isContextualOperand } from 'guantr';
+const builder = createMatchConditionBuilder<Article, MyContext>();
 
-const guantr = await createGuantr({
-  getContext: async () => ({ userId: 'abc123' }),
+// Simple comparison
+const isPublished = builder.eq(builder.resource('status'), builder.literal('published'));
+
+// Logical AND with not
+const isActiveAndNotArchived = builder.and(
+  builder.eq(builder.resource('status'), builder.literal('published')),
+  builder.not(builder.eq(builder.resource('status'), builder.literal('archived'))),
+);
+
+// Owner check (context vs resource)
+const isOwner = builder.eq(builder.resource('ownerId'), builder.context('userId'));
+
+// Case-insensitive string match
+const titleContains = builder.contains(builder.resource('title'), builder.literal('hello'), {
+  caseInsensitive: true,
 });
 
-const rules = await guantr.getRules();
-for (const rule of rules) {
-  if (rule.condition) {
-    for (const [field, expr] of Object.entries(rule.condition)) {
-      if (Array.isArray(expr) && isContextualOperand(expr[1])) {
-        console.log(`Rule for ${rule.resource}:${rule.action} uses context value: ${expr[1]}`);
-      }
-    }
-  }
-}
+// Array membership
+const hasTag = builder.has(builder.resource('tags'), builder.literal('featured'));
+
+// Complex array: check if any comment is approved
+const hasApprovedComment = builder.some(builder.resource('comments'), ({ eq, resource, literal }) =>
+  eq(resource('approved'), literal(true)),
+);
+
+// Complex nested: owner AND (published OR has approved comments)
+const canManage = builder.and(
+  builder.eq(builder.resource('ownerId'), builder.context('userId')),
+  builder.or(isPublished, hasApprovedComment),
+);
+
+// The result is a JSON-serializable Condition object
+console.log(JSON.stringify(canManage, null, 2));
 ```
 
 ---
 
-## `matchRuleCondition`
+## `evaluateCondition`
 
-Evaluates a full rule condition object against a model (plain object). This is the same function used internally by `can`/`cannot` when checking resource-aware permissions.
+Evaluates a serialized `Condition` AST against a resource instance and context object. This is the same runtime engine used internally by `can`/`cannot`.
 
 ### Signature
 
 ```ts
-function matchRuleCondition<Model extends Record<string, unknown>>(
-  model: Model,
-  condition: NonNullable<GuantrRule['condition']>,
+function evaluateCondition(
+  condition: Condition,
+  resource: Record<string, unknown>,
+  context: Record<string, unknown>,
 ): boolean;
 ```
 
 ### Parameters
 
-| Parameter   | Type                                    | Description                                                                                                          |
-| ----------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `model`     | `Model extends Record<string, unknown>` | The plain object to evaluate the condition against (e.g., a resource instance).                                      |
-| `condition` | `NonNullable<GuantrRule['condition']>`  | The condition object from a rule. Each key maps to either a condition expression array or a nested condition object. |
+| Parameter   | Type                      | Description                               |
+| ----------- | ------------------------- | ----------------------------------------- |
+| `condition` | `Condition`               | The serialized condition AST to evaluate  |
+| `resource`  | `Record<string, unknown>` | The resource instance to evaluate against |
+| `context`   | `Record<string, unknown>` | The evaluation context                    |
 
 ### Returns
 
-- `boolean` — `true` if the model satisfies **all** conditions, `false` otherwise. Returns `false` if `model` is falsy.
+- `boolean` — `true` if the condition is satisfied, `false` otherwise.
+
+This is a **synchronous** function.
 
 ### Throws
 
-- `GuantrInvalidConditionOperatorError` — if an unknown operator is encountered.
-- `TypeError` — if a condition value has an unexpected type.
+- `GuantrInvalidConditionKeyError` — When a referenced field does not exist on the resource or context and no nullish opt-out is present.
 
 ### Example
 
 ```ts
-import { matchRuleCondition } from 'guantr';
-import type { GuantrRuleCondition } from 'guantr';
+import { evaluateCondition } from 'guantr';
+import type { Condition } from 'guantr';
 
-const condition: GuantrRuleCondition = {
-  status: ['eq', 'published'],
-  author: {
-    role: ['in', ['editor', 'admin']],
+const condition: Condition = {
+  type: 'condition',
+  node: {
+    type: 'operator',
+    operator: 'eq',
+    operands: [
+      { type: 'resource', path: 'status' },
+      { type: 'literal', value: 'published' },
+    ],
   },
 };
 
-const post = { status: 'published', author: { role: 'editor' } };
-matchRuleCondition(post, condition); // true
+const post = { id: 1, status: 'published', title: 'Hello' };
+console.log(evaluateCondition(condition, post, {})); // true
 
-const draftPost = { status: 'draft', author: { role: 'editor' } };
-matchRuleCondition(draftPost, condition); // false (status doesn't match)
+const draft = { id: 2, status: 'draft', title: 'WIP' };
+console.log(evaluateCondition(condition, draft, {})); // false
 ```
 
-### With Unknown Operators
+### With logical operators
 
 ```ts
-import { matchRuleCondition, GuantrInvalidConditionOperatorError } from 'guantr';
+const andCondition: Condition = {
+  type: 'condition',
+  node: {
+    type: 'logical',
+    operator: 'and',
+    operands: [
+      {
+        type: 'condition',
+        node: {
+          type: 'operator',
+          operator: 'eq',
+          operands: [
+            { type: 'resource', path: 'status' },
+            { type: 'literal', value: 'published' },
+          ],
+        },
+      },
+      {
+        type: 'condition',
+        node: {
+          type: 'operator',
+          operator: 'eq',
+          operands: [
+            { type: 'resource', path: 'ownerId' },
+            { type: 'context', path: 'userId' },
+          ],
+        },
+      },
+    ],
+  },
+};
 
-try {
-  // 'eql' is not a valid operator — throws immediately
-  matchRuleCondition({ id: 1 }, { id: ['eql', 1] });
-} catch (e) {
-  if (e instanceof GuantrInvalidConditionOperatorError) {
-    console.error('Unknown operator:', e.operator); // 'eql'
-  }
-}
+const post = { id: 1, status: 'published', ownerId: 'user-1' };
+const context = { userId: 'user-1' };
+console.log(evaluateCondition(andCondition, post, context)); // true
 ```
 
 ---
 
-## `matchConditionExpression`
+## `serializeRules`
 
-Evaluates a single condition expression (a `[operator, operand, ?options]` tuple) against a value. This is the lowest-level evaluation function — `matchRuleCondition` delegates to it for each expression within a condition object.
+Converts function-based `matchCondition` entries in a rules array into serializable `Condition` AST objects. This is the same logic used internally by `setRules()` but exposed as a standalone utility.
+
+Use this when you want to seed rules into a custom storage backend (database, key-value store, etc.) without creating a `Guantr` instance or calling `setRules` at runtime.
 
 ### Signature
 
 ```ts
-function matchConditionExpression(data: {
-  value: unknown;
-  expression: Extract<
-    NonNullable<GuantrRule['condition']>[keyof NonNullable<GuantrRule['condition']>],
-    Array<any>
-  >;
-}): boolean;
+function serializeRules<Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined>(
+  rules: readonly GuantrRule<Meta>[],
+): GuantrRule<Meta>[];
 ```
+
+### Generic
+
+- **`Meta`**: The `GuantrMeta` type describing the resource map and context. Must be provided explicitly when using typed rules to preserve type information.
 
 ### Parameters
 
-| Parameter         | Type      | Description                                                                          |
-| ----------------- | --------- | ------------------------------------------------------------------------------------ |
-| `data.value`      | `unknown` | The value to evaluate the condition against (e.g., a specific field from the model). |
-| `data.expression` | `Array`   | A condition expression tuple in the form `[operator, operand, ?options]`.            |
+| Parameter | Type                          | Description                                                                     |
+| --------- | ----------------------------- | ------------------------------------------------------------------------------- |
+| `rules`   | `readonly GuantrRule<Meta>[]` | Array of rules, potentially containing function-based `matchCondition` entries. |
 
 ### Returns
 
-- `boolean` — `true` if the value satisfies the expression, `false` otherwise. Returns `false` if the expression is `null`, `undefined`, or has fewer than 2 elements.
+A new array where every function-based `matchCondition` has been converted to a `Condition` AST object. Rules with non-function conditions (`Condition`, `null`, or `undefined`) are passed through unchanged.
 
-### Throws
-
-- `GuantrInvalidConditionOperatorError` — if the operator is not recognized.
-- `TypeError` — if the value or operand type is invalid for the given operator.
-
-### Example
+### Example — Basic
 
 ```ts
-import { matchConditionExpression } from 'guantr';
+import { serializeRules } from 'guantr';
+import type { GuantrRule, GuantrMeta, GuantrResourceMap } from 'guantr';
 
-// Basic equality
-matchConditionExpression({ value: 'hello', expression: ['eq', 'hello'] }); // true
-matchConditionExpression({ value: 'hello', expression: ['eq', 'world'] }); // false
+type Post = { id: number; status: string; archived: boolean };
+type ResourceMap = GuantrResourceMap<{ post: { action: 'read' | 'update'; model: Post } }>;
+type Meta = GuantrMeta<ResourceMap>;
 
-// Contains
-matchConditionExpression({ value: 'hello world', expression: ['contains', 'world'] }); // true
+const rules: GuantrRule<Meta>[] = [
+  { resource: 'post', action: 'read', effect: 'allow' },
+  {
+    resource: 'post',
+    action: 'update',
+    effect: 'allow',
+    matchCondition: ({ eq, resource, context }) => eq(resource('id'), context('userId')),
+  },
+];
 
-// Greater than
-matchConditionExpression({ value: 42, expression: ['gt', 10] }); // true
+// Convert function-based conditions to serializable Condition objects
+const serialized = serializeRules<Meta>(rules);
+// serialized[1].matchCondition is now a Condition object, not a function
+// Safe to JSON.stringify and store in a database
 
-// Case-insensitive matching
-matchConditionExpression({
-  value: 'Hello',
-  expression: ['eq', 'hello', { caseInsensitive: true }],
-}); // true
-
-// In array
-matchConditionExpression({ value: 'admin', expression: ['in', ['admin', 'superadmin']] }); // true
+// Persist to database
+await db.rules.insertMany(
+  serialized.map((r) => ({
+    action: r.action,
+    resource: r.resource,
+    effect: r.effect,
+    condition: JSON.stringify(r.matchCondition ?? null),
+  })),
+);
 ```
 
-### Using with Unknown Operators
+### Example — Database seeding
 
 ```ts
-import { matchConditionExpression, GuantrInvalidConditionOperatorError } from 'guantr';
+import { serializeRules } from 'guantr';
 
-// Unknown operator always throws immediately
-try {
-  matchConditionExpression({ value: 1, expression: ['unknownOp', 1] });
-} catch (e) {
-  if (e instanceof GuantrInvalidConditionOperatorError) {
-    console.error('Unknown operator:', e.operator); // 'unknownOp'
+// Rules defined in a source file (e.g., rules.ts)
+export const appRules: GuantrRule<AppMeta>[] = [
+  { resource: 'post', action: 'read', effect: 'allow' },
+  {
+    resource: 'post',
+    action: 'delete',
+    effect: 'deny',
+    matchCondition: ({ eq, resource, context }) => eq(resource('ownerId'), context('userId')),
+  },
+];
+
+// In a migration script:
+async function seed() {
+  const serialized = serializeRules<AppMeta>(appRules);
+  for (const rule of serialized) {
+    await db.insert('rules', {
+      action: rule.action,
+      resource: rule.resource,
+      effect: rule.effect,
+      match_condition: JSON.stringify(rule.matchCondition ?? null),
+    });
   }
 }
 ```
 
+### How it works
+
+1. Iterates over each rule in the input array.
+2. If `matchCondition` is a function, executes it with a `MatchConditionBuilder` and replaces it with the returned `Condition` AST.
+3. If `matchCondition` is `null`, `undefined`, or already a `Condition` object, leaves it unchanged.
+4. Returns a new array — the original array is **not** mutated.
+
 ---
 
-## `isConditionExpressionLike`
+## `deserializeRules`
 
-Type guard that checks whether a value is **structurally** a valid condition expression (an array with at least 2 elements where the first is a string).
+Wraps `Condition` objects in a rules array back into function form. This is the inverse of `serializeRules`.
 
-This is a **structural check only** — the operator string is NOT validated against `KNOWN_OPERATORS`. Operator validation is handled by `validateCondition` (at definition time) and `matchConditionExpression` (at evaluation time).
-
-See [Rule Validation](../guides/defining-rules/rule-validation) for a full explanation.
-
-> **Renamed** from `isValidConditionExpression` in v2.0.0.
+Use this when you load rules from an external store (database, cache, etc.) and want to feed them into `setRules` using either the array or callback form.
 
 ### Signature
 
 ```ts
-function isConditionExpressionLike(
-  maybeExpression: unknown,
-): maybeExpression is GuantrRuleConditionExpression;
+function deserializeRules<Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined>(
+  rules: readonly GuantrRule<Meta>[],
+): GuantrRule<Meta>[];
 ```
+
+### Generic
+
+- **`Meta`**: The `GuantrMeta` type describing the resource map and context. Must be provided explicitly when using typed rules.
 
 ### Parameters
 
-| Parameter         | Type      | Description         |
-| ----------------- | --------- | ------------------- |
-| `maybeExpression` | `unknown` | The value to check. |
+| Parameter | Type                          | Description                                                        |
+| --------- | ----------------------------- | ------------------------------------------------------------------ |
+| `rules`   | `readonly GuantrRule<Meta>[]` | Array of rules containing `Condition` objects in `matchCondition`. |
 
 ### Returns
 
-- `boolean` — `true` if the value is an array with at least 2 elements and the first element is a string. Acts as a TypeScript type guard, narrowing to `GuantrRuleConditionExpression`.
+A new array where every non-function `matchCondition` has been wrapped as a function. Rules with `null`, `undefined`, or already-function `matchCondition` are passed through unchanged.
 
 ### Example
 
 ```ts
-import { isConditionExpressionLike } from 'guantr';
+import { deserializeRules } from 'guantr';
 
-isConditionExpressionLike(['eq', 'hello']); // true
-isConditionExpressionLike(['unknownOp', 'foo']); // true (structural check only)
-isConditionExpressionLike(null); // false
-isConditionExpressionLike(['eq']); // false (too few elements)
-isConditionExpressionLike([42, 'foo']); // false (operator not a string)
+// Rules loaded from a database — matchCondition is a parsed Condition object
+const rows = await db.query('SELECT * FROM rules');
+const rulesFromDb: GuantrRule<Meta>[] = rows.map((r) => ({
+  action: r.action,
+  resource: r.resource,
+  effect: r.effect,
+  matchCondition: JSON.parse(r.match_condition ?? null),
+}));
+
+// Wrap Condition objects as functions for setRules
+const deserialized = deserializeRules<Meta>(rulesFromDb);
+await guantr.setRules(deserialized);
 ```
+
+### Example — Full round-trip
+
+```ts
+import { serializeRules, deserializeRules } from 'guantr';
+
+// 1. Define rules in code
+const rules: GuantrRule<Meta>[] = [
+  { resource: 'post', action: 'read', effect: 'allow' },
+  {
+    resource: 'post',
+    action: 'delete',
+    effect: 'deny',
+    matchCondition: ({ eq, resource, literal }) => eq(resource('archived'), literal(true)),
+  },
+];
+
+// 2. Serialize before persisting
+const serialized = serializeRules<Meta>(rules);
+
+// 3. Persist to database
+const json = JSON.stringify(serialized);
+await db.insert('rules', { body: json });
+
+// 4. Later: load from database and deserialize
+const fromDb = JSON.parse(await db.select('rules'));
+const deserialized = deserializeRules<Meta>(fromDb);
+
+// 5. Register with Guantr
+await guantr.setRules(deserialized);
+```
+
+### How it works
+
+1. Iterates over each rule in the input array.
+2. If `matchCondition` is a `Condition` object (not `null`, `undefined`, or a function), wraps it in a function that returns the condition directly.
+3. The wrapped function accepts a `MatchConditionBuilder` (ignoring it) and returns the original `Condition`.
+4. Returns a new array — the original array is **not** mutated.
 
 ---
 
-## `validateCondition`
+## Condition Types
 
-Recursively validates a condition object, throwing `GuantrInvalidConditionError` on the first invalid expression encountered. This is the same function called internally by `setRules`.
+Guantr exports all the types that compose the condition system. These are useful for type-safe manipulation of condition data, custom tooling, or serialization/deserialization scenarios.
 
-### Signature
-
-```ts
-function validateCondition(condition: GuantrRule['condition'], _path?: string): void;
-```
-
-### Parameters
-
-| Parameter   | Type                      | Description                                                                    |
-| ----------- | ------------------------- | ------------------------------------------------------------------------------ |
-| `condition` | `GuantrRule['condition']` | The condition object to validate. `null` and `undefined` are accepted (no-op). |
-| `_path`     | `string` (optional)       | Dot-notation prefix for error messages. Used internally during recursion.      |
-
-### Throws
-
-- `GuantrInvalidConditionError` — if the condition is malformed, uses an unknown operator, or contains an invalid value type.
-
-### Example
+### `Condition`
 
 ```ts
-import { validateCondition } from 'guantr';
-import { GuantrInvalidConditionError } from 'guantr';
-
-try {
-  validateCondition({ id: ['eql', 1] });
-} catch (e) {
-  if (e instanceof GuantrInvalidConditionError) {
-    console.error(e.reason);
-    // 'Unknown operator "eql" at "id". Valid operators: eq, in, ...'
-  }
+interface Condition {
+  readonly type: 'condition';
+  readonly node: AstNode;
 }
 ```
 
----
+The top-level wrapper around every condition AST. Returned by all builder methods and stored in `GuantrRule.matchCondition`.
 
-## `KNOWN_OPERATORS`
-
-A `ReadonlySet<string>` containing all valid `ConditionOperator` values. Useful for custom validation or introspection.
+### `MatchConditionBuilder<Model, Context>`
 
 ```ts
-import { KNOWN_OPERATORS } from 'guantr';
-
-KNOWN_OPERATORS.has('eq'); // true
-KNOWN_OPERATORS.has('eql'); // false
+interface MatchConditionBuilder<
+  Model extends Record<string, unknown>,
+  Context extends Record<string, unknown>,
+> {
+  resource<P extends LeafKeys<Model>>(path: P): ResourceRef<Model, P>;
+  context<P extends LeafKeys<Context>>(path: P): ContextRef<Context, P>;
+  literal<T>(value: T): LiteralRef<T>;
+  eq(...): Condition;
+  ne(...): Condition;
+  gt(...): Condition;
+  gte(...): Condition;
+  lt(...): Condition;
+  lte(...): Condition;
+  contains(...): Condition;
+  startsWith(...): Condition;
+  endsWith(...): Condition;
+  in(...): Condition;
+  has(...): Condition;
+  hasSome(...): Condition;
+  hasEvery(...): Condition;
+  some(...): Condition;
+  every(...): Condition;
+  none(...): Condition;
+  and(...conditions: Condition[]): Condition;
+  or(...conditions: Condition[]): Condition;
+  not(condition: Condition): Condition;
+}
 ```
+
+The builder object passed to `matchCondition` functions. Created by `createMatchConditionBuilder()` or provided automatically in rule callbacks.
+
+### `MatchConditionFn<Model, Context>`
+
+```ts
+type MatchConditionFn<
+  Model extends Record<string, unknown> = Record<string, unknown>,
+  Context extends Record<string, unknown> = Record<string, unknown>,
+> = (builder: MatchConditionBuilder<Model, Context>) => Condition;
+```
+
+The user-facing function signature for defining a `matchCondition` on a rule.
+
+### `ResourceRef<Model, Path>`
+
+```ts
+interface ResourceRef<Model extends Record<string, unknown>, P extends string = string> {
+  readonly type: 'resource';
+  readonly path: P;
+}
+```
+
+References a field on the resource model. Created by `builder.resource('fieldName')`.
+
+### `ContextRef<Context, Path>`
+
+```ts
+interface ContextRef<Context extends Record<string, unknown>, P extends string = string> {
+  readonly type: 'context';
+  readonly path: P;
+}
+```
+
+References a field on the evaluation context. Created by `builder.context('fieldName')`.
+
+### `LiteralRef<T>`
+
+```ts
+interface LiteralRef<T = unknown> {
+  readonly type: 'literal';
+  readonly value: T;
+}
+```
+
+An inline literal value. Created by `builder.literal(value)`.
+
+### `ValueRef`
+
+```ts
+type ValueRef = ResourceRef | ContextRef | LiteralRef;
+```
+
+Union of all value-reference variants. Used as operand types for operators.
+
+### `InferValueRef<R>`
+
+```ts
+type InferValueRef<R extends ValueRef> = /* extracted phantom type */;
+```
+
+Extracts the value type carried by a `ValueRef`'s phantom type parameter. Useful for type-level reasoning about condition operands.
+
+### `ArrayElementType<R>`
+
+```ts
+type ArrayElementType<R extends ValueRef> = /* element type or never */;
+```
+
+Extracts the element type from a `ValueRef` whose phantom type is an array. Returns `never` if the phantom type is not an array.
+
+### `OperatorNode`
+
+```ts
+interface OperatorNode {
+  readonly type: 'operator';
+  readonly operator:
+    | 'eq'
+    | 'ne'
+    | 'gt'
+    | 'gte'
+    | 'lt'
+    | 'lte'
+    | 'contains'
+    | 'startsWith'
+    | 'endsWith'
+    | 'in'
+    | 'has'
+    | 'hasSome'
+    | 'hasEvery'
+    | 'some'
+    | 'every'
+    | 'none';
+  readonly operands: readonly ValueRef[];
+  readonly options?: Readonly<{ caseInsensitive?: boolean }>;
+  readonly condition?: Condition; // For some/every/none
+}
+```
+
+An AST node for a comparison or membership check. Serialized as `{ "type": "operator", "operator": "eq", "operands": [...] }`.
+
+### `LogicalNode`
+
+```ts
+interface LogicalNode {
+  readonly type: 'logical';
+  readonly operator: 'and' | 'or' | 'not';
+  readonly operands: readonly Condition[];
+}
+```
+
+An AST node for logical combination of child conditions.
+
+### `AstNode`
+
+```ts
+type AstNode = OperatorNode | LogicalNode;
+```
+
+Discriminated union of all AST node variants.
 
 ---
 
-## Related
+## See also
 
-- [Condition Operators](../guides/defining-rules/condition-operators) — Reference for all available operators.
-- [Rule Validation](../guides/defining-rules/rule-validation) — How Guantr validates conditions at definition and evaluation time.
-- [Error Classes](./error-classes) — Documentation for error types.
+- [`matchCondition` in setRules](./Guantr/setRules) — Using the builder in rule definitions.
+- [`can()`](./Guantr/can) — Permission checking (uses these utilities internally).
+- [Custom Storage Adapter](/advanced-usage/custom-storage-adapter) — Persisting serialized rules in a database.
+- [Error Classes](./error-classes) — `GuantrInvalidConditionKeyError` thrown by `evaluateCondition`.

@@ -1,3 +1,4 @@
+import type { Condition, MatchConditionFn, MatchConditionBuilder } from './condition/types';
 import type { Storage } from './storage/types';
 import type {
   GuantrMeta,
@@ -6,45 +7,155 @@ import type {
   GuantrOptions,
   GuantrContextFromMeta,
 } from './types';
+import { createMatchConditionBuilder } from './condition/builder';
+import { evaluateCondition } from './condition/evaluate';
 import { GuantrCircuitBreakerError } from './errors';
 import { InMemoryStorage } from './storage';
-import {
-  getContextValue,
-  isContextualOperand,
-  matchRuleCondition,
-  validateCondition,
-} from './utils';
 
-export {
-  GuantrCircuitBreakerError,
-  GuantrInvalidConditionError,
-  GuantrInvalidConditionKeyError,
-  GuantrInvalidConditionOperatorError,
-} from './errors';
+export { GuantrCircuitBreakerError, GuantrInvalidConditionKeyError } from './errors';
 
 export type {
   GuantrMeta,
   GuantrOptions,
-  ConditionOperator,
   GuantrResource,
   GuantrResourceAction,
   GuantrResourceModel,
   GuantrResourceMap,
   GuantrRule,
-  GuantrRuleCondition,
-  GuantrRuleConditionExpression,
   GuantrContextFromMeta,
 } from './types';
 
-export {
-  isConditionExpressionLike,
-  isContextualOperand,
-  KNOWN_OPERATORS,
-  matchConditionExpression,
-  matchRuleCondition,
-  validateCondition,
-  conditionHandlers,
-} from './utils';
+export type {
+  ResourceRef,
+  ContextRef,
+  LiteralRef,
+  ValueRef,
+  InferValueRef,
+  ArrayElementType,
+  OperatorNode,
+  LogicalNode,
+  AstNode,
+  Condition,
+  MatchConditionBuilder,
+  MatchConditionFn,
+} from './condition/types';
+
+export { createMatchConditionBuilder } from './condition/builder';
+export { evaluateCondition } from './condition/evaluate';
+
+function stableStringify(value: unknown, seen: WeakSet<object> = new WeakSet()): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+  if (seen.has(value as object)) {
+    throw new TypeError('Converting circular structure to JSON');
+  }
+  if (Array.isArray(value)) {
+    seen.add(value);
+    return `[${value.map((item) => stableStringify(item, seen)).join(',')}]`;
+  }
+  seen.add(value as object);
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  const pairs = keys.map((k) => `${JSON.stringify(k)}:${stableStringify(record[k], seen)}`);
+  return `{${pairs.join(',')}}`;
+}
+
+/**
+ * Serializes {@link MatchConditionFn | function-based match conditions} in a rules array
+ * into {@link Condition} AST objects.
+ *
+ * Each rule whose `matchCondition` is a function is executed with a
+ * {@link MatchConditionBuilder} and replaced by the resulting `Condition` object.
+ * Rules with non-function conditions or no conditions are passed through unchanged.
+ *
+ * This is essential for seeding rules into a database or custom storage without
+ * calling `setRules` at runtime. Serialize your rule definitions once, persist
+ * them, and let the storage adapter serve them directly via `queryRules`.
+ *
+ * @param rules - Array of rules, potentially containing function-based `matchCondition` entries.
+ * @returns A new array where every function-based `matchCondition` has been converted
+ *          to a serialized `Condition` AST.
+ *
+ * @example
+ * ```ts
+ * import { serializeRules } from 'guantr';
+ *
+ * const rules = [
+ *   { effect: 'allow', action: 'read', resource: 'post' },
+ *   {
+ *     effect: 'deny',
+ *     action: 'read',
+ *     resource: 'post',
+ *     matchCondition: ({ eq, resource, literal }) =>
+ *       eq(resource('archived'), literal(true)),
+ *   },
+ * ];
+ *
+ * // Serialize before persisting to a database
+ * const serialized = serializeRules(rules);
+ * // serialized[1].matchCondition is now a Condition object, not a function
+ * await db.insert(serialized);
+ * ```
+ */
+export function serializeRules<Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined>(
+  rules: readonly GuantrRule<Meta>[],
+): GuantrRule<Meta>[] {
+  return rules.map((rule) => {
+    if (rule.matchCondition == null) return rule;
+    if (typeof rule.matchCondition === 'function') {
+      const builder = createMatchConditionBuilder<
+        Record<string, unknown>,
+        Record<string, unknown>
+      >();
+      const condition = (rule.matchCondition as unknown as (b: typeof builder) => Condition)(
+        builder,
+      );
+      return { ...rule, matchCondition: condition };
+    }
+    return rule;
+  });
+}
+
+/**
+ * Wraps {@link Condition} objects in a rules array back into function form so
+ * they can be passed to `setRules` for re-registration.
+ *
+ * This is the inverse of {@link serializeRules}. Each `Condition` stored in
+ * `matchCondition` is wrapped inside a {@link MatchConditionFn | function} that
+ * returns the condition directly (ignoring the builder argument).
+ *
+ * Use this when you load rules from an external store and want to feed them
+ * into `setRules` using either the array or callback form.
+ *
+ * @param rules - Array of rules containing `Condition` objects in `matchCondition`.
+ * @returns A new array where every `Condition`-typed `matchCondition` has been
+ *          wrapped as a function.
+ *
+ * @example
+ * ```ts
+ * import { deserializeRules } from 'guantr';
+ *
+ * // Rules loaded from a database already have serialized Condition objects
+ * const rulesFromDb = await db.select('SELECT * FROM rules');
+ * const deserialized = deserializeRules(rulesFromDb);
+ * await guantr.setRules(deserialized);
+ * ```
+ */
+export function deserializeRules<
+  Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
+>(rules: readonly GuantrRule<Meta>[]): GuantrRule<Meta>[] {
+  return rules.map((rule) => {
+    if (rule.matchCondition != null && typeof rule.matchCondition !== 'function') {
+      const condition = rule.matchCondition;
+      const wrappedFn: MatchConditionFn<Record<string, unknown>, Record<string, unknown>> = (
+        _builder,
+      ) => condition as Condition;
+      return { ...rule, matchCondition: wrappedFn };
+    }
+    return rule;
+  });
+}
 
 // Extract commonly used type patterns to reduce repetition
 type ExtractResourceKeys<Meta> = Meta extends GuantrMeta<infer U> ? keyof U : string;
@@ -115,10 +226,6 @@ type CanMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
  * Typed callable for `guantr.cannot`. Logical negation of `CanMethod`.
  */
 type CannotMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
-  /**
-   * Checks if the user does NOT have permission to perform the specified action on the given resource instance.
-   * Evaluates all matching conditions and deny rules.
-   */
   <
     ResourceKey extends ExtractResourceKeys<Meta>,
     Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<
@@ -130,65 +237,60 @@ type CannotMethod<Meta extends GuantrMeta<GuantrResourceMap> | undefined> = {
     resource: [ResourceKey, Resource],
   ): Promise<boolean>;
 
-  /**
-   * Abstract permission check (negated).
-   * Returns `true` if NO allow rule exists for the given action + resource pair.
-   * Does NOT evaluate conditions or deny rules.
-   */
   abstract<ResourceKey extends ExtractResourceKeys<Meta>>(
     action: ExtractResourceAction<Meta, ResourceKey>,
     resource: ResourceKey,
   ): Promise<boolean>;
 
-  /**
-   * Checks if ALL specified permissions are denied.
-   * Resolves context once and shares it across all checks.
-   * Short-circuits on the first `true` result (first granted permission).
-   */
   all(checks: CanCheckItem<Meta>[]): Promise<boolean>;
 
-  /**
-   * Checks if ANY of the specified permissions is denied.
-   * Resolves context once and shares it across all checks.
-   * Short-circuits on the first `false` result (first granted permission).
-   */
   any(checks: CanCheckItem<Meta>[]): Promise<boolean>;
 };
 
+/**
+ * Core authorization engine for managing and evaluating permission rules.
+ *
+ * Each instance holds a set of rules in a {@link Storage} adapter and provides
+ * methods for checking whether a given action is allowed or denied against a
+ * specific resource instance. Conditions within rules are evaluated using a
+ * builder-based DSL ({@link MatchConditionBuilder}) and serialized as AST
+ * nodes stored in the storage backend.
+ *
+ * @example
+ * ```ts
+ * const guantr = new Guantr<MyMeta>({
+ *   storage: new MyStorage(),
+ *   context: () => ({ userId: '123' }),
+ *   maxRuleIterations: 500,
+ * });
+ * await guantr.setRules((allow, deny) => {
+ *   allow('read', 'post');
+ * });
+ * ```
+ *
+ * @typeParam Meta - A {@link GuantrMeta} type describing the resource map and context shape,
+ *   or `undefined` for untyped mode.
+ */
 export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined> {
   private _storage: Storage;
-  private _getContext: () => GuantrContextFromMeta<Meta> | PromiseLike<GuantrContextFromMeta<Meta>>;
+  private _resolveContext: () => GuantrContextFromMeta<Meta> | Promise<GuantrContextFromMeta<Meta>>;
   private readonly _maxRuleIterations: number;
-  /**
-   * Check whether an action is permitted on a resource.
-   *
-   * - `can(action, [resourceKey, instance])` — full evaluation against the resource instance.
-   * - `can.abstract(action, resourceKey)` — abstract check for UI hints; ignores conditions and deny rules.
-   * - `can.all(checks)` — batch check ALL permissions; short-circuits on first `false`.
-   * - `can.any(checks)` — batch check ANY permission; short-circuits on first `true`.
-   */
   readonly can!: CanMethod<Meta>;
-
-  /**
-   * Check whether an action is denied on a resource. Logical negation of `can`.
-   *
-   * - `cannot(action, [resourceKey, instance])` — full evaluation against the resource instance.
-   * - `cannot.abstract(action, resourceKey)` — abstract check for UI hints; ignores conditions and deny rules.
-   * - `cannot.all(checks)` — batch check ALL permissions are denied; short-circuits on first `true`.
-   * - `cannot.any(checks)` — batch check ANY permission is denied; short-circuits on first `false`.
-   */
   readonly cannot!: CannotMethod<Meta>;
 
-  /**
-   * Initializes a new instance of the Guantr class.
-   *
-   * @param {Object} options - An optional object containing the context & storage configuration.
-   * @param {Storage} options.storage - Optional storage object to use. Defaults to InMemoryStorage.
-   */
   constructor(options?: GuantrOptions<GuantrContextFromMeta<Meta>>) {
     this._storage = options?.storage || new InMemoryStorage();
-    this._getContext =
-      options?.getContext || (() => Promise.resolve({} as GuantrContextFromMeta<Meta>));
+    const rawContext = options?.context;
+    if (typeof rawContext === 'function') {
+      this._resolveContext = rawContext as () =>
+        | GuantrContextFromMeta<Meta>
+        | Promise<GuantrContextFromMeta<Meta>>;
+    } else if (rawContext !== undefined) {
+      const ctx = rawContext as GuantrContextFromMeta<Meta>;
+      this._resolveContext = () => Promise.resolve(ctx);
+    } else {
+      this._resolveContext = () => Promise.resolve({} as GuantrContextFromMeta<Meta>);
+    }
 
     const maxRuleIterations = options?.maxRuleIterations ?? 1000;
     if (!Number.isInteger(maxRuleIterations) || maxRuleIterations < 1) {
@@ -239,29 +341,55 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
   }
 
   /**
-   * Sets rules based on the provided callback functions.
+   * Replaces all stored rules with a new rule set.
    *
-   * @param {Function} callback - The callback function that defines rules.
-   * @param {Function} callback.allow - The function to set rules when allowed.
-   * @param {Function} callback.deny - The function to set rules when denied.
+   * Accepts either a callback that receives `allow` / `deny` helper functions, or
+   * a direct array of {@link GuantrRule} objects. When using the callback, each call
+   * to `allow(action, resource)` or `deny(action, resource)` adds one rule.
+   *
+   * The `resource` argument to `allow`/`deny` can be:
+   * - A plain resource key string (unconditional rule).
+   * - A tuple `[resourceKey, matchCondition]` where `matchCondition` is either a
+   *   builder function (`MatchConditionFn`) or a pre-serialized {@link Condition} object.
+   *
+   * When a `matchCondition` function is provided, it is immediately executed with a
+   * {@link MatchConditionBuilder} and the resulting AST is stored. This serialization
+   * is delegated to {@link serializeRules}. If you need to serialize rules without a
+   * `Guantr` instance, use {@link serializeRules} directly.
+   *
+   * Calling this method **clears the cache**.
+   *
+   * @param callbackOrRules - A callback function that defines rules, or an array of rule objects.
+   * @example
+   * ```ts
+   * // Callback style
+   * await guantr.setRules((allow, deny) => {
+   *   allow('read', 'post');
+   *   deny('read', ['post', ({ eq, resource, literal }) =>
+   *     eq(resource('archived'), literal(true))
+   *   ]);
+   * });
+   *
+   * // Array style
+   * await guantr.setRules([
+   *   { effect: 'allow', action: 'read', resource: 'post' },
+   *   {
+   *     effect: 'deny',
+   *     action: 'read',
+   *     resource: 'post',
+   *     matchCondition: ({ eq, resource, literal }) =>
+   *       eq(resource('archived'), literal(true)),
+   *   },
+   * ]);
+   * ```
    */
   async setRules(callback: SetRulesCallback<Meta>): Promise<void>;
-  /**
-   * Sets the rules for the Guantr instance.
-   *
-   * @param {GuantrRule<Meta>[]} rules - The array of rules to set.
-   */
   async setRules(rules: GuantrRule<Meta>[]): Promise<void>;
   async setRules(callbackOrRules: SetRulesCallback<Meta> | GuantrRule<Meta>[]): Promise<void> {
     let nextRules: GuantrRule[];
 
     if (Array.isArray(callbackOrRules)) {
       nextRules = callbackOrRules as GuantrRule[];
-      for (const rule of nextRules) {
-        if (rule.condition != null) {
-          validateCondition(rule.condition);
-        }
-      }
     } else {
       const rules: GuantrRule[] = [];
       await callbackOrRules(
@@ -269,37 +397,39 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
           rules.push({
             action,
             resource: typeof resource === 'string' ? resource : resource[0],
-            condition:
-              typeof resource === 'string' ? null : (resource[1] as GuantrRule['condition']),
+            matchCondition:
+              typeof resource === 'string'
+                ? undefined
+                : (resource[1] as GuantrRule['matchCondition']),
             effect: 'allow',
           }),
         (action, resource) =>
           rules.push({
             action,
             resource: typeof resource === 'string' ? resource : resource[0],
-            condition:
-              typeof resource === 'string' ? null : (resource[1] as GuantrRule['condition']),
+            matchCondition:
+              typeof resource === 'string'
+                ? undefined
+                : (resource[1] as GuantrRule['matchCondition']),
             effect: 'deny',
           }),
       );
 
-      for (const rule of rules) {
-        if (rule.condition != null) {
-          validateCondition(rule.condition);
-        }
-      }
-
       nextRules = rules;
     }
+
+    nextRules = serializeRules(nextRules);
 
     await this._storage.cache?.clear();
     return this._storage.setRules(nextRules);
   }
 
   /**
-   * Returns the rules of the Guantr instance as a read-only array of GuantrRule objects.
+   * Returns all stored rules as a read-only array.
    *
-   * @return {Promise<ReadonlyArray<GuantrRule>>} The rules of the Guantr instance.
+   * Results are cached via the storage adapter's cache layer if available.
+   *
+   * @returns A promise resolving to all stored {@link GuantrRule} objects.
    */
   async getRules(): Promise<ReadonlyArray<GuantrRule>> {
     const cacheKey = 'getRules';
@@ -310,7 +440,6 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
           cached = await this._storage.cache.get<ReadonlyArray<GuantrRule>>(cacheKey);
         }
       } catch {
-        // Swallow cache adapter errors and treat as cache miss
         cached = undefined;
       }
       if (cached !== undefined) return cached;
@@ -325,35 +454,22 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
   }
 
   /**
-   * Filters rules based on the provided action and resource.
+   * Retrieves all rules matching a specific action and resource key.
    *
-   * @param {ExtractResourceAction<Meta, ResourceKey>} action - The action to filter rules.
-   * @param {ResourceKey} resource - The resource key to filter rules.
-   * @param {Object} options - An optional object containing the applyConditionContextualOperands flag.
-   * @param {boolean} options.applyConditionContextualOperands - A flag indicating whether to apply contextual operands to each rules condition.
-   * @return {GuantrRule[]} The filtered rules based on the action and resource.
+   * This is a low-level query that returns rules as stored — conditions are
+   * **not** evaluated. Useful for debugging or building custom tooling.
+   *
+   * @param action - The action to filter by (e.g. `'read'`).
+   * @param resource - The resource key to filter by (e.g. `'post'`).
+   * @returns A promise resolving to the matching rule objects.
    */
   async relatedRulesFor<ResourceKey extends ExtractResourceKeys<Meta>>(
     action: ExtractResourceAction<Meta, ResourceKey>,
     resource: ResourceKey,
-    options?: { applyConditionContextualOperands?: boolean },
   ): Promise<GuantrRule[]> {
-    const rules = await this._storage.queryRules(action as string, resource as string);
-    if (options?.applyConditionContextualOperands) {
-      return await Promise.all(
-        rules.map(async (rule) => ({
-          ...rule,
-          condition: await this.applyContextualOperands(rule.condition),
-        })),
-      );
-    }
-    return rules;
+    return this._storage.queryRules(action as string, resource as string);
   }
 
-  /**
-   * Core evaluation of a single permission check, using a pre-resolved context.
-   * This is the shared workhorse for `_can`, `_canAll`, and `_canAny`.
-   */
   private async _evaluateCheck<
     ResourceKey extends ExtractResourceKeys<Meta>,
     Resource extends ExtractResourceModel<Meta, ResourceKey> = ExtractResourceModel<
@@ -364,31 +480,22 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
     action: ExtractResourceAction<Meta, ResourceKey>,
     resource: [ResourceKey, Resource],
     context: GuantrContextFromMeta<Meta>,
-    serializedContext: string | undefined,
   ): Promise<boolean> {
-    // Retrieve all rules for the given action and resource key & apply condition contextual operand replacement.
     const rawRules = await this._storage.queryRules(action as string, resource[0] as string);
     if (rawRules.length === 0) {
       return false;
     }
-    // Early exit: an unconditional deny (condition omitted/null, effect: 'deny') guarantees a false
-    // result regardless of every other rule, so we can skip all further processing.
-    if (rawRules.some((rule) => rule.condition == null && rule.effect === 'deny')) {
+    // Early exit: an unconditional deny (matchCondition omitted/null, effect: 'deny')
+    // guarantees a false result regardless of every other rule.
+    if (rawRules.some((rule) => rule.matchCondition == null && rule.effect === 'deny')) {
       return false;
     }
-    const rules = await Promise.all(
-      rawRules.map(async (rule) => ({
-        ...rule,
-        condition: await this.applyContextualOperands(rule.condition, context, serializedContext),
-      })),
-    );
 
     const allowed: boolean[] = [];
     const denied: boolean[] = [];
-    let iterationCount = 0; // Counter for circuit breaking.
-    for (const rule of rules) {
+    let iterationCount = 0;
+    for (const rule of rawRules) {
       iterationCount++;
-      // Circuit breaker: if iterations exceed maxRuleIterations, throw an error.
       if (iterationCount > this._maxRuleIterations) {
         throw new GuantrCircuitBreakerError(
           action as string,
@@ -396,18 +503,14 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
           this._maxRuleIterations,
         );
       }
-      // If no condition is set, consider it as a direct allow/deny.
-      if (!rule.condition) {
-        if (rule.effect === 'allow') {
-          allowed.push(true);
-        } else {
-          // Unconditional deny → result is guaranteed false; no need to evaluate further.
-          return false;
-        }
+      // If no matchCondition is set, it's an unconditional allow.
+      // (Unconditional denies were caught by the early exit above.)
+      if (!rule.matchCondition) {
+        allowed.push(true);
         continue;
       }
-      // Evaluate the condition using the matching utility.
-      const matched = matchRuleCondition(resource[1], rule.condition);
+      // Evaluate the matchCondition AST against the resource and context.
+      const matched = evaluateCondition(rule.matchCondition as Condition, resource[1], context);
       if (matched) {
         if (rule.effect === 'allow') allowed.push(true);
         else denied.push(false);
@@ -417,8 +520,6 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
       }
     }
 
-    // Determine the final result: rule is granted if at least one positive match
-    // exists and no corresponding inverted match invalidates it.
     return allowed.includes(true) && !denied.includes(false);
   }
 
@@ -432,83 +533,42 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
     action: ExtractResourceAction<Meta, ResourceKey>,
     resource: [ResourceKey, Resource],
   ): Promise<boolean> {
-    const context = await this._getContext();
-    // Compute serialized context once so it can be reused in both the _can cache key
-    // and the inner applyContextualOperands cache key without a second stringify call.
-    const serializedContext = this._storage.cache ? JSON.stringify(context) : undefined;
+    const context = await this._resolveContext();
 
     let cacheKey: string | null = null;
     if (this._storage.cache) {
-      cacheKey = `can/${action}:${resource[0]}:${JSON.stringify(resource[1])}:${serializedContext}`;
-
-      let cachedResult: boolean | undefined = undefined;
       try {
-        if (await this._storage.cache.has(cacheKey)) {
-          cachedResult = await this._storage.cache.get<boolean>(cacheKey);
+        const serializedContext = stableStringify(context);
+        cacheKey = `can/${String(action)}:${resource[0]}:${stableStringify(resource[1])}:${serializedContext}`;
+
+        let cachedResult: boolean | undefined = undefined;
+        try {
+          if (await this._storage.cache.has(cacheKey)) {
+            cachedResult = await this._storage.cache.get<boolean>(cacheKey);
+          }
+        } catch {
+          cachedResult = undefined;
+        }
+        if (cachedResult !== undefined) {
+          return cachedResult;
         }
       } catch {
-        // Swallow cache adapter errors and treat as cache miss
-        cachedResult = undefined;
-      }
-      if (cachedResult !== undefined) {
-        return cachedResult;
+        cacheKey = null;
       }
     }
     const trySetCache = async <T>(result: T): Promise<T> => {
       if (cacheKey) {
-        await this._storage.cache?.set(cacheKey, result);
+        try {
+          await this._storage.cache?.set(cacheKey, result);
+        } catch {
+          // Swallow cache adapter errors
+        }
       }
-      return result as T;
+      return result;
     };
 
-    const result = await this._evaluateCheck(action, resource, context, serializedContext);
+    const result = await this._evaluateCheck(action, resource, context);
     return await trySetCache(result);
-  }
-
-  private async _canAll(checks: CanCheckItem<Meta>[]): Promise<boolean> {
-    const context = await this._getContext();
-    const serializedContext = this._storage.cache ? JSON.stringify(context) : undefined;
-
-    for (const [action, resource] of checks) {
-      const result = await this._evaluateCheck(
-        // oxlint-disable-next-line typescript/no-explicit-any
-        action as any,
-        // oxlint-disable-next-line typescript/no-explicit-any
-        resource as any,
-        context,
-        serializedContext,
-      );
-      if (!result) return false;
-    }
-    return true;
-  }
-
-  private async _canAny(checks: CanCheckItem<Meta>[]): Promise<boolean> {
-    const context = await this._getContext();
-    const serializedContext = this._storage.cache ? JSON.stringify(context) : undefined;
-
-    for (const [action, resource] of checks) {
-      const result = await this._evaluateCheck(
-        // oxlint-disable-next-line typescript/no-explicit-any
-        action as any,
-        // oxlint-disable-next-line typescript/no-explicit-any
-        resource as any,
-        context,
-        serializedContext,
-      );
-      if (result) return true;
-    }
-    return false;
-  }
-
-  private async _cannotAll(checks: CanCheckItem<Meta>[]): Promise<boolean> {
-    // All denied = none allowed = negated `any`
-    return !(await this._canAny(checks));
-  }
-
-  private async _cannotAny(checks: CanCheckItem<Meta>[]): Promise<boolean> {
-    // Any denied = not all allowed = negated `all`
-    return !(await this._canAll(checks));
   }
 
   private async _canAbstract<ResourceKey extends ExtractResourceKeys<Meta>>(
@@ -532,13 +592,119 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
     }
     const trySetCache = async <T>(result: T): Promise<T> => {
       if (cacheKey) {
-        await this._storage.cache?.set(cacheKey, result);
+        try {
+          await this._storage.cache?.set(cacheKey, result);
+        } catch {
+          // Swallow cache adapter errors
+        }
       }
-      return result as T;
+      return result;
     };
 
     const rules = await this._storage.queryRules(action as string, resource as string);
     return await trySetCache(rules.some((item) => item.effect === 'allow'));
+  }
+
+  private async _canAll(checks: CanCheckItem<Meta>[]): Promise<boolean> {
+    const context = await this._resolveContext();
+    let serializedContext: string | undefined;
+    if (this._storage.cache) {
+      try {
+        serializedContext = stableStringify(context);
+      } catch {
+        // Swallow: no caching for this batch
+      }
+    }
+
+    for (const [action, resource] of checks) {
+      let cacheKey: string | null = null;
+      if (this._storage.cache && serializedContext !== undefined) {
+        try {
+          cacheKey = `can/${String(action)}:${resource[0]}:${stableStringify(resource[1])}:${serializedContext}`;
+
+          if (await this._storage.cache.has(cacheKey)) {
+            const cached = await this._storage.cache.get<boolean>(cacheKey);
+            if (cached !== undefined) {
+              if (!cached) return false;
+              continue;
+            }
+          }
+        } catch {
+          // Swallow cache errors, fall through to evaluation
+        }
+      }
+
+      const result = await this._evaluateCheck(
+        action as ExtractResourceAction<Meta, ExtractResourceKeys<Meta>>,
+        resource as [
+          ExtractResourceKeys<Meta>,
+          ExtractResourceModel<Meta, ExtractResourceKeys<Meta>>,
+        ],
+        context,
+      );
+
+      if (cacheKey) {
+        try {
+          await this._storage.cache?.set(cacheKey, result);
+        } catch {
+          // Swallow cache adapter errors
+        }
+      }
+
+      if (!result) return false;
+    }
+    return true;
+  }
+
+  private async _canAny(checks: CanCheckItem<Meta>[]): Promise<boolean> {
+    const context = await this._resolveContext();
+    let serializedContext: string | undefined;
+    if (this._storage.cache) {
+      try {
+        serializedContext = stableStringify(context);
+      } catch {
+        // Swallow: no caching for this batch
+      }
+    }
+
+    for (const [action, resource] of checks) {
+      let cacheKey: string | null = null;
+      if (this._storage.cache && serializedContext !== undefined) {
+        try {
+          cacheKey = `can/${String(action)}:${resource[0]}:${stableStringify(resource[1])}:${serializedContext}`;
+
+          if (await this._storage.cache.has(cacheKey)) {
+            const cached = await this._storage.cache.get<boolean>(cacheKey);
+            if (cached !== undefined) {
+              if (cached) return true;
+              continue;
+            }
+          }
+        } catch {
+          // Swallow cache errors, fall through to evaluation
+        }
+      }
+
+      const result = await this._evaluateCheck(
+        action as ExtractResourceAction<Meta, ExtractResourceKeys<Meta>>,
+        resource as [
+          ExtractResourceKeys<Meta>,
+          ExtractResourceModel<Meta, ExtractResourceKeys<Meta>>,
+        ],
+        context,
+      );
+
+      if (cacheKey) {
+        try {
+          await this._storage.cache?.set(cacheKey, result);
+        } catch {
+          // Swallow cache adapter errors
+        }
+      }
+
+      if (result) return true;
+    }
+    return false;
   }
 
   private async _cannot<
@@ -561,69 +727,12 @@ export class Guantr<Meta extends GuantrMeta<GuantrResourceMap> | undefined = und
     return !(await this._canAbstract(action, resource));
   }
 
-  private async applyContextualOperands(
-    condition: GuantrRule['condition'],
-    context?: GuantrContextFromMeta<Meta>,
-    /** Pre-serialized context string, forwarded from the caller to avoid a redundant stringify. */
-    serializedContext?: string,
-  ): Promise<GuantrRule['condition']> {
-    if (condition == null) {
-      return null;
-    }
+  private async _cannotAll(checks: CanCheckItem<Meta>[]): Promise<boolean> {
+    return !(await this._canAny(checks));
+  }
 
-    const resolvedContext = context ?? (await this._getContext());
-
-    let cacheKey: string | null = null;
-    if (this._storage.cache) {
-      // Reuse the pre-serialized context from the caller when available.
-      const serializedCtx = serializedContext ?? JSON.stringify(resolvedContext);
-      cacheKey = `applyContextualOperands/${JSON.stringify(condition)}:${serializedCtx}`;
-      let cachedResult: GuantrRule['condition'] | undefined = undefined;
-      try {
-        if (await this._storage.cache.has(cacheKey)) {
-          cachedResult = await this._storage.cache.get<GuantrRule['condition']>(cacheKey);
-        }
-      } catch {
-        // Swallow cache adapter errors and treat as cache miss
-        cachedResult = undefined;
-      }
-      if (cachedResult !== undefined) {
-        return cachedResult;
-      }
-    }
-    const trySetCache = async <T>(result: T): Promise<T> => {
-      if (cacheKey) {
-        await this._storage.cache?.set(cacheKey, result);
-      }
-      return result as T;
-    };
-
-    // Recursive helper function to traverse and process the condition.
-    // oxlint-disable-next-line typescript/no-explicit-any
-    const traverse = (obj: any): any => {
-      if (isContextualOperand(obj)) {
-        return getContextValue(resolvedContext, obj);
-      }
-
-      if (Array.isArray(obj)) {
-        return obj.map((element) => traverse(element));
-      }
-
-      if (obj !== null && typeof obj === 'object') {
-        // oxlint-disable-next-line typescript/no-explicit-any
-        const result: any = {};
-        for (const key in obj) {
-          if (Object.prototype.hasOwnProperty.call(obj, key)) {
-            result[key] = traverse(obj[key]);
-          }
-        }
-        return result;
-      }
-
-      return obj;
-    };
-
-    return await trySetCache(traverse(condition));
+  private async _cannotAny(checks: CanCheckItem<Meta>[]): Promise<boolean> {
+    return !(await this._canAll(checks));
   }
 }
 
@@ -632,16 +741,63 @@ type SetRulesCallback<Meta extends GuantrMeta<GuantrResourceMap> | undefined = u
     action: GuantrRule<Meta, ResourceKey>['action'],
     resource:
       | GuantrRule<Meta, ResourceKey>['resource']
-      | [GuantrRule<Meta, ResourceKey>['resource'], GuantrRule<Meta, ResourceKey>['condition']],
+      | [
+          GuantrRule<Meta, ResourceKey>['resource'],
+          GuantrRule<Meta, ResourceKey>['matchCondition'],
+        ],
   ) => void,
   deny: <ResourceKey extends ExtractResourceKeys<Meta>>(
     action: GuantrRule<Meta, ResourceKey>['action'],
     resource:
       | GuantrRule<Meta, ResourceKey>['resource']
-      | [GuantrRule<Meta, ResourceKey>['resource'], GuantrRule<Meta, ResourceKey>['condition']],
+      | [
+          GuantrRule<Meta, ResourceKey>['resource'],
+          GuantrRule<Meta, ResourceKey>['matchCondition'],
+        ],
   ) => void,
 ) => void | Promise<void>;
 
+/**
+ * Creates a new Guantr instance.
+ *
+ * This is the recommended entry point. It supports several call signatures:
+ *
+ * - `createGuantr(options)` — with storage and context options.
+ * - `createGuantr(rules, options?)` — with initial rule array.
+ * - `createGuantr(callback, options?)` — with rule-defining callback.
+ * - `createGuantr()` — bare instance, set rules later via `setRules()`.
+ *
+ * @typeParam Meta - A {@link GuantrMeta} type for typed resource maps and context,
+ *   or `undefined` for untyped mode.
+ * @param setRulesOrOptions - Optional rules array, callback, or options object.
+ * @param _options - Options when rules are provided as the first argument.
+ * @returns A promise resolving to a configured {@link Guantr} instance.
+ *
+ * @example
+ * ```ts
+ * // With context and custom storage
+ * const guantr = await createGuantr<MyMeta>({
+ *   storage: new MyStorage(),
+ *   context: () => ({ userId: 1 }),
+ * });
+ * ```
+ *
+ * @example
+ * ```ts
+ * // With static context (plain object)
+ * const guantr = await createGuantr<MyMeta>({
+ *   context: { userId: 1, role: 'admin' },
+ * });
+ * ```
+ *
+ * @example
+ * ```ts
+ * // With initial rules callback
+ * const guantr = await createGuantr<MyMeta>(async (allow, deny) => {
+ *   allow('read', 'post');
+ * });
+ * ```
+ */
 export async function createGuantr<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
 >(options: GuantrOptions<GuantrContextFromMeta<Meta>>): Promise<Guantr<Meta>>;
@@ -660,11 +816,6 @@ export async function createGuantr<
 export async function createGuantr<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
 >(): Promise<Guantr<Meta>>;
-/**
- * Creates a new instance of the Guantr class.
- *
- * @return {Guantr<Meta>} A new instance of the Guantr class.
- */
 export async function createGuantr<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
 >(
@@ -683,8 +834,7 @@ export async function createGuantr<
 
   const instance = new Guantr<Meta>(options);
   if (rules) {
-    // oxlint-disable-next-line typescript/no-explicit-any
-    await instance.setRules(rules as any);
+    await instance.setRules(rules as GuantrRule<Meta>[]);
   }
 
   return instance;

@@ -1,47 +1,76 @@
 # API: `Guantr.prototype.can.any`
 
-The `can.any` sub-method performs a **batch permission check** — it returns `true` if **any** of the specified permissions is granted. It resolves the context once and shares it across every check, and short-circuits on the first `true` result.
+The `can.any` sub-method performs a **batch permission check** — it returns `true` if **any** check in the array is granted. It resolves the evaluation context once and shares it across all checks, and short-circuits on the first `true` result.
 
-> **Use this for UI decisions** that depend on at least one permission (e.g. "should we show the interaction buttons?"). For single permission checks, use [`can(action, [resourceKey, instance])`](./can).
+> **Use this for decisions that require at least one permission** (e.g. "should we show the interaction bar?").
 
 ## Signature
 
 ```ts
-guantr.can.any(
-  checks: Array<[action, [resourceKey, resourceInstance]]>,
-): Promise<boolean>
-```
-
-### Type signature (with Meta)
-
-```ts
-// With typed Meta, each check tuple is narrowed to the resource map:
-guantr.can.any([
-  [action: PostAction, resource: ['post', Post]],
-  [action: UserAction, resource: ['user', User]],
-  // ...
-])
+can.any(
+  checks: Array<[action: string, resource: [resourceKey: string, resourceInstance: object]]>,
+): Promise<boolean>;
 ```
 
 ## Parameters
 
-- `checks`: An array of check tuples. Each tuple is:
-  - `action`: (`string`) The action being checked (e.g. `'read'`, `'update'`).
-  - `resource`: (`[string, object]`) A tuple of `[resourceKey, resourceInstance]` (e.g. `['post', { id: 1, status: 'draft' }]`).
+- **`checks`**: An array of check tuples. Each tuple is `[action, [resourceKey, resourceInstance]]`:
+  - `action`: (`string`) The action being checked.
+  - `resource`: A tuple `[string, object]` of resource key and resource instance.
 
 ## Returns
 
-- `Promise<boolean>`: Resolves to:
+- `Promise<boolean>`:
   - `true` as soon as **any** check is granted (short-circuits).
   - `false` if **no** check is granted.
+  - `false` for an **empty array** (vacuous false — no check in an empty set can pass).
 
-## How it Works
+## How it works
 
-1. **Resolves context once** — the `getContext` function is called a single time and the result is shared across all checks.
-2. Iterates through the checks in order.
-3. For each check, performs the same evaluation as [`can()`](./can): queries relevant rules, evaluates conditions against the resource instance and resolved context, and checks for matching allow/deny rules.
-4. **Short-circuits** on the first `true` — remaining checks are not evaluated.
-5. Returns `true` if any check passed, `false` otherwise.
+1. **Resolves context once.** The `context` option is resolved once and its result is shared across every check in the array.
+2. Iterates through the checks **in order**.
+3. For each check, performs the same evaluation as [`can()`](./can): queries relevant rules, evaluates conditions against the resource instance and shared context.
+4. **Short-circuits on the first `true`.** Remaining checks are not evaluated.
+5. Returns `false` if no check passed.
+
+## Empty array behavior
+
+An empty array of checks always returns `false` (vacuous false):
+
+```ts
+await guantr.can.any([]); // false
+```
+
+## Context sharing
+
+The context is resolved exactly once per `can.any()` call, not once per individual check.
+
+```ts
+const guantr = await createGuantr({
+  context: async () => {
+    console.log('context called');
+    return { userId: 1 };
+  },
+});
+
+await guantr.can.any([
+  ['read', ['post', { id: 1 }]],
+  ['comment', ['post', { id: 1 }]],
+]);
+// "context called" logged only once
+```
+
+## Caching
+
+Individual check results within a `can.any` call are **not** independently cached — `_evaluateCheck` is called directly. Subsequent individual `can()` calls may hit the cache.
+
+## Short-circuit behavior
+
+Because `can.any` stops on the first `true`:
+
+- Place the most likely-to-pass checks first for best performance.
+- If you expect most checks to be denied, expect near-full iteration.
+- Later checks might never run — avoid side effects in check definitions.
 
 ## Examples
 
@@ -56,53 +85,54 @@ const canInteract = await guantr.can.any([
   ['comment', ['post', post]],
   ['share', ['post', post]],
 ]);
-// → true if at least ONE action is allowed
+// true if at least ONE action is allowed
 ```
 
-### With overlapping allow/deny rules
+### Short-circuit: first passing check
 
 ```ts
-// Even if a specific action is denied, other actions may still be allowed
-const canDoSomething = await guantr.can.any([
-  ['delete', ['post', { status: 'published' }]], // denied
-  ['read', ['post', { status: 'published' }]], // allowed → short-circuits here
-]);
-// → true
-```
-
-### With shared context
-
-```ts
-const guantr = await createGuantr({
-  getContext: () => ({ userId: 1 }),
-});
-
-const post = { id: 1, authorId: 1 };
-// getContext is called only once for the batch
+// 'read' is allowed, so 'delete' and 'archive' are never evaluated
 const result = await guantr.can.any([
-  ['update', ['post', post]],
-  ['delete', ['post', post]],
+  ['delete', ['post', post]], // false → continue
+  ['read', ['post', post]], // true → short-circuit, return true
+  ['archive', ['post', post]], // never evaluated
+]);
+// true
+```
+
+### When no rules exist
+
+```ts
+await guantr.can.any([
+  ['read', ['post', { id: 1 }]],
+  ['comment', ['post', { id: 1 }]],
+]);
+// false — no rules exist, all checks fail
+```
+
+### With overlapping allow/deny
+
+```ts
+// Even if 'delete' is denied, 'read' may still be allowed
+const result = await guantr.can.any([
+  ['delete', ['post', { status: 'published' }]], // denied
+  ['read', ['post', { status: 'published' }]], // allowed → true
+]);
+// true
+```
+
+### Mixed resource keys
+
+```ts
+const result = await guantr.can.any([
+  ['read', ['post', { id: 1 }]],
+  ['read', ['document', { id: 5 }]],
 ]);
 ```
 
-### Empty checks array
+## See also
 
-Returns `false` (vacuous false — no check in an empty set can pass).
-
-```ts
-await guantr.can.any([]); // → false
-```
-
-## Short-circuit Behavior
-
-`can.any` stops evaluating as soon as any check returns `true`. This means:
-
-- Place the most likely-to-pass check first for best performance.
-- Side effects in later checks (if any) will not occur if an earlier check passes.
-
-## See Also
-
-- [`can.all`](./can.all) — check if ALL permissions are granted
-- [`cannot.all`](./cannot.all) — check if ALL permissions are denied
-- [`cannot.any`](./cannot.any) — check if ANY permission is denied
-- [`can`](./can) — single permission check
+- [`can.all`](./can.all) — Check if **all** permissions are granted.
+- [`cannot.all`](./cannot.all) — Check if **all** permissions are denied (`!can.any()`).
+- [`cannot.any`](./cannot.any) — Check if **any** permission is denied (`!can.all()`).
+- [`can`](./can) — Single permission check.
