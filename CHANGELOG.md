@@ -6,11 +6,11 @@
 
 ### 🚀 Enhancements
 
-- ⚠️  Remove string-mode from can and cannot ([ac2491d](https://github.com/Hrdtr/guantr/commit/ac2491d))
-- ⚠️  Remove ctx. alias for contextual operands ([eebd795](https://github.com/Hrdtr/guantr/commit/eebd795))
+- ⚠️ Remove string-mode from can and cannot ([ac2491d](https://github.com/Hrdtr/guantr/commit/ac2491d))
+- ⚠️ Remove ctx. alias for contextual operands ([eebd795](https://github.com/Hrdtr/guantr/commit/eebd795))
 - **core:** Throw error on missing condition keys ([925435d](https://github.com/Hrdtr/guantr/commit/925435d))
 - Add batch permission checks ([8a49f31](https://github.com/Hrdtr/guantr/commit/8a49f31))
-- ⚠️  Add type-safe condition builder DSL ([23be1e4](https://github.com/Hrdtr/guantr/commit/23be1e4))
+- ⚠️ Add type-safe condition builder DSL ([23be1e4](https://github.com/Hrdtr/guantr/commit/23be1e4))
 
 ### 🩹 Fixes
 
@@ -21,11 +21,11 @@
 
 ### 💅 Refactors
 
-- ⚠️  Drop strict mode, always validate conditions ([1435f5f](https://github.com/Hrdtr/guantr/commit/1435f5f))
-- **storage:** ⚠️  Make cache.has required ([2e603b6](https://github.com/Hrdtr/guantr/commit/2e603b6))
-- ⚠️  Remove clearRules and make setRules atomic ([23581d4](https://github.com/Hrdtr/guantr/commit/23581d4))
-- ⚠️  Remove Context generic and rename types ([7565575](https://github.com/Hrdtr/guantr/commit/7565575))
-- ⚠️  Rename can/cannot to allow/deny ([4528d0c](https://github.com/Hrdtr/guantr/commit/4528d0c))
+- ⚠️ Drop strict mode, always validate conditions ([1435f5f](https://github.com/Hrdtr/guantr/commit/1435f5f))
+- **storage:** ⚠️ Make cache.has required ([2e603b6](https://github.com/Hrdtr/guantr/commit/2e603b6))
+- ⚠️ Remove clearRules and make setRules atomic ([23581d4](https://github.com/Hrdtr/guantr/commit/23581d4))
+- ⚠️ Remove Context generic and rename types ([7565575](https://github.com/Hrdtr/guantr/commit/7565575))
+- ⚠️ Rename can/cannot to allow/deny ([4528d0c](https://github.com/Hrdtr/guantr/commit/4528d0c))
 - **tests:** Restructure test suite, eliminate `as any`, and reach 100% coverage ([37c22b8](https://github.com/Hrdtr/guantr/commit/37c22b8))
 
 ### 📖 Documentation
@@ -42,18 +42,18 @@
 
 #### ⚠️ Breaking Changes
 
-- ⚠️  Remove string-mode from can and cannot ([ac2491d](https://github.com/Hrdtr/guantr/commit/ac2491d))
-- ⚠️  Remove ctx. alias for contextual operands ([eebd795](https://github.com/Hrdtr/guantr/commit/eebd795))
-- ⚠️  Add type-safe condition builder DSL ([23be1e4](https://github.com/Hrdtr/guantr/commit/23be1e4))
-- ⚠️  Drop strict mode, always validate conditions ([1435f5f](https://github.com/Hrdtr/guantr/commit/1435f5f))
-- **storage:** ⚠️  Make cache.has required ([2e603b6](https://github.com/Hrdtr/guantr/commit/2e603b6))
-- ⚠️  Remove clearRules and make setRules atomic ([23581d4](https://github.com/Hrdtr/guantr/commit/23581d4))
-- ⚠️  Remove Context generic and rename types ([7565575](https://github.com/Hrdtr/guantr/commit/7565575))
-- ⚠️  Rename can/cannot to allow/deny ([4528d0c](https://github.com/Hrdtr/guantr/commit/4528d0c))
+- ⚠️ Remove string-mode from can and cannot ([ac2491d](https://github.com/Hrdtr/guantr/commit/ac2491d))
+- ⚠️ Remove ctx. alias for contextual operands ([eebd795](https://github.com/Hrdtr/guantr/commit/eebd795))
+- ⚠️ Add type-safe condition builder DSL ([23be1e4](https://github.com/Hrdtr/guantr/commit/23be1e4))
+- ⚠️ Drop strict mode, always validate conditions ([1435f5f](https://github.com/Hrdtr/guantr/commit/1435f5f))
+- **storage:** ⚠️ Make cache.has required ([2e603b6](https://github.com/Hrdtr/guantr/commit/2e603b6))
+- ⚠️ Remove clearRules and make setRules atomic ([23581d4](https://github.com/Hrdtr/guantr/commit/23581d4))
+- ⚠️ Remove Context generic and rename types ([7565575](https://github.com/Hrdtr/guantr/commit/7565575))
+- ⚠️ Rename can/cannot to allow/deny ([4528d0c](https://github.com/Hrdtr/guantr/commit/4528d0c))
 
 ### ❤️ Contributors
 
-- Herdi Tr. <iam@icm.hrdtr.dev>
+- Herdi Tr. ([@Hrdtr](https://github.com/Hrdtr))
 
 ## v1.1.0
 
