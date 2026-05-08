@@ -1,71 +1,98 @@
 # API: `Guantr.prototype.cannot`
 
-The `cannot` method checks if a specific action is explicitly or implicitly denied on a given resource. It is the logical negation of the `can` method.
+The `cannot` method is the logical negation of [`can()`](./can). It evaluates rules against a resource instance and returns `true` if the action is denied.
 
 ## Signature
 
 ```ts
-interface Guantr<Meta, Context> {
-  cannot(
-    action: string, // Or specific action type from Meta
-    resource: string | [resourceKey: string, resourceInstance: object], // Or typed resource key/instance from Meta
-  ): Promise<boolean>;
-}
+cannot(
+  action: string,
+  resource: [resourceKey: string, resourceInstance: object],
+): Promise<boolean>;
 ```
 
 ## Parameters
 
-- `action`: (`string`) The action being attempted (e.g., `'read'`, `'update'`).
-- `resource`: (`string` | `[string, object]`) The resource being acted upon.
-  - If a `string` (e.g., `'post'`) is provided, it checks rules defined for the general resource type _without_ evaluating instance-specific conditions.
-  - If a tuple `[resourceKey: string, resourceInstance: object]` (e.g., `['post', { id: 1, status: 'draft' }]`) is provided, it checks rules for the `resourceKey` and evaluates any conditions against the properties of the `resourceInstance` and the current context.
+- **`action`**: (`string`) The action being checked (e.g. `'read'`, `'delete'`).
+- **`resource`**: A tuple `[resourceKey, resourceInstance]`:
+  - `resourceKey`: (`string`) The resource type key.
+  - `resourceInstance`: (`object`) The resource instance to evaluate conditions against.
 
 ## Returns
 
-- `Promise<boolean>`: A promise that resolves to:
-  - `true` if the action is denied (either no matching `allow` rule exists, or a matching `deny` rule overrides any `allow` rule).
-  - `false` if the action is allowed (at least one matching `allow` rule exists and no matching `deny` rule exists).
+- `Promise<boolean>` — `true` if the action is denied, `false` if allowed.
 
-Essentially, `guantr.cannot(...)` is equivalent to `!await guantr.can(...)`.
+## Implementation
 
-## How it Works
+```ts
+cannot(action, resource) === !(await can(action, resource));
+```
 
-It follows the same internal logic as the `can` method but returns the opposite boolean result.
+This means:
 
-1.  Retrieves relevant rules.
-2.  Evaluates conditions if a `resourceInstance` is provided.
-3.  Determines the outcome based on matching `allow` and `deny` rules.
-4.  Returns `true` if the effective permission is "deny", `false` otherwise.
+- If `can()` returns `true` → `cannot()` returns `false`.
+- If `can()` returns `false` → `cannot()` returns `true`.
+- If no rules exist → `can()` returns `false` → `cannot()` returns `true`.
+- If an unconditional deny exists → `can()` returns `false` → `cannot()` returns `true`.
+
+## Caching
+
+`cannot` delegates to `can` internally, so the same caching behavior applies: results are cached under the same key pattern (`can/${action}:${resourceKey}:...`), and a `can(result=true)` in the cache means `cannot` returns `false` (and vice versa).
 
 ## Examples
 
+### Basic usage
+
+Given these rules:
+
 ```ts
-// Assume guantr instance is initialized and rules are set:
-// allow('read', 'article');
-// deny('read', ['article', { status: ['eq', 'archived'] }]);
-// allow('edit', ['article', { ownerId: ['eq', '$ctx.userId'] }]);
-
-const activeArticle = { id: 1, status: 'published', ownerId: 'user-123' };
-const archivedArticle = { id: 2, status: 'archived', ownerId: 'user-123' };
-const someoneElsesArticle = { id: 3, status: 'published', ownerId: 'user-456' };
-
-// Assume current context userId is 'user-123'
-
-// Check if cannot read specific instances
-const cannotReadActive = await guantr.cannot('read', ['article', activeArticle]);
-// -> false (reading active article is allowed)
-
-const cannotReadArchived = await guantr.cannot('read', ['article', archivedArticle]);
-// -> true (reading archived article is denied by a specific rule)
-
-// Check if cannot edit
-const cannotEditOwn = await guantr.cannot('edit', ['article', activeArticle]);
-// -> false (editing own article is allowed)
-
-const cannotEditElse = await guantr.cannot('edit', ['article', someoneElsesArticle]);
-// -> true (editing someone else's article is implicitly denied as no rule allows it)
-
-// Check action not defined in rules
-const cannotPublish = await guantr.cannot('publish', 'article');
-// -> true (implicitly denied as no 'allow publish article' rule exists)
+await guantr.setRules((allow, deny) => {
+  allow('read', 'article');
+  deny('read', [
+    'article',
+    ({ eq, resource, literal }) => eq(resource('status'), literal('archived')),
+  ]);
+});
 ```
+
+```ts
+const activeArticle = { id: 1, status: 'published' };
+const archivedArticle = { id: 2, status: 'archived' };
+
+await guantr.cannot('read', ['article', archivedArticle]); // true (deny matches)
+await guantr.cannot('read', ['article', activeArticle]); // false (allow matches)
+```
+
+### When no rules exist
+
+```ts
+await guantr.cannot('read', ['post', { id: 1 }]); // true (implicitly denied)
+```
+
+### When an unconditional deny exists
+
+```ts
+await guantr.setRules((allow, deny) => {
+  deny('delete', 'post'); // unconditional deny
+});
+
+await guantr.cannot('delete', ['post', { id: 1 }]); // true
+```
+
+### Guard clause pattern
+
+```ts
+async function deletePost(post: Post) {
+  if (await guantr.cannot('delete', ['post', post])) {
+    throw new ForbiddenError('You cannot delete this post');
+  }
+  // ... proceed with deletion
+}
+```
+
+## See also
+
+- [`can()`](./can) — The positive check.
+- [`cannot.abstract`](./cannot.abstract) — Abstract version (ignores conditions and deny rules).
+- [`cannot.all`](./cannot.all) — Batch check: all must be denied.
+- [`cannot.any`](./cannot.any) — Batch check: any must be denied.

@@ -1,304 +1,213 @@
 # API: Error Classes
 
-Guantr exports three error classes that extend the built-in `Error` class and carry extra metadata so you can programmatically inspect what went wrong. Two of them (`GuantrInvalidConditionError` and `GuantrInvalidConditionOperatorError`) are thrown when [strict mode](../advanced-usage/strict-mode) is enabled, while `GuantrCircuitBreakerError` is thrown when the rule iteration limit is exceeded.
+Guantr exports two error classes that extend the built-in `Error` class and carry extra metadata for programmatic inspection and error handling.
 
 ## Importing
 
 ```ts
-import {
-  GuantrCircuitBreakerError,
-  GuantrInvalidConditionError,
-  GuantrInvalidConditionOperatorError,
-} from 'guantr';
+import { GuantrCircuitBreakerError, GuantrInvalidConditionKeyError } from 'guantr';
 ```
-
----
-
-## `GuantrInvalidConditionOperatorError`
-
-Thrown by `matchConditionExpression` (and therefore surfaced through `can`/`cannot`) when an operator string that does not match any known `ConditionOperator` value is encountered **at evaluation time**, and the Guantr instance was created with `strict: true`.
-
-### Class Definition
-
-```ts
-class GuantrInvalidConditionOperatorError extends Error {
-  /** The unrecognized operator string that caused the error. */
-  operator: string;
-
-  constructor(operator: string);
-}
-```
-
-### Properties
-
-| Property   | Type     | Description                                                                      |
-| ---------- | -------- | -------------------------------------------------------------------------------- |
-| `name`     | `string` | Always `"GuantrInvalidConditionOperatorError"`.                                  |
-| `message`  | `string` | Human-readable description including the bad operator and a hint about `strict`. |
-| `operator` | `string` | The unrecognized operator string that triggered the error.                       |
-
-### When It Is Thrown
-
-- A rule condition expression has been stored whose first element is not a recognized `ConditionOperator`.
-- The Guantr instance has `strict: true`.
-- `can` / `cannot` is called and evaluation reaches that expression.
-
-> **Note:** With `strict: true`, `setRules` validates rules upfront via `validateConditionForStrict`, so this error is most likely to occur when rules are loaded from an external source (e.g., a database) and bypass the definition-time check.
-
-### Example
-
-```ts
-import { createGuantr, GuantrInvalidConditionOperatorError } from 'guantr';
-
-const guantr = await createGuantr({ strict: true });
-
-// Manually set raw rules that bypass TypeScript typing (e.g., loaded from DB)
-await (guantr as any).setRules([
-  { effect: 'allow', action: 'read', resource: 'post', condition: { id: ['unknownOp', 1] } },
-]);
-
-try {
-  await guantr.can('read', ['post', { id: 1 }]);
-} catch (e) {
-  if (e instanceof GuantrInvalidConditionOperatorError) {
-    console.error('Unknown operator:', e.operator); // 'unknownOp'
-  }
-}
-```
-
----
-
-## `GuantrInvalidConditionError`
-
-Thrown by `setRules` when a rule condition fails structural or operator validation **at definition time**, and the Guantr instance was created with `strict: true`.
-
-Validation is performed recursively by the internal `validateConditionForStrict` utility, which is also exported from `'guantr/utils'` for use in custom validation pipelines.
-
-### Class Definition
-
-```ts
-class GuantrInvalidConditionError extends Error {
-  /** The condition value (expression or nested object) that failed validation. */
-  condition: unknown;
-  /** A human-readable description of why the condition is invalid. */
-  reason: string;
-
-  constructor(condition: unknown, reason: string);
-}
-```
-
-### Properties
-
-| Property    | Type      | Description                                                                                                                     |
-| ----------- | --------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `name`      | `string`  | Always `"GuantrInvalidConditionError"`.                                                                                         |
-| `message`   | `string`  | `"[guantr] Invalid condition: "` followed by `reason`.                                                                          |
-| `condition` | `unknown` | The offending condition expression or nested condition object.                                                                  |
-| `reason`    | `string`  | Dot-notation path and description of the specific problem, e.g. `Unknown operator "eql" at "id". Valid operators: eq, in, ...`. |
-
-### When It Is Thrown
-
-`setRules` (called directly or via `createGuantr`) throws this error when any of the following are true for a condition with `strict: true`:
-
-1. A condition expression array has fewer than two elements, or its first element is not a `string`.
-2. A condition expression's operator is not present in `KNOWN_OPERATORS`.
-3. A non-array, non-plain-object value appears where a condition expression or nested condition object is expected.
-
-The `reason` string always includes the dot-notation path to the offending field (e.g., `"tags.$expr"` or `"author.role"`) to help you pinpoint the problem quickly.
-
-### Examples
-
-**Unknown operator**
-
-```ts
-import { createGuantr, GuantrInvalidConditionError } from 'guantr';
-
-try {
-  await createGuantr(
-    [{ effect: 'allow', action: 'read', resource: 'post', condition: { id: ['eql', 1] } }],
-    { strict: true },
-  );
-} catch (e) {
-  if (e instanceof GuantrInvalidConditionError) {
-    console.error(e.condition); // ['eql', 1]
-    console.error(e.reason);
-    // 'Unknown operator "eql" at "id". Valid operators: eq, in, contains, ...'
-  }
-}
-```
-
-**Malformed expression (missing operand)**
-
-```ts
-try {
-  await createGuantr(
-    // Condition expression has only one element — malformed
-    [{ effect: 'allow', action: 'read', resource: 'post', condition: { id: ['eq'] as any } }],
-    { strict: true },
-  );
-} catch (e) {
-  if (e instanceof GuantrInvalidConditionError) {
-    console.error(e.reason);
-    // 'Malformed condition expression at "id": must be [operator, operand, ?options] where operator is a string'
-  }
-}
-```
-
-**Nested condition (via `some`/`every`/`none`)**
-
-```ts
-try {
-  await createGuantr(
-    [
-      {
-        effect: 'allow',
-        action: 'read',
-        resource: 'post',
-        condition: {
-          tags: ['some', { name: ['likee', 'typescript'] }], // 'likee' is not valid
-        },
-      },
-    ],
-    { strict: true },
-  );
-} catch (e) {
-  if (e instanceof GuantrInvalidConditionError) {
-    console.error(e.reason);
-    // 'Unknown operator "likee" at "tags.name". Valid operators: eq, in, ...'
-  }
-}
-```
-
----
-
-## `KNOWN_OPERATORS` and `validateConditionForStrict`
-
-Two additional utilities are exported from `'guantr/utils'` and are useful when building custom validation tooling or middleware:
-
-```ts
-import { KNOWN_OPERATORS, validateConditionForStrict } from 'guantr/utils';
-```
-
-### `KNOWN_OPERATORS`
-
-A `ReadonlySet<string>` containing all valid `ConditionOperator` values:
-
-```ts
-// 'eq' | 'in' | 'contains' | 'startsWith' | 'endsWith' |
-// 'gt' | 'gte' | 'has' | 'hasSome' | 'hasEvery' |
-// 'some' | 'every' | 'none'
-KNOWN_OPERATORS.has('eq'); // true
-KNOWN_OPERATORS.has('unknownOp'); // false
-```
-
-### `validateConditionForStrict(condition, path?)`
-
-Recursively validates a condition object. Throws `GuantrInvalidConditionError` on the first invalid expression encountered. This is the same function called internally by `setRules` in strict mode.
-
-```ts
-import { validateConditionForStrict } from 'guantr/utils';
-import { GuantrInvalidConditionError } from 'guantr';
-
-function validateRulesFromDatabase(rules: unknown[]) {
-  for (const rule of rules as any[]) {
-    if (rule.condition) {
-      try {
-        validateConditionForStrict(rule.condition);
-      } catch (e) {
-        if (e instanceof GuantrInvalidConditionError) {
-          throw new Error(
-            `Rule for "${rule.resource}:${rule.action}" has an invalid condition — ${e.reason}`,
-          );
-        }
-      }
-    }
-  }
-}
-```
-
-| Parameter   | Type                         | Description                                                                                             |
-| ----------- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `condition` | `GuantrAnyRule['condition']` | The condition object to validate (`null` and `undefined` are no-ops).                                   |
-| `_path`     | `string` (optional)          | Dot-notation prefix for error messages. Used internally during recursion; you rarely need to pass this. |
 
 ---
 
 ## `GuantrCircuitBreakerError`
 
-Thrown by `can`/`cannot` when the number of rules evaluated for a single permission check exceeds the configured `maxRuleIterations` limit — effectively a circuit breaker that prevents runaway evaluation.
+Thrown by `can`/`cannot` (and their batch variants) when the number of rules evaluated for a single permission check exceeds the configured `maxRuleIterations` limit.
 
-### Class Definition
+### Constructor
 
 ```ts
 class GuantrCircuitBreakerError extends Error {
-  /** The action being checked when the circuit breaker tripped. */
-  action: string;
-  /** The resource key being checked when the circuit breaker tripped. */
-  resource: string;
-  /** The configured iteration limit that was exceeded. */
-  limit: number;
-
   constructor(action: string, resource: string, limit: number);
 }
 ```
 
 ### Properties
 
-| Property   | Type     | Description                                                       |
-| ---------- | -------- | ----------------------------------------------------------------- |
-| `name`     | `string` | Always `"GuantrCircuitBreakerError"`.                             |
-| `message`  | `string` | Human-readable description including action, resource, and limit. |
-| `action`   | `string` | The action being checked when the circuit breaker tripped.        |
-| `resource` | `string` | The resource key being checked when the circuit breaker tripped.  |
-| `limit`    | `number` | The configured `maxRuleIterations` value that was exceeded.       |
+| Property   | Type     | Description                                                          |
+| ---------- | -------- | -------------------------------------------------------------------- |
+| `name`     | `string` | Always `"GuantrCircuitBreakerError"`                                 |
+| `message`  | `string` | Human-readable description including the action, resource, and limit |
+| `action`   | `string` | The action being checked when the circuit breaker tripped            |
+| `resource` | `string` | The resource key being checked                                       |
+| `limit`    | `number` | The configured `maxRuleIterations` value that was exceeded           |
 
-### When It Is Thrown
+### When it is thrown
 
-- A call to `can` or `cannot` iterates through more rules than the `maxRuleIterations` limit (default: `1000`).
-- This acts as a safety mechanism to prevent excessive rule evaluation, which could otherwise cause performance degradation or infinite loops.
+- A `can`/`cannot` call iterates through more rules than the `maxRuleIterations` configured for the instance.
+- This is a safety mechanism: rule evaluation should be bounded. If you have enough rules to trip the breaker, consider restructuring your rule set or increasing the limit.
 
-### Tuning the Limit
-
-The iteration limit is configurable via the `maxRuleIterations` option when creating a Guantr instance:
+### Tuning the limit
 
 ```ts
 const guantr = await createGuantr({
-  maxRuleIterations: 5000, // Increase the limit for instances with many rules
+  maxRuleIterations: 5000, // default is 1000
 });
 ```
 
-See the [`createGuantr`](./createGuantr) API reference for more details.
+The limit is validated at construction time — it must be a **positive integer**. Non-integer, zero, or negative values throw `TypeError`:
+
+```ts
+new Guantr({ maxRuleIterations: 0 }); // TypeError
+new Guantr({ maxRuleIterations: 1.5 }); // TypeError
+new Guantr({ maxRuleIterations: -1 }); // TypeError
+```
 
 ### Example
 
 ```ts
 import { createGuantr, GuantrCircuitBreakerError } from 'guantr';
-import type { GuantrAnyRule } from 'guantr';
 
 const guantr = await createGuantr({ maxRuleIterations: 100 });
 
-// Create enough rules to trip the breaker
-const rules: GuantrAnyRule[] = [];
+// Create many rules to trip the breaker
+const rules = [];
 for (let i = 0; i < 150; i++) {
   rules.push({
     effect: 'allow',
     action: 'read',
     resource: 'post',
-    condition: { id: ['eq', i] },
+    matchCondition: ({ eq, resource, literal }) => eq(resource('id'), literal(i)),
   });
 }
-
 await guantr.setRules(rules);
 
 try {
   await guantr.can('read', ['post', { id: 1 }]);
 } catch (e) {
   if (e instanceof GuantrCircuitBreakerError) {
-    console.error(e.message);
-    // '[guantr] Circuit breaker tripped: rule iteration limit (100) exceeded...'
+    console.error(e.name); // 'GuantrCircuitBreakerError'
     console.error(e.action); // 'read'
     console.error(e.resource); // 'post'
     console.error(e.limit); // 100
   }
 }
 ```
+
+---
+
+## `GuantrInvalidConditionKeyError`
+
+Thrown by the condition evaluator when a condition references a key that does not exist on the resource instance or context object being evaluated.
+
+### Constructor
+
+```ts
+class GuantrInvalidConditionKeyError extends Error {
+  constructor(key: string);
+}
+```
+
+### Properties
+
+| Property  | Type     | Description                                                  |
+| --------- | -------- | ------------------------------------------------------------ |
+| `name`    | `string` | Always `"GuantrInvalidConditionKeyError"`                    |
+| `message` | `string` | Human-readable description including the missing key         |
+| `key`     | `string` | The key that does not exist on the resource model or context |
+
+### When it is thrown
+
+- A rule condition references a field path that does not exist on the resource instance at evaluation time.
+- This catches typos and misconfigured conditions that would otherwise silently return `false`.
+- Optional path segments (using `?` suffix, e.g. `resource('optional?.field')`) are **exempt** from this check — they silently return `undefined` instead of throwing.
+
+### Opt-out for nullable/sparse objects
+
+If a field may legitimately be absent on some resource instances (sparse data, optional fields), use an explicit `null` or `undefined` literal as one of the operands in the condition expression. When the evaluator detects a nullish literal operand, it skips the key-existence check and treats missing keys as `undefined`:
+
+```ts
+// Without opt-out — throws if 'optionalField' is missing
+matchCondition: ({ eq, resource, literal }) => eq(resource('optionalField'), literal('someValue'));
+
+// With opt-out — key check is skipped; missing key → undefined → inequality → false
+matchCondition: ({ eq, resource, literal }) => eq(resource('optionalField'), literal(undefined));
+```
+
+Any `null` or `undefined` literal in any operand position triggers the opt-out for **all** operands in that expression.
+
+### Optional path segments
+
+```ts
+// The '?' in the path makes this segment optional
+// If 'profile' doesn't exist, returns undefined instead of throwing
+matchCondition: ({ eq, resource, literal }) => eq(resource('profile?.bio'), literal('Hello'));
+```
+
+### Example
+
+```ts
+import { createGuantr, GuantrInvalidConditionKeyError } from 'guantr';
+
+const guantr = await createGuantr();
+await guantr.setRules([
+  {
+    effect: 'allow',
+    action: 'read',
+    resource: 'post',
+    matchCondition: ({ eq, resource, literal }) => eq(resource('titel'), literal('Hello')), // typo: should be 'title'
+  },
+]);
+
+try {
+  await guantr.can('read', ['post', { title: 'Hello' }]);
+} catch (e) {
+  if (e instanceof GuantrInvalidConditionKeyError) {
+    console.error('Missing key:', e.key); // 'titel'
+  }
+}
+```
+
+### Using pre-built Condition objects
+
+The error applies regardless of whether the condition was built from a function or constructed manually as a JSON-serializable `Condition`:
+
+```ts
+import { evaluateCondition, GuantrInvalidConditionKeyError } from 'guantr';
+
+const condition = {
+  type: 'condition' as const,
+  node: {
+    type: 'operator' as const,
+    operator: 'eq' as const,
+    operands: [
+      { type: 'resource' as const, path: 'nonExistent' },
+      { type: 'literal' as const, value: 'test' },
+    ],
+  },
+};
+
+try {
+  evaluateCondition(condition, { actualField: 'test' }, {});
+} catch (e) {
+  if (e instanceof GuantrInvalidConditionKeyError) {
+    console.error(e.key); // 'nonExistent'
+  }
+}
+```
+
+---
+
+## Inheritance
+
+Both error classes extend `Error`, so standard error handling patterns work:
+
+```ts
+try {
+  // ...
+} catch (e) {
+  if (e instanceof GuantrCircuitBreakerError) {
+    // Handle circuit breaker
+  } else if (e instanceof GuantrInvalidConditionKeyError) {
+    // Handle invalid key
+  } else {
+    // Handle other errors
+  }
+}
+```
+
+## See also
+
+- [`can()`](./Guantr/can) — Permission checking (where these errors are thrown).
+- [`evaluateCondition()`](./utilities#evaluatecondition) — Standalone condition evaluation.
+- [Condition Builder guide](../../guides/condition-builder) — Building safe conditions.

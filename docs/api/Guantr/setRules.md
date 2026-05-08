@@ -1,92 +1,179 @@
 # API: `Guantr.prototype.setRules`
 
-The `setRules` method is used to define or replace the entire set of permission rules managed by the Guantr instance. It interacts with the configured storage adapter to persist these rules.
+The `setRules` method **replaces all previously stored rules** with a new rule set. It supports two call styles: a direct array of `GuantrRule` objects, or a callback function that receives `allow`/`deny` helper functions for defining rules programmatically.
 
 ## Signatures
 
-There are two ways to call `setRules`:
-
-**1. With a Rules Array:**
+### 1. Array overload
 
 ```ts
-interface Guantr<Meta, Context> {
-  setRules(
-    rules: GuantrRule<Meta, Context>[], // Array of rule objects
-  ): Promise<void>;
-}
+async setRules(rules: GuantrRule<Meta>[]): Promise<void>;
 ```
 
-**2. With a Callback Function:**
+### 2. Callback overload
 
 ```ts
-type SetRulesCallback<Meta, Context> = (
-  allow: (action: string, resource: string | [resourceKey: string, condition: GuantrRuleCondition<...> | null]) => void,
-  deny: (action: string, resource: string | [resourceKey: string, condition: GuantrRuleCondition<...> | null]) => void
+async setRules(callback: SetRulesCallback<Meta>): Promise<void>;
+```
+
+## Callback Signature
+
+```ts
+type SetRulesCallback<Meta> = (
+  allow: (action: string, resource: string | [string, MatchConditionFn | Condition | null]) => void,
+  deny: (action: string, resource: string | [string, MatchConditionFn | Condition | null]) => void,
 ) => void | Promise<void>;
-
-interface Guantr<Meta, Context> {
-  setRules(
-    callback: SetRulesCallback<Meta, Context> // Async function defining rules
-  ): Promise<void>;
-}
 ```
 
-## Parameters
+### `allow(action, resource)`
 
-- `rules`: (Array Method) An array of `GuantrRule` (or `GuantrAnyRule`) objects. Each object must have `effect` (`'allow'` or `'deny'`), `action` (string), `resource` (string), and optional `condition` (object or null).
-- `callback`: (Callback Method) An asynchronous function that receives two arguments:
-  - `allow`: A function used to define permission grants. Call it as `allow(action, resource)` or `allow(action, [resourceKey, condition])`.
-  - `deny`: A function used to define permission restrictions. Call it as `deny(action, resource)` or `deny(action, [resourceKey, condition])`.
-    The callback signature for `allow`/`deny` is:
-    `(action: string, resource: string | [resourceKey: string, condition: GuantrRuleCondition | null]) => void`
+Registers a rule with `effect: 'allow'`.
 
-## Returns
+### `deny(action, resource)`
 
-- `Promise<void>`: A promise that resolves when the rules have been successfully processed and stored by the storage adapter.
+Registers a rule with `effect: 'deny'`.
 
-## Important Behavior
+### `resource` argument types
 
-- **Replacement:** Calling `setRules` **replaces all previously stored rules**. It does not append rules.
-- **Clearing Rules:** Since `setRules` always replaces existing rules, passing an empty array `setRules([])` or an empty callback `setRules(() => {})` is a supported way to **clear all rules** from the instance.
-- **Storage Interaction:** This method calls the `setRules` method of the configured storage adapter.
+The second argument to `allow`/`deny` can be:
+
+| Form                         | Example                                                       | Resulting rule                                        |
+| ---------------------------- | ------------------------------------------------------------- | ----------------------------------------------------- |
+| `string`                     | `allow('read', 'post')`                                       | Unconditional allow (`matchCondition` is `undefined`) |
+| `[string, MatchConditionFn]` | `allow('edit', ['post', ({ eq, resource, context }) => ...])` | Conditional allow (function executed, AST stored)     |
+| `[string, Condition]`        | `deny('read', ['post', preBuiltCondition])`                   | Conditional deny (pre-built `Condition` stored as-is) |
+| `[string, null]`             | `allow('read', ['post', null])`                               | Unconditional allow (same as plain string)            |
+
+## `matchCondition` types
+
+When providing rules via the array form or the tuple form in a callback, `matchCondition` accepts three kinds of values:
+
+### `MatchConditionFn` — Builder function
+
+```ts
+type MatchConditionFn<Model, Context> = (
+  builder: MatchConditionBuilder<Model, Context>,
+) => Condition;
+```
+
+A function that receives a `MatchConditionBuilder` and returns a serialized `Condition`. The function is **executed immediately** at rule-set time, and only the resulting AST is stored. This means the condition is evaluated once at definition time, not re-created per check.
+
+### `Condition` — Pre-built AST
+
+A serialized condition object produced by a `MatchConditionBuilder`. Stored as-is without re-execution.
+
+### `null` — Unconditional
+
+Equivalent to omitting `matchCondition`. The rule applies regardless of resource context.
+
+## Important behaviors
+
+- **Replacement, not append.** Calling `setRules` replaces **all** previously stored rules. To add rules incrementally, retrieve existing rules with `getRules()`, combine them, and set again.
+- **Clears cache.** The entire storage cache is cleared before new rules are written. Any previous `can`/`can.abstract` results are purged.
+- **Builder functions execute immediately.** Any `MatchConditionFn` provided in a rule or callback is called synchronously during `setRules`. The returned `Condition` object is serialized and stored.
+- **Nullish matchCondition is unconditional.** Both `null` and `undefined` are treated as "no condition."
+- **Empty array / empty callback.** Clears all rules (no rules → all `can()` calls return `false`).
 
 ## Examples
 
-**Using the Callback Function (Recommended for Clarity)**
+### Callback style
 
 ```ts
 await guantr.setRules(async (allow, deny) => {
-  // Allow reading any article
+  // Unconditional allows
   allow('read', 'article');
+  allow('list', 'article');
 
-  // Allow editing own articles
-  allow('edit', ['article', { ownerId: ['eq', '$ctx.userId'] }]);
+  // Conditional allow — only the author can edit
+  allow('edit', [
+    'article',
+    ({ eq, resource, context }) => eq(resource('ownerId'), context('userId')),
+  ]);
 
-  // Deny deleting published articles
-  deny('delete', ['article', { status: ['eq', 'published'] }]);
+  // Conditional deny — no one can read archived articles
+  deny('read', [
+    'article',
+    ({ eq, resource, literal }) => eq(resource('status'), literal('archived')),
+  ]);
+
+  // Deny with logical AND — complex condition
+  deny('delete', [
+    'article',
+    ({ and, eq, resource, literal }) =>
+      and(eq(resource('status'), literal('published')), eq(resource('locked'), literal(true))),
+  ]);
 });
 ```
 
-**Using a Direct Array of Rule Objects**
+### Array style
 
 ```ts
 import type { GuantrRule } from 'guantr';
 
-const rulesArray: GuantrRule</* MyMeta */>[] = [
-  { effect: 'allow', action: 'read', resource: 'article', condition: null },
+const rules: GuantrRule<MyMeta>[] = [
+  { effect: 'allow', action: 'read', resource: 'article' },
+  { effect: 'allow', action: 'list', resource: 'article' },
+  {
+    effect: 'deny',
+    action: 'read',
+    resource: 'article',
+    matchCondition: ({ eq, resource, literal }) => eq(resource('status'), literal('archived')),
+  },
   {
     effect: 'allow',
     action: 'edit',
     resource: 'article',
-    condition: { ownerId: ['eq', '$ctx.userId'] }
+    matchCondition: ({ eq, resource, context }) => eq(resource('ownerId'), context('userId')),
   },
-  {
-    effect: 'deny',
-    action: 'delete',
-    resource: 'article',
-    condition: { status: ['eq', 'published'] }
-  }
 ];
 
-await guantr.setRules(rulesArray);
+await guantr.setRules(rules);
 ```
+
+### Clear all rules
+
+```ts
+await guantr.setRules([]);
+
+// Equivalent:
+await guantr.setRules(() => {});
+```
+
+All subsequent `can()` calls will return `false`.
+
+### Pre-built Condition object
+
+```ts
+import { createMatchConditionBuilder } from 'guantr';
+
+const builder = createMatchConditionBuilder<Article, MyContext>();
+const isOwner = builder.eq(builder.resource('ownerId'), builder.context('userId'));
+
+await guantr.setRules([
+  { effect: 'allow', action: 'edit', resource: 'article', matchCondition: isOwner },
+]);
+```
+
+### Using null matchCondition in array style
+
+```ts
+await guantr.setRules([
+  { effect: 'allow', action: 'read', resource: 'post', matchCondition: null },
+]);
+// Same as: { effect: 'allow', action: 'read', resource: 'post' }
+```
+
+## Rule evaluation priority
+
+When `can()` evaluates rules, deny rules take priority over allow rules:
+
+1. **No rules** → `false`
+2. **Unconditional deny** (`matchCondition` is `null`/`undefined`, `effect: 'deny'`) → immediate `false` (early exit)
+3. **Deny condition matches** → `false` (deny overrides allow)
+4. **At least one allow matches AND no deny matches** → `true`
+
+## See also
+
+- [`getRules()`](./getRules) — Retrieve currently stored rules.
+- [`relatedRulesFor()`](./relatedRulesFor) — Query rules for a specific action/resource pair.
+- [`can()`](./can) — Evaluate rules against a resource instance.

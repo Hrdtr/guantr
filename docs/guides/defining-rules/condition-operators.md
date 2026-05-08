@@ -1,475 +1,900 @@
-# Rules Condition Operators
+# Condition Operators — Complete Reference
 
-Guantr's fine-grained control comes from its powerful **condition** logic within rules. Conditions are objects where keys map to resource properties, and values are **Condition Expressions**. The core of a condition expression is the **operator**, which defines the comparison logic.
+Every `matchCondition` function receives a builder object (`MatchConditionBuilder`) with methods for constructing value references and composing them with operators. This page is the exhaustive reference for every method on that builder.
 
-Condition expressions typically follow the format `[operator, operand, options?]` as described in the [Defining Rules Guide](/guides/defining-rules.md). This page details each available operator.
+---
 
-## Available Operators
+## Value Source Factories
 
-## Condition Options
+Three factories create **value references** (`ValueRef`) — the operands consumed by all operators.
 
-Some operators accept an optional third element in the condition expression tuple: an **options object**. This is currently used to enable **case-insensitive** string comparisons.
+### `resource(path)` — Reference a field on the resource model
 
 ```ts
-// Options object shape
-interface ConditionOptions {
-  caseInsensitive?: boolean; // Default: false
-}
-
-// Usage: [operator, operand, { caseInsensitive: true }]
+resource(path: string): ResourceRef
 ```
 
-When `caseInsensitive` is `true`, string comparisons are performed in a case-insensitive manner (using `.toLowerCase()`). The following operators support this option:
-
-- `eq`
-- `in`
-- `contains`
-- `startsWith`
-- `endsWith`
-- `has`
-- `hasSome`
-- `hasEvery`
-
----
-
-Here are the operators you can use in Guantr condition expressions:
-
----
-
-### `eq`
-
-- **Description:** Checks for strict equality (`===`) between the resource/context value and the operand.
-- **Signature:** `['eq', operand, options?]`
-- **Operand Type:** Any literal value (string, number, boolean, null, undefined).
-- **Options:** `{ caseInsensitive?: boolean }` (Default: `false`)
-- **Behavior:** Performs a strict equality check (`value === operand`). When `caseInsensitive` is `true` and both `value` and `operand` are strings, comparison is case-insensitive.
-- **Examples:**
-
-  ```ts
-  // Allow if article status is exactly 'published'
-  allow('read', ['article', { status: ['eq', 'published'] }]);
-
-  // Allow if user ID matches a specific string
-  allow('view', ['profile', { userId: ['eq', 'user-admin-123'] }]);
-
-  // Allow if 'featured' flag is strictly true
-  allow('display', ['product', { featured: ['eq', true] }]);
-
-  // Check for null value
-  allow('access', ['resource', { deletedAt: ['eq', null] }]);
-
-  // Case-insensitive string comparison
-  allow('read', ['document', { category: ['eq', 'Reports', { caseInsensitive: true }] }]);
-  ```
-
----
-
-### `in`
-
-- **Description:** Checks if the resource/context value exists within the provided array operand (using strict equality `===` for comparison).
-- **Signature:** `['in', operand, options?]`
-- **Operand Type:** An array (`Array<any>`).
-- **Options:** `{ caseInsensitive?: boolean }` (Default: `false`)
-- **Behavior:** Returns `true` if the `operand` is an array and contains an element strictly equal to the `value`. Returns `false` if the `operand` is not an array or the `value` is not found. When `caseInsensitive` is `true` and `value` is a string, the comparison is case-insensitive.
-- **Examples:**
-
-  ```ts
-  // Allow if user role is one of 'admin' or 'editor'
-  allow('edit', ['settings', { userRole: ['in', ['admin', 'editor']] }]);
-
-  // Allow if product category ID is in the allowed list
-  allow('view', ['product', { categoryId: ['in', [10, 25, 42]] }]);
-
-  // Case-insensitive membership check
-  allow('access', ['feature', { code: ['in', ['ALPHA', 'BETA'], { caseInsensitive: true }] }]);
-
-  // Edge Case: Value not found
-  // { userRole: ['in', ['viewer']] } will be false if userRole is 'editor'
-
-  // Edge Case: Operand is not an array
-  // { userRole: ['in', 'admin'] } will always evaluate to false
-  ```
-
----
-
-### `contains`
-
-- **Description:** Checks if the resource/context value (string) contains the operand (string) as a substring.
-- **Signature:** `['contains', operand, options?]`
-- **Operand Type:** `string`
-- **Options:** `{ caseInsensitive?: boolean }` (Default: `false`)
-- **Behavior:** Returns `true` if both `value` and `operand` are strings, and `value` includes `operand`. Case sensitivity depends on the `options`. Returns `false` if either `value` or `operand` is not a string.
-- **Examples:**
-
-  ```ts
-  // Allow if document title contains "report" (case-sensitive)
-  allow('download', ['document', { title: ['contains', 'report'] }]);
-
-  // Allow if email contains "@example.com" (case-insensitive)
-  allow('login', ['user', { email: ['contains', '@example.com', { caseInsensitive: true }] }]);
-
-  // Edge Case: Value or Operand not a string
-  // { title: ['contains', null] } -> false
-  // { count: ['contains', 'report'] } // where count is number -> false
-  ```
-
----
-
-### `startsWith`
-
-- **Description:** Checks if the resource/context value (string) starts with the operand (string).
-- **Signature:** `['startsWith', operand, options?]`
-- **Operand Type:** `string`
-- **Options:** `{ caseInsensitive?: boolean }` (Default: `false`)
-- **Behavior:** Returns `true` if both `value` and `operand` are strings, and `value` starts with `operand`. Case sensitivity depends on the `options`. Returns `false` if either is not a string.
-- **Examples:**
-
-  ```ts
-  // Allow if product SKU starts with "PROD-"
-  allow('manage', ['product', { sku: ['startsWith', 'PROD-'] }]);
-
-  // Allow if username starts with "test_" (case-insensitive)
-  allow('login', ['user', { username: ['startsWith', 'test_', { caseInsensitive: true }] }]);
-  ```
-
----
-
-### `endsWith`
-
-- **Description:** Checks if the resource/context value (string) ends with the operand (string).
-- **Signature:** `['endsWith', operand, options?]`
-- **Operand Type:** `string`
-- **Options:** `{ caseInsensitive?: boolean }` (Default: `false`)
-- **Behavior:** Returns `true` if both `value` and `operand` are strings, and `value` ends with `operand`. Case sensitivity depends on the `options`. Returns `false` if either is not a string.
-- **Examples:**
-
-  ```ts
-  // Allow if filename ends with ".pdf"
-  allow('download', ['file', { filename: ['endsWith', '.pdf'] }]);
-
-  // Allow if domain ends with ".org" (case-insensitive)
-  allow('access', ['website', { domain: ['endsWith', '.org', { caseInsensitive: true }] }]);
-  ```
-
----
-
-### `gt`
-
-- **Description:** Checks if the resource/context value is strictly greater than (`>`) the operand.
-- **Signature:** `['gt', operand]`
-- **Operand Type:** `number` or `string` (for lexical comparison).
-- **Behavior:** Performs a `value > operand` comparison. Returns `false` if the types are incompatible for comparison (e.g., comparing a number to an object) or if the condition is not met.
-- **Examples:**
-
-  ```ts
-  // Allow if comment score is greater than 10
-  allow('upvote', ['comment', { score: ['gt', 10] }]);
-
-  // Allow if version name is lexically greater than "v2.0"
-  allow('deploy', ['release', { versionName: ['gt', 'v2.0'] }]);
-  ```
-
----
-
-### `gte`
-
-- **Description:** Checks if the resource/context value is greater than or equal to (`>=`) the operand.
-- **Signature:** `['gte', operand]`
-- **Operand Type:** `number` or `string`.
-- **Behavior:** Performs a `value >= operand` comparison. Returns `false` if types are incompatible or the condition is not met.
-- **Examples:**
-
-  ```ts
-  // Allow if user age is 18 or older
-  allow('register', ['user', { age: ['gte', 18] }]);
-
-  // Allow if required clearance level is met or exceeded
-  allow('access', ['document', { clearanceLevel: ['gte', '$ctx.userClearance'] }]);
-  ```
-
----
-
-### `has`
-
-- **Description:** Checks if the resource/context value (an array) includes the operand (using strict equality `===`). Note: This checks `value.includes(operand)`.
-- **Signature:** `['has', operand, options?]`
-- **Operand Type:** Any literal value (string or number).
-- **Options:** `{ caseInsensitive?: boolean }` (Default: `false`)
-- **Behavior:** Returns `true` if the `value` is an array and contains an element strictly equal to the `operand`. Returns `false` if the `value` is not an array or the `operand` is not found within it. When `caseInsensitive` is `true` and `operand` is a string, the comparison is case-insensitive.
-- **Examples:**
-
-  ```ts
-  // Allow if user's roles array includes 'admin'
-  allow('access', ['adminPanel', { roles: ['has', 'admin'] }]);
-
-  // Allow if article tags include 'featured'
-  allow('promote', ['article', { tags: ['has', 'featured'] }]);
-
-  // Case-insensitive array membership
-  allow('access', ['adminPanel', { roles: ['has', 'Admin', { caseInsensitive: true }] }]);
-
-  // Edge Case: Value is not an array
-  // { roles: ['has', 'admin'] } -> false if roles is undefined or string
-  ```
-
----
-
-### `hasSome`
-
-- **Description:** Checks if the resource/context value (an array) contains _at least one_ element that is also present in the operand (an array). Uses strict equality (`===`) for comparison.
-- **Signature:** `['hasSome', operand, options?]`
-- **Operand Type:** An array (`Array<any>`).
-- **Options:** `{ caseInsensitive?: boolean }` (Default: `false`)
-- **Behavior:** Returns `true` if both `value` and `operand` are arrays, and they share at least one common element. Returns `false` otherwise. When `caseInsensitive` is `true`, string elements are compared case-insensitively.
-- **Examples:**
-
-  ```ts
-  // Allow if user belongs to at least one of the required groups
-  allow('access', ['project', { userGroups: ['hasSome', ['engineering', 'product']] }]);
-
-  // Allow if article has at least one of the specified tags
-  allow('viewSpecial', ['article', { tags: ['hasSome', ['urgent', 'internal']] }]);
-
-  // Case-insensitive overlap check
-  allow('access', [
-    'project',
-    { userGroups: ['hasSome', ['Engineering', 'Product'], { caseInsensitive: true }] },
-  ]);
-  ```
-
----
-
-### `hasEvery`
-
-- **Description:** Checks if the resource/context value (an array) contains _all_ of the elements present in the operand (an array). Uses strict equality (`===`) for comparison.
-- **Signature:** `['hasEvery', operand, options?]`
-- **Operand Type:** An array (`Array<any>`).
-- **Options:** `{ caseInsensitive?: boolean }` (Default: `false`)
-- **Behavior:** Returns `true` if both `value` and `operand` are arrays, and every element in the `operand` is also present in the `value`. Returns `false` otherwise. Order doesn't matter. When `caseInsensitive` is `true`, string elements are compared case-insensitively.
-- **Examples:**
-
-  ```ts
-  // Allow if user has all required permissions
-  allow('deploy', ['service', { userPermissions: ['hasEvery', ['build', 'deploy', 'monitor']] }]);
-
-  // Allow if product includes all necessary components
-  allow('ship', ['product', { components: ['hasEvery', ['powerSupply', 'cpu', 'ram']] }]);
-
-  // Case-insensitive full coverage check
-  allow('deploy', [
-    'service',
-    { userPermissions: ['hasEvery', ['Build', 'Deploy'], { caseInsensitive: true }] },
-  ]);
-  ```
-
----
-
-### `some`
-
-- **Description:** Checks if the resource/context value (an array of objects) contains _at least one_ object that satisfies the nested condition object provided as the operand.
-- **Signature:** `['some', operand]`
-- **Operand Type:** A Guantr condition object (`GuantrRuleCondition`).
-- **Behavior:** Iterates through the array `value`. For each object element, it evaluates the nested `operand` condition against that object. Returns `true` as soon as one element satisfies the condition. Returns `false` if `value` is not an array or if no element satisfies the condition.
-- **Examples:**
-
-  ```ts
-  // Allow if article has at least one comment authored by the current user
-  allow('moderate', [
-    'article',
-    {
-      comments: ['some', { authorId: ['eq', '$ctx.userId'] }],
-    },
-  ]);
-
-  // Allow if project has at least one task assigned to the user's team
-  allow('view', [
-    'project',
-    {
-      tasks: ['some', { teamId: ['in', '$ctx.userTeamIds'] }],
-    },
-  ]);
-  ```
-
----
-
-### `every`
-
-- **Description:** Checks if _all_ objects within the resource/context value (an array of objects) satisfy the nested condition object provided as the operand.
-- **Signature:** `['every', operand]`
-- **Operand Type:** A Guantr condition object (`GuantrRuleCondition`).
-- **Behavior:** Iterates through the array `value`. For each object element, it evaluates the nested `operand` condition against that object. Returns `true` only if _all_ elements satisfy the condition (or if the array is empty). Returns `false` if `value` is not an array or if even one element fails the condition.
-- **Examples:**
-
-  ```ts
-  // Allow merging if all checks in the 'checks' array have status 'passed'
-  allow('merge', [
-    'pullRequest',
-    {
-      checks: ['every', { status: ['eq', 'passed'] }],
-    },
-  ]);
-
-  // Allow process if all items in the batch are validated
-  allow('process', [
-    'batch',
-    {
-      items: ['every', { isValidated: ['eq', true] }],
-    },
-  ]);
-  ```
-
----
-
-### `none`
-
-- **Description:** Checks if _none_ of the objects within the resource/context value (an array of objects) satisfy the nested condition object provided as the operand.
-- **Signature:** `['none', operand]`
-- **Operand Type:** A Guantr condition object (`GuantrRuleCondition`).
-- **Behavior:** Iterates through the array `value`. For each object element, it evaluates the nested `operand` condition against that object. Returns `true` only if _no_ elements satisfy the condition (or if the array is empty). Returns `false` if `value` is not an array or if even one element satisfies the condition.
-- **Examples:**
-
-  ```ts
-  // Allow publishing if there are no blocking issues in the 'issues' array
-  allow('publish', [
-    'release',
-    {
-      issues: ['none', { isBlocking: ['eq', true] }],
-    },
-  ]);
-
-  // Allow user action if they have no overdue tasks
-  allow('proceed', [
-    'user',
-    {
-      tasks: ['none', { status: ['eq', 'overdue'] }],
-    },
-  ]);
-  ```
-
----
-
-## Nullish Checks
-
-Guantr supports checking whether a value is `null` or `undefined` using the `eq` operator. This is useful for:
-
-- **Soft-delete patterns**: checking if `deletedAt` is `null` (meaning the record is active).
-- **Optional fields**: checking if an optional field has been set or is still empty.
-- **Nullable relationships**: checking if a related resource has been unlinked.
-
-**Examples:**
+Produces a `ResourceRef`. The `path` uses dot notation for nested fields and `?` for optional fields. TypeScript enforces that `path` is a valid key path on the resource model type.
 
 ```ts
-// Allow access only if the resource has NOT been deleted
-allow('read', ['resource', { deletedAt: ['eq', null] }]);
-
-// Allow if an optional moderation flag has not been set
-allow('publish', ['article', { moderationFlag: ['eq', undefined] }]);
-
-// Combining null checks with other conditions
-allow('edit', [
-  'article',
-  {
-    deletedAt: ['eq', null],
-    status: ['eq', 'draft'],
-  },
-]);
+resource('status'); // top-level field
+resource('author.name'); // nested field
+resource('address?.city'); // optional nested field — short-circuits to undefined if nullish
 ```
 
-> **Note:** When a value in the resource is `null` or `undefined`, comparison operators (`gt`, `gte`, `contains`, `startsWith`, `endsWith`) and array operators (`has`, `hasSome`, `hasEvery`) will return `false` rather than throwing an error. The `eq` operator is the primary way to explicitly match against `null`/`undefined`.
+**Serialized representation:**
+
+```json
+{ "type": "resource", "path": "status" }
+{ "type": "resource", "path": "author.name" }
+{ "type": "resource", "path": "address?.city" }
+```
+
+### `context(path)` — Reference a field from the evaluation context
+
+```ts
+context(path: string): ContextRef
+```
+
+Produces a `ContextRef`. Works identically to `resource()` but resolves values from the context object provided via `context`. TypeScript enforces that `path` is a valid key path on your context type.
+
+```ts
+context('userId');
+context('user.role');
+context('env?.region');
+```
+
+**Serialized representation:**
+
+```json
+{ "type": "context", "path": "userId" }
+{ "type": "context", "path": "user.role" }
+```
+
+### `literal(value)` — Inline a constant value
+
+```ts
+literal<T>(value: T): LiteralRef<T>
+```
+
+Produces a `LiteralRef` wrapping any primitive or array value. The value is stored directly in the serialized AST.
+
+```ts
+literal('published'); // string
+literal(42); // number
+literal(true); // boolean
+literal(null); // null
+literal(undefined); // undefined
+literal(['admin', 'editor']); // array
+```
+
+**Serialized representation:**
+
+```json
+{ "type": "literal", "value": "published" }
+{ "type": "literal", "value": 42 }
+{ "type": "literal", "value": true }
+{ "type": "literal", "value": null }
+{ "type": "literal", "value": ["admin", "editor"] }
+```
 
 ---
 
-## Combining Array Expressions with Nested Conditions (`$expr`)
+## Comparison Operators
 
-When a condition value is a plain object (not an array expression), Guantr interprets it as a **nested condition** — it recurses into the nested keys and matches them against the corresponding resource property. For example:
+All comparison operators take two `ValueRef` operands. At runtime, values are resolved and compared using JavaScript's strict equality or `Number()` coercion.
+
+### `eq(left, right, options?)` — Equality
 
 ```ts
-// nested condition: checks roles.length === 2
-roles: {
-  length: ['eq', 2],
-}
+eq<L extends ValueRef>(
+  left: L,
+  right: ValueRef & { readonly [ValueRefType]?: InferValueRef<L> | null | undefined },
+  options?: Readonly<{ caseInsensitive?: boolean }>,
+): Condition
 ```
 
-However, array properties like `roles` often need both:
+Returns `true` when resolved values are strictly equal (`===`). When `caseInsensitive: true`, strings are compared case-insensitively (non-string values fall back to strict equality).
 
-- A condition applied to the **array itself** (e.g., `['has', 'admin']` or `['some', { ... }]`)
-- Nested conditions on **properties of the array** (e.g., `.length`)
-
-This is where the **`$expr` key** comes in. Within a nested condition object, you can use `$expr` to specify a **condition expression** that is evaluated against the array (or object) itself, while the remaining keys are treated as nested conditions.
+**Callback style:**
 
 ```ts
-// Without $expr: only nested condition
-{
-  roles: {
-    length: ['gte', 1], // checks roles.length >= 1
-  }
-}
-
-// With $expr: combines array-level expression AND nested conditions
-{
-  roles: {
-    length: ['gte', 1],                                    // nested condition on roles object
-    $expr: ['some', { name: ['eq', 'admin'] }],             // array-level expression on roles array
-  }
-}
-// Both must evaluate to true for the rule to match.
-```
-
-**How it works:**
-
-1. `$expr` (if present) is extracted from the object and evaluated as a condition expression against the resource property value.
-2. The remaining keys are evaluated as a nested condition against the resource property value.
-3. Both results must be `true` for the overall condition to pass (AND logic).
-
-**Real-world example:**
-
-```ts
-// Allow reading a user if they have exactly 2 roles,
-// AND at least one of those roles is named 'User' (case-insensitive)
 allow('read', [
-  'user',
-  {
-    roles: {
-      length: ['eq', 2],
-      $expr: ['some', { name: ['eq', 'User', { caseInsensitive: true }] }],
-    },
-  },
+  'post',
+  ({ eq, resource, literal }) => eq(resource('status'), literal('published')),
 ]);
 ```
 
-`$expr` works with any array-level operator (`some`, `every`, `none`, `has`, `hasSome`, `hasEvery`) and also works with non-array values. It's also compatible with `length` or any other nested property checks on the same resource field.
+**Rule array style:**
+
+```ts
+{
+  effect: 'allow',
+  action: 'read',
+  resource: 'post',
+  matchCondition: ({ eq, resource, literal }) =>
+    eq(resource('status'), literal('published')),
+}
+```
+
+**Cross-source examples:**
+
+```ts
+eq(resource('id'), literal(1)); // resource ↔ literal
+eq(resource('ownerId'), context('userId')); // resource ↔ context
+eq(context('role'), literal('admin')); // context ↔ literal
+eq(resource('a'), resource('b')); // resource ↔ resource
+```
+
+**Serialized JSON:**
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "operator",
+    "operator": "eq",
+    "operands": [
+      { "type": "resource", "path": "status" },
+      { "type": "literal", "value": "published" }
+    ]
+  }
+}
+```
+
+With case-insensitive option:
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "operator",
+    "operator": "eq",
+    "operands": [
+      { "type": "resource", "path": "name" },
+      { "type": "literal", "value": "hello" }
+    ],
+    "options": { "caseInsensitive": true }
+  }
+}
+```
+
+### `ne(left, right, options?)` — Not equal
+
+```ts
+ne<L extends ValueRef>(
+  left: L,
+  right: ValueRef & { readonly [ValueRefType]?: InferValueRef<L> | null | undefined },
+  options?: Readonly<{ caseInsensitive?: boolean }>,
+): Condition
+```
+
+Returns the negation of `eq` — `true` when resolved values are not strictly equal.
+
+```ts
+ne(resource('status'), literal('archived'));
+ne(resource('role'), context('adminRole'), { caseInsensitive: true });
+ne(resource('deletedAt'), literal(null)); // "is not null"
+```
+
+**Serialized JSON:**
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "operator",
+    "operator": "ne",
+    "operands": [
+      { "type": "resource", "path": "status" },
+      { "type": "literal", "value": "archived" }
+    ]
+  }
+}
+```
+
+### `gt(left, right)` — Greater than
+
+```ts
+gt(
+  left: ValueRef & { readonly [ValueRefType]?: number | null | undefined },
+  right: ValueRef & { readonly [ValueRefType]?: number | null | undefined },
+): Condition
+```
+
+Both operands must carry a numeric phantom type. Runtime evaluation coerces both sides with `Number()` and returns `Number(left) > Number(right)`.
+
+```ts
+gt(resource('score'), literal(10));
+gt(resource('priority'), context('minimumPriority'));
+```
+
+**Serialized JSON:**
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "operator",
+    "operator": "gt",
+    "operands": [
+      { "type": "resource", "path": "score" },
+      { "type": "literal", "value": 10 }
+    ]
+  }
+}
+```
+
+### `gte(left, right)` — Greater than or equal
+
+```ts
+gte(
+  left: ValueRef & { readonly [ValueRefType]?: number | null | undefined },
+  right: ValueRef & { readonly [ValueRefType]?: number | null | undefined },
+): Condition
+```
+
+```ts
+gte(resource('age'), literal(18));
+gte(resource('balance'), literal(0));
+```
+
+### `lt(left, right)` — Less than
+
+```ts
+lt(
+  left: ValueRef & { readonly [ValueRefType]?: number | null | undefined },
+  right: ValueRef & { readonly [ValueRefType]?: number | null | undefined },
+): Condition
+```
+
+```ts
+lt(resource('priority'), literal(5));
+lt(resource('timestamp'), context('deadline'));
+```
+
+### `lte(left, right)` — Less than or equal
+
+```ts
+lte(
+  left: ValueRef & { readonly [ValueRefType]?: number | null | undefined },
+  right: ValueRef & { readonly [ValueRefType]?: number | null | undefined },
+): Condition
+```
+
+```ts
+lte(resource('clearanceLevel'), context('userClearance'));
+lte(resource('attempts'), literal(3));
+```
 
 ---
 
-## Handling Negation (Why No `ne` or `nin`?)
+## String Operators
 
-You might notice the absence of direct negation operators like `ne` (not equal) or `nin` (not in array). This is intentional in Guantr's design philosophy.
+String operators coerce both resolved values to strings (`String(left ?? '')` / `String(right ?? '')`) before comparison, so they safely handle `null` and `undefined` operands.
 
-**Rationale:** Access control logic is often easier to reason about when permissions are additive (`allow` rules) and explicit restrictions are used (`deny` rules). Relying heavily on negative conditions (`allow if X is NOT Y`) can sometimes lead to overly permissive states if not carefully managed.
+### `contains(str, substring, options?)` — String contains
 
-**How to Achieve Negation:** Use `deny` rules.
+```ts
+contains(
+  str: ValueRef & { readonly [ValueRefType]?: string | null | undefined },
+  substring: ValueRef & { readonly [ValueRefType]?: string | null | undefined },
+  options?: Readonly<{ caseInsensitive?: boolean }>,
+): Condition
+```
 
-- **Instead of:** `allow('action', ['resource', { property: ['ne', 'value'] }])` (Incorrect - 'ne' doesn't exist)
-- **Do This:**
+Returns `true` when `str` includes `substring`. When `caseInsensitive: true`, both sides are lowercased before checking.
 
-  ```ts
-  // Broadly allow the action...
-  allow('action', 'resource');
-  // ...then explicitly deny it for the specific case.
-  deny('action', ['resource', { property: ['eq', 'value'] }]);
-  ```
+```ts
+contains(resource('title'), literal('report'));
+contains(resource('email'), context('domain'), { caseInsensitive: true });
+```
 
-- **Instead of:** `allow('action', ['resource', { property: ['nin', ['a', 'b']] }])` (Incorrect - 'nin' doesn't exist)
-- **Do This:**
-  ```ts
-  // Broadly allow...
-  allow('action', 'resource');
-  // ...then deny for the specific values.
-  deny('action', ['resource', { property: ['in', ['a', 'b']] }]);
-  ```
+**Edge case:** a `null`/`undefined` left operand is coerced to the empty string `""`, so `contains(null, literal('x'))` evaluates to `false`.
 
-This approach makes the restriction explicit and leverages Guantr's rule precedence (`deny` overrides `allow`).
+**Serialized JSON:**
 
-## Conclusion
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "operator",
+    "operator": "contains",
+    "operands": [
+      { "type": "resource", "path": "title" },
+      { "type": "literal", "value": "report" }
+    ],
+    "options": { "caseInsensitive": true }
+  }
+}
+```
 
-Guantr's condition operators provide a rich vocabulary for expressing complex authorization logic based on attributes and relationships. By understanding how each operator functions and how to combine them within condition objects, you can implement fine-grained and flexible access control tailored to your application's needs. Remember to handle negation using `deny` rules for clarity and safety.
+### `startsWith(str, prefix, options?)` — String starts with
+
+```ts
+startsWith(
+  str: ValueRef & { readonly [ValueRefType]?: string | null | undefined },
+  prefix: ValueRef & { readonly [ValueRefType]?: string | null | undefined },
+  options?: Readonly<{ caseInsensitive?: boolean }>,
+): Condition
+```
+
+```ts
+startsWith(resource('sku'), literal('PROD-'));
+startsWith(resource('email'), context('prefix'), { caseInsensitive: true });
+```
+
+**Edge case:** if the left operand is `null`/`undefined`, it coerces to `""`, making `startsWith(null, literal('x'))` → `false`. A `null` right operand coerces to `""`, and every string starts with the empty string, so `startsWith(..., literal(null))` → `true`.
+
+**Serialized JSON:**
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "operator",
+    "operator": "startsWith",
+    "operands": [
+      { "type": "resource", "path": "sku" },
+      { "type": "literal", "value": "PROD-" }
+    ]
+  }
+}
+```
+
+### `endsWith(str, suffix, options?)` — String ends with
+
+```ts
+endsWith(
+  str: ValueRef & { readonly [ValueRefType]?: string | null | undefined },
+  suffix: ValueRef & { readonly [ValueRefType]?: string | null | undefined },
+  options?: Readonly<{ caseInsensitive?: boolean }>,
+): Condition
+```
+
+```ts
+endsWith(resource('filename'), literal('.pdf'));
+endsWith(resource('domain'), literal('.org'), { caseInsensitive: true });
+```
+
+**Edge case:** behavior for `null`/`undefined` operands mirrors `startsWith` — left coerces to `""`, right coerces to `""` (which every string ends with, so it returns `true`).
+
+**Serialized JSON:**
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "operator",
+    "operator": "endsWith",
+    "operands": [
+      { "type": "resource", "path": "filename" },
+      { "type": "literal", "value": ".pdf" }
+    ]
+  }
+}
+```
+
+---
+
+## Array Membership Operators
+
+### `in(value, array, options?)` — Value is in array
+
+```ts
+in<V extends ValueRef>(
+  value: V,
+  array: ValueRef & { readonly [ValueRefType]?: readonly unknown[] },
+  options?: Readonly<{ caseInsensitive?: boolean }>,
+): Condition
+```
+
+> **Note:** `in` is a JavaScript reserved word and cannot be used in destructuring shorthand. When destructuring the condition object, alias it (e.g., `{ in: inOp }`) or use property access instead (e.g., `conditions.in(...)`). This is the same pattern used by other operators like `has(array, value)`.
+
+Returns `true` when `value` is an element of `array`. If `array` resolves to a non-array value at runtime, returns `false`.
+
+The `array` argument is type-checked to ensure it carries an array phantom type — passing a scalar field (e.g., `resource('status')`) to the array position is caught at compile time. However, element-type compatibility between `value` and `array` is not enforced at the type level. Unlike `has(array, value)` where the array unambiguously constrains the value type, `in(value, array)` has no clear direction: the value could be a narrow literal while the array is a broad field type, or the value could be a broad field while the array is a narrow literal array. Type mismatches are caught at runtime by `evaluateCondition`.
+
+```ts
+in(resource('role'), literal(['admin', 'editor']))
+in(resource('category'), context('allowedCategories'), { caseInsensitive: true })
+in(literal('tech'), resource('tags'))
+```
+
+**Serialized JSON:**
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "operator",
+    "operator": "in",
+    "operands": [
+      { "type": "resource", "path": "role" },
+      { "type": "literal", "value": ["admin", "editor"] }
+    ]
+  }
+}
+```
+
+### `has(array, value, options?)` — Array contains value
+
+```ts
+has<A extends ValueRef & { readonly [ValueRefType]?: unknown[] }>(
+  array: A,
+  value: ValueRef & { readonly [ValueRefType]?: ArrayElementType<A> },
+  options?: Readonly<{ caseInsensitive?: boolean }>,
+): Condition
+```
+
+Functional inverse of `in` — the operand order is swapped. Returns `false` if the first operand is not an array.
+
+```ts
+has(resource('tags'), literal('featured'));
+has(resource('roles'), context('requiredRole'), { caseInsensitive: true });
+```
+
+**Serialized JSON:**
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "operator",
+    "operator": "has",
+    "operands": [
+      { "type": "resource", "path": "tags" },
+      { "type": "literal", "value": "featured" }
+    ]
+  }
+}
+```
+
+### `hasSome(array, values, options?)` — Array contains any of values
+
+```ts
+hasSome<A extends ValueRef & { readonly [ValueRefType]?: unknown[] }>(
+  array: A,
+  values: ValueRef & { readonly [ValueRefType]?: InferValueRef<A> },
+  options?: Readonly<{ caseInsensitive?: boolean }>,
+): Condition
+```
+
+Returns `true` when `array` contains at least one element from `values`. Both operands must resolve to arrays; returns `false` if either is not an array.
+
+```ts
+hasSome(resource('tags'), literal(['tech', 'gaming']));
+hasSome(resource('permissions'), context('requiredPermissions'), { caseInsensitive: true });
+```
+
+**Serialized JSON:**
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "operator",
+    "operator": "hasSome",
+    "operands": [
+      { "type": "resource", "path": "tags" },
+      { "type": "literal", "value": ["tech", "gaming"] }
+    ]
+  }
+}
+```
+
+### `hasEvery(array, values, options?)` — Array contains all values
+
+```ts
+hasEvery<A extends ValueRef & { readonly [ValueRefType]?: unknown[] }>(
+  array: A,
+  values: ValueRef & { readonly [ValueRefType]?: InferValueRef<A> },
+  options?: Readonly<{ caseInsensitive?: boolean }>,
+): Condition
+```
+
+Returns `true` only when `array` contains **every** element from `values`. Returns `false` if either operand is not an array. An empty `values` array causes vacuous truth (returns `true`).
+
+```ts
+hasEvery(resource('permissions'), literal(['read', 'write']));
+hasEvery(resource('tags'), literal(['tech', 'news']), { caseInsensitive: true });
+hasEvery(resource('tags'), literal([])); // always true
+```
+
+**Serialized JSON:**
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "operator",
+    "operator": "hasEvery",
+    "operands": [
+      { "type": "resource", "path": "permissions" },
+      { "type": "literal", "value": ["read", "write"] }
+    ]
+  }
+}
+```
+
+---
+
+## Complex Array Operators
+
+These operators iterate over an array of **objects** and evaluate a nested condition against each element. Each provides a fresh builder scoped to the array element type.
+
+### `some(array, condition)` — At least one element matches
+
+```ts
+some<A extends ValueRef, E extends Record<string, unknown>>(
+  array: A & { readonly [ValueRefType]?: E[] },
+  condition: MatchConditionFn<E, Context>,
+): Condition
+```
+
+Returns `true` when at least one array element satisfies the nested condition. Returns `false` for empty arrays, non-array operands, or if no nested condition was provided.
+
+```ts
+some(resource('comments'), ({ eq, resource, context }) =>
+  eq(resource('authorId'), context('userId')),
+);
+```
+
+**Serialized JSON:**
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "operator",
+    "operator": "some",
+    "operands": [{ "type": "resource", "path": "comments" }],
+    "condition": {
+      "type": "condition",
+      "node": {
+        "type": "operator",
+        "operator": "eq",
+        "operands": [
+          { "type": "resource", "path": "authorId" },
+          { "type": "context", "path": "userId" }
+        ]
+      }
+    }
+  }
+}
+```
+
+### `every(array, condition)` — All elements match
+
+```ts
+every<A extends ValueRef, E extends Record<string, unknown>>(
+  array: A & { readonly [ValueRefType]?: E[] },
+  condition: MatchConditionFn<E, Context>,
+): Condition
+```
+
+Returns `true` when every array element satisfies the nested condition. Returns `true` for empty arrays (vacuous truth). If no nested condition is provided, returns `true` (all elements trivially satisfy nothing). Returns `false` for non-array operands.
+
+```ts
+every(resource('checks'), ({ eq, resource, literal }) => eq(resource('status'), literal('passed')));
+```
+
+**Serialized JSON** — same structure as `some`, with `"operator": "every"`.
+
+### `none(array, condition)` — No element matches
+
+```ts
+none<A extends ValueRef, E extends Record<string, unknown>>(
+  array: A & { readonly [ValueRefType]?: E[] },
+  condition: MatchConditionFn<E, Context>,
+): Condition
+```
+
+Returns `true` when **no** array element satisfies the nested condition. Returns `true` for empty arrays. If no nested condition is provided, returns `true`. Returns `false` for non-array operands.
+
+```ts
+none(resource('issues'), ({ eq, resource, literal }) => eq(resource('isBlocking'), literal(true)));
+```
+
+**Serialized JSON** — same structure as `some`, with `"operator": "none"`.
+
+### Complex array operator summary
+
+| Operator | Empty array | No nested condition | Non-array operand |
+| -------- | ----------- | ------------------- | ----------------- |
+| `some`   | `false`     | `false`             | `false`           |
+| `every`  | `true`      | `true`              | `false`           |
+| `none`   | `true`      | `true`              | `false`           |
+
+Elements that are not objects (primitives) are treated as non-matching for nested conditions.
+
+---
+
+## Logical Operators
+
+### `and(...conditions)` — Logical AND
+
+```ts
+and(...conditions: Condition[]): Condition
+```
+
+Returns `true` when **all** sub-conditions are satisfied. An empty call `and()` returns `true` (vacuous truth).
+
+```ts
+and(
+  eq(resource('status'), literal('approved')),
+  gte(resource('score'), literal(0)),
+  not(eq(resource('archived'), literal(true))),
+);
+```
+
+**Serialized JSON:**
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "logical",
+    "operator": "and",
+    "operands": [
+      {
+        "type": "condition",
+        "node": {
+          "type": "operator",
+          "operator": "eq",
+          "operands": [
+            { "type": "resource", "path": "status" },
+            { "type": "literal", "value": "approved" }
+          ]
+        }
+      },
+      {
+        "type": "condition",
+        "node": {
+          "type": "operator",
+          "operator": "gte",
+          "operands": [
+            { "type": "resource", "path": "score" },
+            { "type": "literal", "value": 0 }
+          ]
+        }
+      },
+      {
+        "type": "condition",
+        "node": {
+          "type": "logical",
+          "operator": "not",
+          "operands": [
+            {
+              "type": "condition",
+              "node": {
+                "type": "operator",
+                "operator": "eq",
+                "operands": [
+                  { "type": "resource", "path": "archived" },
+                  { "type": "literal", "value": true }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+### `or(...conditions)` — Logical OR
+
+```ts
+or(...conditions: Condition[]): Condition
+```
+
+Returns `true` when **any** sub-condition is satisfied. An empty call `or()` returns `false`.
+
+```ts
+or(eq(resource('role'), literal('admin')), eq(resource('role'), literal('editor')));
+```
+
+### `not(condition)` — Logical NOT
+
+```ts
+not(condition: Condition): Condition
+```
+
+Returns the logical complement of the given condition. An accidental `not()` with no argument returns `true`.
+
+```ts
+not(eq(resource('deleted'), literal(true)));
+not(and(eq(resource('status'), literal('draft')), eq(resource('ownerId'), context('userId'))));
+```
+
+**Serialized JSON:**
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "logical",
+    "operator": "not",
+    "operands": [
+      {
+        "type": "condition",
+        "node": {
+          "type": "operator",
+          "operator": "eq",
+          "operands": [
+            { "type": "resource", "path": "deleted" },
+            { "type": "literal", "value": true }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Case-Insensitive Option
+
+The following operators accept an optional third argument `{ caseInsensitive: true }`:
+
+| Operator     | Behavior with `caseInsensitive: true`                                  |
+| ------------ | ---------------------------------------------------------------------- |
+| `eq`         | Compares `value.toLowerCase() === target.toLowerCase()` (strings only) |
+| `ne`         | Negation of case-insensitive equality                                  |
+| `contains`   | Both sides lowercased before `.includes()`                             |
+| `startsWith` | Both sides lowercased before `.startsWith()`                           |
+| `endsWith`   | Both sides lowercased before `.endsWith()`                             |
+| `in`         | Each element lowercased before comparison                              |
+| `has`        | Each element lowercased before comparison                              |
+| `hasSome`    | Each element lowercased before comparison                              |
+| `hasEvery`   | Each element lowercased before comparison                              |
+
+When case-insensitive mode is applied to non-string values, it falls back to strict equality — no error is thrown. For example, `eq(literal(42), literal(42), { caseInsensitive: true })` evaluates to `true`.
+
+The `gt`, `gte`, `lt`, `lte`, `some`, `every`, `none`, `and`, `or`, and `not` operators do **not** accept the case-insensitive option.
+
+---
+
+## Full Serialization Format Reference
+
+Every condition built through the DSL serializes to a JSON-compatible `Condition` object.
+
+### Top-level wrapper
+
+```ts
+interface Condition {
+  readonly type: 'condition';
+  readonly node: AstNode;
+}
+```
+
+### AST Node types
+
+```ts
+type AstNode = OperatorNode | LogicalNode;
+```
+
+#### `OperatorNode` — leaf comparison/membership
+
+```ts
+interface OperatorNode {
+  readonly type: 'operator';
+  readonly operator: DslOperator;
+  readonly operands: readonly ValueRef[];
+  readonly options?: Readonly<{ caseInsensitive?: boolean }>;
+  readonly condition?: Condition; // only for some/every/none
+}
+```
+
+`DslOperator` is the union: `'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'startsWith' | 'endsWith' | 'in' | 'has' | 'hasSome' | 'hasEvery' | 'some' | 'every' | 'none'`.
+
+#### `LogicalNode` — AND/OR/NOT combinator
+
+```ts
+interface LogicalNode {
+  readonly type: 'logical';
+  readonly operator: 'and' | 'or' | 'not';
+  readonly operands: readonly Condition[];
+}
+```
+
+### `ValueRef` types
+
+```ts
+type ValueRef = ResourceRef | ContextRef | LiteralRef;
+
+interface ResourceRef {
+  readonly type: 'resource';
+  readonly path: string;
+}
+
+interface ContextRef {
+  readonly type: 'context';
+  readonly path: string;
+}
+
+interface LiteralRef<T = unknown> {
+  readonly type: 'literal';
+  readonly value: T;
+}
+```
+
+### Complete serialized example
+
+A condition defined as:
+
+```ts
+and(eq(resource('status'), literal('published')), not(eq(resource('archived'), literal(true))));
+```
+
+Serializes to:
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "logical",
+    "operator": "and",
+    "operands": [
+      {
+        "type": "condition",
+        "node": {
+          "type": "operator",
+          "operator": "eq",
+          "operands": [
+            { "type": "resource", "path": "status" },
+            { "type": "literal", "value": "published" }
+          ]
+        }
+      },
+      {
+        "type": "condition",
+        "node": {
+          "type": "logical",
+          "operator": "not",
+          "operands": [
+            {
+              "type": "condition",
+              "node": {
+                "type": "operator",
+                "operator": "eq",
+                "operands": [
+                  { "type": "resource", "path": "archived" },
+                  { "type": "literal", "value": true }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+A `some` operator with nested condition:
+
+```json
+{
+  "type": "condition",
+  "node": {
+    "type": "operator",
+    "operator": "some",
+    "operands": [{ "type": "resource", "path": "comments" }],
+    "condition": {
+      "type": "condition",
+      "node": {
+        "type": "operator",
+        "operator": "eq",
+        "operands": [
+          { "type": "resource", "path": "authorId" },
+          { "type": "context", "path": "userId" }
+        ]
+      }
+    }
+  }
+}
+```

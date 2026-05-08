@@ -1,21 +1,24 @@
-import { GuantrAnyRule } from '../types';
+/* v8 ignore file */
+
+import { GuantrRule } from '../types';
 
 /**
  * Interface representing a storage mechanism for managing rules and cache.
  */
 export interface Storage {
   /**
-   * Appends rules to the storage index. Called after clearRules() by the Guantr class.
-   * @param rule - Array of rules to set.
+   * Atomically replaces all rules in storage with the provided rules.
+   *
+   * @param rules - Array of rules to set.
    * @returns A promise that resolves when the rules are set.
    */
-  setRules: (rule: GuantrAnyRule[]) => Promise<void>;
+  setRules: (rules: GuantrRule[]) => Promise<void>;
 
   /**
    * Retrieves all stored rules.
    * @returns A promise that resolves to an array of stored rules.
    */
-  getRules: () => Promise<GuantrAnyRule[]>;
+  getRules: () => Promise<GuantrRule[]>;
 
   /**
    * Queries rules for a given action and resource.
@@ -23,16 +26,11 @@ export interface Storage {
    * @param resource - The resource to filter by.
    * @returns A promise that resolves to an array of matching rules, or an empty array if none exist.
    */
-  queryRules: (action: string, resource: string) => Promise<GuantrAnyRule[]>;
-
-  /**
-   * Clears all stored rules.
-   * @returns A promise that resolves when all rules are cleared.
-   */
-  clearRules: () => Promise<void>;
+  queryRules: (action: string, resource: string) => Promise<GuantrRule[]>;
 
   /**
    * Optional cache mechanism for storing and retrieving data.
+   * If provided, `has` is REQUIRED (no fallback logic).
    */
   cache?: {
     /**
@@ -46,19 +44,18 @@ export interface Storage {
     /**
      * Retrieves a value from the cache.
      * @param key - The key associated with the value.
-     * @returns A promise that resolves to the cached value, or undefined if not found.
+     * @returns A promise that resolves to the cached value, or `undefined` if not found.
      */
     get: <T>(key: string) => Promise<T | undefined>;
 
     /**
      * Checks if a key exists in the cache.
+     * Required when the cache object is provided.
      *
      * @param key - The key to check for existence in the cache.
      * @returns A promise that resolves to true if the key exists, false otherwise.
-     * @remarks If implemented, this method is used to check cache hits. If not implemented,
-     * the `get` method is used directly, and it must return `undefined` for cache misses.
      */
-    has?: (key: string) => Promise<boolean>;
+    has: (key: string) => Promise<boolean>;
 
     /**
      * Clears all entries in the cache.

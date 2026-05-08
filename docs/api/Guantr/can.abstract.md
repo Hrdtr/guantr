@@ -1,68 +1,123 @@
 # API: `Guantr.prototype.can.abstract`
 
-The `can.abstract` sub-method performs an **abstract permission check** — it returns `true` if _any_ `allow` rule exists for the given action and resource key, **without evaluating conditions or deny rules**.
+The `can.abstract` sub-method performs an **abstract permission check** — it returns `true` if any `allow` rule exists for the given action and resource key, **without evaluating conditions or considering deny rules**.
 
-> **Use this for UI hints** (e.g. "should I show the Edit button?"), not for access control decisions. For a full evaluation against a resource instance, use [`can(action, [resourceKey, instance])`](./can).
+> **Use this for UI decisions** (e.g. "should I show the Edit button?"), not for access control. For a full evaluation against a resource instance, use [`can(action, [resourceKey, instance])`](./can).
 
 ## Signature
 
 ```ts
-guantr.can.abstract(
-  action: string, // or specific action type from Meta
-  resource: string, // or typed resource key from Meta
-): Promise<boolean>
+can.abstract(
+  action: string,
+  resource: string,
+): Promise<boolean>;
 ```
 
 ## Parameters
 
-- `action`: (`string`) The action being checked (e.g. `'read'`, `'update'`).
-- `resource`: (`string`) The resource key to check (e.g. `'post'`, `'user'`).
+- **`action`**: (`string`) The action being checked (e.g. `'read'`, `'update'`).
+- **`resource`**: (`string`) The resource key to check (e.g. `'post'`, `'user'`).
+
+Unlike `can()`, the resource is just a plain string (the key), not a tuple with an instance.
 
 ## Returns
 
-- `Promise<boolean>`: Resolves to `true` if at least one `allow` rule exists for the action + resource pair. Returns `false` if no `allow` rule is found.
+- `Promise<boolean>` — `true` if at least one `allow` rule exists for the action + resource pair. `false` if no allow rules are found.
 
-## How it Works
+## What it ignores
 
-1. Retrieves all rules relevant to the given `action` and `resource` key using `queryRules` from the storage adapter.
-2. Returns `true` if **any** rule with `effect: 'allow'` is present — regardless of conditions or deny rules.
+| Aspect                              | Considered?                                         |
+| ----------------------------------- | --------------------------------------------------- |
+| Allow rules (any `effect: 'allow'`) | ✅ Checked                                          |
+| Deny rules (`effect: 'deny'`)       | ❌ Ignored                                          |
+| Conditions (`matchCondition`)       | ❌ Ignored — rules with conditions count as present |
 
-This is intentionally simpler than `can()`: it answers "has any permission been granted at all for this resource type?" rather than "is this specific instance accessible right now?".
+The method answers: **"Has any permission been granted at all for this resource type?"** rather than "is this specific instance accessible right now?"
+
+## Evaluation
+
+1. Queries storage for all rules matching the given `action` and `resource` key.
+2. Returns `true` if **any** rule with `effect: 'allow'` is found.
+3. Returns `false` if no allow rules exist (regardless of deny rules or conditions).
+
+## Caching behavior
+
+When the storage adapter provides a `cache`, results are cached with the key pattern:
+
+```text
+can.abstract/${action}:${resource}
+```
+
+Cache misses/errors follow the same tolerance pattern as `can()`: errors from `cache.get` are swallowed (fall back to direct evaluation), errors from `cache.set` are swallowed (result returned uncached).
 
 ## Examples
 
 ```ts
-// Rules:
-// allow('read', 'post')                                — unconditional allow
-// deny('read', ['post', { published: ['eq', false] }]) — deny unpublished posts
+await guantr.setRules((allow, deny) => {
+  allow('read', 'post'); // unconditional allow
+  deny('read', ['post', ({ eq, resource, literal }) => eq(resource('published'), literal(false))]); // conditional deny
+  allow('update', [
+    'post',
+    ({ eq, resource, context }) => eq(resource('authorId'), context('userId')),
+  ]); // conditional allow
+});
+```
 
-// Abstract check — ignores the deny rule entirely
-const showEditButton = await guantr.can.abstract('read', 'post');
-// -> true (an allow rule exists)
+```ts
+// Abstract — deny rule is ignored, condition is ignored
+await guantr.can.abstract('read', 'post'); // true (allow rule exists)
 
 // Full evaluation against a specific instance
-const unpublishedPost = { id: 1, published: false, title: 'Draft' };
-const canRead = await guantr.can('read', ['post', unpublishedPost]);
-// -> false (the deny rule matches this instance)
+const draftPost = { id: 1, published: false, title: 'Draft' };
+await guantr.can('read', ['post', draftPost]); // false (deny matches this instance)
+```
+
+### Conditional rule still counts as present
+
+```ts
+// No unconditional 'update' allow, only conditional
+await guantr.can.abstract('update', 'post'); // true (the conditional allow counts)
+
+// But the actual instance might not match the condition:
+await guantr.can('update', ['post', { id: 1, authorId: 'other' }]);
+// false — condition not satisfied
+```
+
+### No allow rules at all
+
+```ts
+await guantr.can.abstract('delete', 'post'); // false (no 'delete' allow rule exists)
 ```
 
 ## Contrast with `can()`
 
-| Behaviour            | `can(action, 'resource')` _(deprecated)_ | `can.abstract(action, 'resource')` | `can(action, ['resource', instance])` |
-| -------------------- | ---------------------------------------- | ---------------------------------- | ------------------------------------- |
-| Checks allow rules   | ✅                                       | ✅                                 | ✅                                    |
-| Evaluates conditions | ❌                                       | ❌                                 | ✅                                    |
-| Evaluates deny rules | ❌                                       | ❌                                 | ✅                                    |
-| Recommended for      | — _(use can.abstract)_                   | UI hints                           | Access control                        |
+| Behaviour                  | `can.abstract(action, 'resource')`   | `can()` / `can.all` / `can.any`                                                         |
+| -------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------- |
+| Checks allow rules         | ✅                                   | ✅                                                                                      |
+| Evaluates conditions       | ❌                                   | ✅                                                                                      |
+| Considers deny rules       | ❌                                   | ✅                                                                                      |
+| Requires resource instance | ❌ (key only)                        | ✅                                                                                      |
+| Caching key                | `can.abstract/${action}:${resource}` | `can/${action}:${resourceKey}:${stableStringify(instance)}:${stableStringify(context)}` |
+| Recommended use            | UI hints, layout decisions           | Access control, authorization gating                                                    |
 
-## Migration from `can()` string-mode
+## Migration from v1.x
+
+In guantr v1.x, `can(action, resourceKeyString)` performed an abstract check. This overload was **deprecated** in v1.1.0 and **removed** in v2.0.0. Replace with `can.abstract`:
 
 ```ts
-// Before (v1.0.x) — implicit, easy to misuse
+// v1.x (removed in v2.0.0)
 await guantr.can('read', 'post');
 
-// After (v1.1.0) — explicit intent
+// v2+ — use can.abstract for abstract checks
 await guantr.can.abstract('read', 'post');
+
+// v2+ — use the tuple form for full evaluation
+await guantr.can('read', ['post', postInstance]);
 ```
 
-See also: [`cannot.abstract`](./cannot.abstract), [`can`](./can), [Concepts: Abstract vs Resource-Aware Checks](../../guides/abstract-vs-resource-aware).
+## See also
+
+- [`cannot.abstract`](./cannot.abstract) — Negated abstract check.
+- [`can()`](./can) — Full evaluation with conditions and deny rules.
+- [`can.all`](./can.all) — Batch check: all must pass (full resource-aware evaluation like `can()`).
+- [`can.any`](./can.any) — Batch check: any must pass (full resource-aware evaluation like `can()`).

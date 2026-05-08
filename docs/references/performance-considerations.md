@@ -14,9 +14,9 @@ Several key areas contribute to the overall performance of Guantr's permission c
     - **Impact:** The structure and operators used within your rule `condition` objects directly impact CPU usage during evaluation.
     - **Details:** Evaluating simple equality checks (`['eq', value]`) is very fast. However, more complex operations like string matching (`contains`, `startsWith`, `endsWith`), numerical comparisons (`gt`, `gte`), or especially array operations (`in`, `has`, `hasSome`, `hasEvery`) require more computation. Nested conditions and operators like `some`, `every`, `none` that iterate over arrays of objects can be significantly more CPU-intensive, especially with large arrays.
 
-3.  **`getContext` Speed:**
-    - **Impact:** The time taken by your `getContext` function directly adds latency to any permission check that uses `$ctx` operands.
-    - **Details:** If `getContext` performs slow operations like database queries, external API calls, or complex computations _every time it's called_, this can become a major bottleneck. As discussed in the [Using Context Effectively](/guides/context-usage.md) guide, this function might be called whenever a context-dependent rule is evaluated (though internal caching might reduce redundant calls for the same check).
+3.  **`context` Speed:**
+    - **Impact:** The time taken to resolve your `context` option directly adds latency to any permission check that uses context references.
+    - **Details:** If `context` (when provided as a function) performs slow operations like database queries, external API calls, or complex computations _every time it's called_, this can become a major bottleneck. As discussed in the [Using Context Effectively](/guides/context-usage.md) guide, the context is resolved whenever a context-dependent rule is evaluated (though internal caching might reduce redundant calls for the same check).
 
 4.  **Storage Adapter Choice & `queryRules` Efficiency:**
     - **Impact:** Both the underlying storage technology (in-memory, Redis, PostgreSQL, etc.) and the implementation quality of the storage adapter significantly affect performance.
@@ -26,7 +26,7 @@ Several key areas contribute to the overall performance of Guantr's permission c
 
 5.  **Caching Effectiveness:**
     - **Impact:** The optional caching layer (`storage.cache`) can significantly reduce latency for repeated checks or context resolutions.
-    - **Details:** An effective cache (good hit rate, fast backend like Redis or in-memory Map) mitigates the cost of re-running `can`/`cannot` logic or re-resolving `$ctx` operands for identical inputs. However, caching adds its own overhead (checking the cache, serialization) and requires careful consideration of invalidation. See the [Caching Guide](/advanced-usage/caching.md).
+    - **Details:** An effective cache (good hit rate, fast backend like Redis or in-memory Map) mitigates the cost of re-running `can`/`cannot` logic or re-resolving context references for identical inputs. However, caching adds its own overhead (checking the cache, serialization) and requires careful consideration of invalidation. See the [Caching Guide](/advanced-usage/caching.md).
 
 ## Optimization Tips
 
@@ -37,8 +37,8 @@ Based on the factors above, here are tips for optimizing Guantr performance:
     - **Minimize Rule Count (Selectively):** While Guantr aims to query only relevant rules, reducing the _total_ number of rules can help, especially if your `queryRules` implementation isn't highly optimized. Consolidate rules where logical.
     - **Leverage `deny`:** Use specific `deny` rules to restrict access rather than overly complex negative conditions in `allow` rules.
 
-2.  **Optimize `getContext`:**
-    - **Fetch Data Once:** In web frameworks, fetch user/session data once per request (e.g., in auth middleware) and have `getContext` simply return this pre-fetched object. Avoid database calls or heavy computation _inside_ `getContext`.
+2.  **Optimize `context`:**
+    - **Fetch Data Once:** In web frameworks, fetch user/session data once per request (e.g., in auth middleware) and have `context` reference this pre-fetched object (either as a plain object or a simple synchronous function). Avoid database calls or heavy computation _inside_ a context function.
     - **Keep Context Small:** Only include data in the context object that is actually needed for rule evaluation.
 
 3.  **Optimize Storage:**
@@ -46,7 +46,7 @@ Based on the factors above, here are tips for optimizing Guantr performance:
     - **Implement `queryRules` Efficiently:** If using a custom or database adapter, ensure `queryRules(action, resource)` filters data _at the source_ using appropriate indexes (e.g., a database index on `action` and `resource` columns). Avoid loading all rules into memory for filtering.
 
 4.  **Utilize Caching:**
-    - **Enable Caching:** Implement the `storage.cache` interface, especially if `getContext` performs I/O or if the same permission checks are common.
+    - **Enable Caching:** Implement the `storage.cache` interface, especially if `context` performs I/O or if the same permission checks are common.
     - **Choose Fast Backend:** Use an efficient cache backend (in-memory Map for single instance, Redis/Memcached for distributed).
     - **Consider Invalidation:** Ensure your caching strategy includes appropriate invalidation (e.g., clear cache when rules change via `setRules`).
 
@@ -55,4 +55,4 @@ Based on the factors above, here are tips for optimizing Guantr performance:
 
 ## Conclusion
 
-Guantr's performance depends on a combination of factors related to rule definition, context handling, storage interaction, and caching. By understanding these elements and applying targeted optimizations—particularly ensuring efficient `getContext` calls and an optimized `queryRules` implementation in your storage adapter—you can ensure Guantr runs efficiently even in demanding scenarios.
+Guantr's performance depends on a combination of factors related to rule definition, context handling, storage interaction, and caching. By understanding these elements and applying targeted optimizations—particularly ensuring efficient `context` calls and an optimized `queryRules` implementation in your storage adapter—you can ensure Guantr runs efficiently even in demanding scenarios.

@@ -10,9 +10,9 @@ Choosing an authorization solution involves considering various factors like you
 - **Strengths:**
   - **Excellent TypeScript Integration:** `GuantrMeta` provides strong type safety, autocompletion, and refactoring confidence for rules, context, and checks.
   - **Embedded Logic:** Rules live alongside your application code, which can simplify development workflows for smaller teams or monoliths.
-  - **Flexible Condition System:** Offers a clear `[operator, operand]` syntax for defining attribute-based and relationship-based conditions.
+  - **Flexible Condition System:** Provides a v2 builder DSL (`eq`, `gt`, `and`, `or`, etc.) for expressive, composable condition construction.
   - **Customizable:** Pluggable `Storage` adapter interface allows using different backends (in-memory, DBs, custom) for rule persistence and caching.
-  - **Context-Aware:** Integrates easily with request-specific or user-specific data via the `getContext` mechanism.
+  - **Context-Aware:** Integrates easily with request-specific or user-specific data via the `context` mechanism.
 - **Trade-offs:**
   - Primarily targets the JS/TS ecosystem.
   - Policy logic is coupled with application code, unlike decoupled policy engines.
@@ -25,10 +25,10 @@ Choosing an authorization solution involves considering various factors like you
 - **Similarities:** Both are isomorphic JavaScript/TypeScript authorization libraries. Both emphasize defining permissions within the application code using JS/TS. Both support fine-grained permissions, conditions, and context awareness. Guantr acknowledges inspiration from CASL.
 - **Key Differences & Guantr Focus:**
   - **Typing:** Guantr uses `GuantrMeta` for defining the entire authorization model (resources, actions, models, context) upfront, providing potentially more comprehensive compile-time safety across the whole system compared to CASL's ability-centric definitions.
-  - **Condition Syntax:** Guantr employs a specific array-based `[operator, operand]` syntax for conditions, while CASL uses a more object-oriented or MongoDB-like query syntax for conditions.
+  - **Condition Syntax:** Guantr employs a builder DSL with operators like `eq`, `gt`, `and`, `or` for conditions, while CASL uses a more object-oriented or MongoDB-like query syntax for conditions.
   - **Storage:** Guantr defines a distinct `Storage` interface with methods like `queryRules`, allowing different backend implementations for rule persistence and caching. CASL's core is generally focused on defining abilities, with persistence handled separately or via integrations like `@casl/prisma`.
 
-- **Choose Guantr if:** You prioritize a highly integrated TypeScript experience with a structured meta-definition, prefer the `[operator, operand]` condition style, and want a clear interface for custom rule storage.
+- **Choose Guantr if:** You prioritize a highly integrated TypeScript experience with a structured meta-definition, prefer the builder DSL condition style, and want a clear interface for custom rule storage.
 
 ### Guantr vs. Oso
 
@@ -55,7 +55,7 @@ Choosing an authorization solution involves considering various factors like you
 
 Guantr excels as a **type-safe, flexible, JavaScript/TypeScript-native authorization library**. It's well-suited for projects where developers prefer defining authorization rules directly within their application code, leveraging the power of TypeScript for safety and maintainability.
 
-- Compared to **CASL**, it offers a similar library-based approach but with distinct typing (`GuantrMeta`) and condition syntax (`[op, operand]`) paradigms.
+- Compared to **CASL**, it offers a similar library-based approach but with distinct typing (`GuantrMeta`) and condition syntax (builder DSL) paradigms.
 - Compared to **Oso**, it keeps logic within JS/TS instead of using a separate policy language (Polar).
 - Compared to **Cerbos**, it provides an embedded library experience rather than a decoupled authorization service.
 

@@ -1,20 +1,26 @@
-import { GuantrAnyRule } from '../types';
+import { GuantrRule } from '../types';
 import { Storage } from './types';
 
 export type { Storage } from './types';
 
 export class InMemoryStorage implements Storage {
   private storage = {
-    // Two-level index: Map<action, Map<resource, GuantrAnyRule[]>>
-    rules: new Map<string, Map<string, GuantrAnyRule[]>>(),
+    // Two-level index: Map<action, Map<resource, GuantrRule[]>>
+    rules: new Map<string, Map<string, GuantrRule[]>>(),
     cache: new Map<string, unknown>(),
   };
 
   /**
-   * Bulk sets rules by clearing the current index and adding new rules.
+   * Atomically replaces all stored rules with the provided rules.
+   * Because JavaScript is single-threaded and {@link Map.clear} followed by
+   * {@link Map.set} runs synchronously within the same call, this operation
+   * is effectively atomic — no concurrent `queryRules` can observe an
+   * intermediate state.
    * @param rules - Array of rules to set.
    */
-  async setRules(rules: GuantrAnyRule[]) {
+  async setRules(rules: GuantrRule[]) {
+    this.storage.rules.clear();
+
     for (const rule of rules) {
       let resourceMap = this.storage.rules.get(rule.action);
       if (!resourceMap) {
@@ -36,7 +42,7 @@ export class InMemoryStorage implements Storage {
    * @returns An array of all stored rules.
    */
   async getRules() {
-    const allRules: GuantrAnyRule[] = [];
+    const allRules: GuantrRule[] = [];
     for (const resourceMap of this.storage.rules.values()) {
       for (const ruleArray of resourceMap.values()) {
         allRules.push(...ruleArray);
@@ -55,13 +61,6 @@ export class InMemoryStorage implements Storage {
     const resourceMap = this.storage.rules.get(action);
     if (!resourceMap) return [];
     return resourceMap.get(resource) || [];
-  }
-
-  /**
-   * Clears all stored rules.
-   */
-  async clearRules() {
-    this.storage.rules.clear();
   }
 
   cache = {

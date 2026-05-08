@@ -7,5 +7,5 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src", "tests"]
+  "include": ["playground", "src", "tests"]
 }

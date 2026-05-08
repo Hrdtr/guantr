@@ -7,11 +7,9 @@
 
 <!-- /automd -->
 
-Flexible, type-safe JavaScript library for efficient authorization and permission checking. Easily manage permissions, and context-aware access control with minimal overhead and a simple API.
+A flexible, type-safe JavaScript library for authorization and permission checking. Define rules with a composable builder DSL, check permissions against resource instances, and leverage context-aware conditions — all with full TypeScript support.
 
-## Usage
-
-Install package:
+## Install
 
 <!-- automd:pm-install -->
 
@@ -37,8 +35,6 @@ deno install npm:guantr
 
 <!-- /automd -->
 
-Import:
-
 <!-- automd:jsimport cjs cdn name="guantr" imports="createGuantr" -->
 
 **ESM** (Node.js, Bun, Deno)
@@ -61,88 +57,107 @@ import { createGuantr } from 'https://esm.sh/guantr';
 
 <!-- /automd -->
 
-Initialize:
+## Quick Start
 
 ```ts
-const guantr = await createGuantr();
+import { createGuantr } from 'guantr';
+import type { GuantrMeta } from 'guantr';
 
-// With Typescript Meta:
-type Meta = GuantrMeta<{
-  post: {
-    action: 'create' | 'read' | 'update' | 'delete';
-    model: {
-      id: number;
-      title: string;
-      published: boolean;
+// 1. Define your resource map and context
+type MyMeta = GuantrMeta<
+  {
+    post: {
+      action: 'read' | 'create' | 'update' | 'delete';
+      model: { id: number; title: string; published: boolean; authorId: number };
     };
-  };
-}>;
+  },
+  { userId: number }
+>;
 
-const guantr = await createGuantr<Meta>();
-
-// Contextual
-const user = {
-  id: number,
-  name: 'John Doe',
-  roles: ['admin'],
-};
-const guantrWithContext = await createGuantr<Meta, { user: typeof user }>({
-  getContext: () => ({ user }),
+// 2. Create an instance
+const guantr = await createGuantr<MyMeta>({
+  context: () => ({ userId: 1 }),
 });
+
+// 3. Set rules with the builder DSL
+await guantr.setRules((allow, deny) => {
+  allow('read', 'post');
+  deny('read', ['post', ({ eq, resource, literal }) => eq(resource('published'), literal(false))]);
+  allow('update', [
+    'post',
+    ({ eq, resource, context }) => eq(resource('authorId'), context('userId')),
+  ]);
+});
+
+// 4. Check permissions
+const post = { id: 1, title: 'Hello', published: false, authorId: 1 };
+
+await guantr.can.abstract('read', 'post'); // true — any allow rule exists?
+await guantr.can('read', ['post', post]); // false — denied by condition
+await guantr.can('update', ['post', post]); // true — author is owner
+
+// Batch checks — context resolved once
+await guantr.can.all([
+  ['read', ['post', post]],
+  ['update', ['post', post]],
+]);
 ```
 
-Setting rules:
+## Condition Builder DSL
 
-```js
-await guantr.setRules((can, cannot) => {
-  can('read', 'post');
-  cannot('read', ['post', { published: ['eq', false] }]);
-});
-// Or
+Guantr v2 uses a **type-safe builder DSL** for conditions:
+
+```ts
+import type { MatchConditionFn } from 'guantr';
+
+const condition: MatchConditionFn<Post, Context> = ({ and, eq, resource, literal }) =>
+  and(eq(resource('status'), literal('published')), eq(resource('deleted'), literal(false)));
+
+// Use in rule objects or callbacks:
 await guantr.setRules([
   {
-    resource: 'post',
-    action: 'read',
-    condition: null,
     effect: 'allow',
-  },
-  {
-    resource: 'post',
     action: 'read',
-    condition: {
-      published: ['eq', false],
-    },
-    effect: 'deny',
+    resource: 'post',
+    matchCondition: condition,
   },
 ]);
 ```
 
-Rules also can be set on instance creation:
+All conditions are serialized to a JSON-compatible AST at definition time, making them storable in any database.
+
+## API Overview
+
+### Permission Checks
+
+| Method                                    | Description                                        |
+| ----------------------------------------- | -------------------------------------------------- |
+| `can(action, [resourceKey, instance])`    | Full evaluation against a specific instance        |
+| `cannot(action, [resourceKey, instance])` | Negated `can`                                      |
+| `can.abstract(action, resourceKey)`       | Any allow rule exists? (ignores conditions/denies) |
+| `cannot.abstract(action, resourceKey)`    | Negated `can.abstract`                             |
+| `can.all(checks)`                         | All checks must pass                               |
+| `can.any(checks)`                         | Any check must pass                                |
+| `cannot.all(checks)`                      | All checks must be denied                          |
+| `cannot.any(checks)`                      | Any check must be denied                           |
+
+### Rule Management
+
+| Method                              | Description                      |
+| ----------------------------------- | -------------------------------- |
+| `setRules((allow, deny) => {})`     | Replace rules via callback       |
+| `setRules([...])`                   | Replace rules via array          |
+| `getRules()`                        | Retrieve all stored rules        |
+| `relatedRulesFor(action, resource)` | Query rules by action + resource |
+
+### Storage & Context
 
 ```ts
-const guantr = await createGuantr<Meta>([
-  {
-    resource: 'post',
-    action: 'read',
-    condition: {
-      published: ['eq', false],
-    },
-    effect: 'deny',
-  },
-]);
-```
-
-Authorize:
-
-```js
-await guantr.can('read', 'post'); // true
-
-const post = {
-  id: 1,
-  title: 'Hello World',
-  published: false,
-};
-await guantr.can('read', ['post', post]); // false
+await createGuantr<Meta>({
+  storage: new MyCustomStorage(), // default: InMemoryStorage
+  context: () => ({ userId: 1 }), // default: {}
+  maxRuleIterations: 500, // default: 1000
+});
 ```
 
 ## Development
@@ -155,7 +170,7 @@ await guantr.can('read', ['post', post]); // false
 - Install latest LTS version of [Node.js](https://nodejs.org/en/)
 - Enable [Corepack](https://github.com/nodejs/corepack) using `corepack enable`
 - Install dependencies using `pnpm install`
-- Run interactive tests using `pnpm dev`
+- Run playground using `pnpm play`
 
 </details>
 

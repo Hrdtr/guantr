@@ -3,5 +3,8 @@
   "categories": {
     "correctness": "error"
   },
-  "rules": {}
+  "rules": {
+    "typescript/no-unused-vars": "error",
+    "typescript/no-explicit-any": "error"
+  }
 }

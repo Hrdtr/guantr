@@ -1,68 +1,152 @@
 # API: `Guantr.prototype.can`
 
-The `can` method checks if a specific action is permitted on a given resource, according to the rules defined in the Guantr instance. It considers both `allow` and `deny` rules, including any applicable conditions based on the resource instance and context.
+The `can` method checks whether a specific action is permitted on a given resource instance. It evaluates both `allow` and `deny` rules, including any applicable `matchCondition` against the resource instance and the evaluation context.
 
-> For an abstract check that only tests whether any allow rule exists (without evaluating conditions or deny rules), see [`can.abstract`](./can.abstract).
+> For an abstract check that ignores conditions and deny rules, see [`can.abstract`](./can.abstract).
 
 ## Signature
 
 ```ts
-interface Guantr<Meta, Context> {
-  can(
-    action: string, // Or specific action type from Meta
-    resource: string | [resourceKey: string, resourceInstance: object], // Or typed resource key/instance from Meta
-  ): Promise<boolean>;
-}
+can(
+  action: string,
+  resource: [resourceKey: string, resourceInstance: object],
+): Promise<boolean>;
 ```
 
 ## Parameters
 
-- `action`: (`string`) The action being attempted (e.g., `'read'`, `'update'`).
-- `resource`: (`string` | `[string, object]`) The resource being acted upon.
-  - If a `string` (e.g., `'post'`) is provided, it checks rules defined for the general resource type _without_ evaluating instance-specific conditions. **Deprecated** — use [`can.abstract`](./can.abstract) instead for this behaviour.
-  - If a tuple `[resourceKey: string, resourceInstance: object]` (e.g., `['post', { id: 1, status: 'draft' }]`) is provided, it checks rules for the `resourceKey` and evaluates any conditions against the properties of the `resourceInstance` and the current context.
+- **`action`**: (`string`) The action being checked (e.g. `'read'`, `'update'`, `'delete'`).
+- **`resource`**: A tuple `[resourceKey, resourceInstance]`:
+  - `resourceKey`: (`string`) The resource type key (e.g. `'post'`, `'user'`).
+  - `resourceInstance`: (`object`) The specific resource instance to evaluate conditions against (e.g. `{ id: 1, status: 'draft', ownerId: 'user-123' }`).
 
 ## Returns
 
-- `Promise<boolean>`: A promise that resolves to:
-  - `true` if the action is allowed (at least one matching `allow` rule exists and no matching `deny` rule exists).
-  - `false` if the action is denied (either no matching `allow` rule exists, or a matching `deny` rule overrides any `allow` rule).
+- `Promise<boolean>` — `true` if the action is allowed, `false` otherwise.
 
-## How it Works
+## Evaluation algorithm
 
-1.  Retrieves all rules relevant to the given `action` and `resource` key using `queryRules` from the storage adapter.
-2.  If a `resourceInstance` is provided, it evaluates the `condition` of each relevant rule against the instance's properties and the current context (obtained via `getContext`).
-3.  Determines the outcome: Permission is granted (`true`) if there's at least one applicable `allow` rule and no applicable `deny` rules. Otherwise, permission is denied (`false`).
+1. **Resolve context.** The `context` option is resolved (if a function, it is called and awaited; if a plain object, it is used directly).
+2. **Query rules.** All rules matching the given `action` and `resourceKey` are retrieved from storage.
+3. **No rules → `false`.** If no rules exist for the pair, return `false`.
+4. **Unconditional deny → `false` (early exit).** If any rule has `effect: 'deny'` with `matchCondition` being `null` or `undefined`, return `false` immediately.
+5. **Iterate rules.** For each remaining rule:
+   - If `matchCondition` is absent (`null`/`undefined`) and `effect` is `'allow'`: record a satisfied allow.
+   - If `matchCondition` is present: evaluate it against the `resourceInstance` and resolved context.
+     - Condition matches + `effect: 'allow'` → satisfied allow.
+     - Condition matches + `effect: 'deny'` → unsatisfied (deny wins).
+     - Condition does not match → the rule is not triggered.
+   - The iteration count is tracked. If it exceeds `maxRuleIterations`, a `GuantrCircuitBreakerError` is thrown.
+6. **Final result.** Return `true` if at least one allow was satisfied AND no deny was triggered. Otherwise `false`.
+
+## Caching behavior
+
+When the storage adapter provides a `cache`, results are cached with the key pattern:
+
+```text
+can/${action}:${resourceKey}:${stableStringify(resourceInstance)}:${stableStringify(context)}
+```
+
+The serializer used is `stableStringify`, not `JSON.stringify`. Unlike `JSON.stringify`, `stableStringify`:
+
+- **Sorts object keys** for consistent output regardless of insertion order.
+- **Converts `Date`** to ISO strings.
+- **Converts `BigInt`** to its string representation.
+- **Throws on `Map` and `Set`** (with a descriptive path) rather than silently producing `{}`.
+- **Detects circular references** and throws a `TypeError`.
+
+This guarantees deterministic cache keys regardless of property order, object constructor, or value types, which is essential for reliable cache lookups across different evaluation paths (`can()`, `can.all`, `can.any` all share the same key scheme).
+
+| Scenario                                  | Behavior                                           |
+| ----------------------------------------- | -------------------------------------------------- |
+| Cache hit                                 | Cached boolean is returned immediately             |
+| Cache miss                                | Full evaluation performed, result written to cache |
+| Cache error (get)                         | Error swallowed; falls back to full evaluation     |
+| Cache error (set)                         | Error swallowed; result returned uncached          |
+| No cache (`storage.cache` is `undefined`) | No caching at all                                  |
+
+The cache is cleared when `setRules()` is called.
 
 ## Examples
 
-```ts
-// Assume guantr instance is initialized and rules are set:
-// allow('read', 'article');
-// deny('read', ['article', { status: ['eq', 'archived'] }]);
-// allow('edit', ['article', { ownerId: ['eq', '$ctx.userId'] }]);
+### Basic example
 
+Given these rules:
+
+```ts
+await guantr.setRules((allow, deny) => {
+  allow('read', 'article');
+  deny('read', [
+    'article',
+    ({ eq, resource, literal }) => eq(resource('status'), literal('archived')),
+  ]);
+  allow('edit', [
+    'article',
+    ({ eq, resource, context }) => eq(resource('ownerId'), context('userId')),
+  ]);
+});
+```
+
+```ts
 const activeArticle = { id: 1, status: 'published', ownerId: 'user-123' };
 const archivedArticle = { id: 2, status: 'archived', ownerId: 'user-123' };
-const someoneElsesArticle = { id: 3, status: 'published', ownerId: 'user-456' };
+// Assume context: { userId: 'user-123' }
 
-// Assume current context userId is 'user-123'
-
-// Check general read permission (doesn't evaluate conditions)
-const canReadType = await guantr.can('read', 'article');
-// -> true (because the general 'allow read article' rule exists)
-
-// Check read permission on specific instances
-const canReadActive = await guantr.can('read', ['article', activeArticle]);
-// -> true (general 'allow' applies, 'deny' condition doesn't match)
-
-const canReadArchived = await guantr.can('read', ['article', archivedArticle]);
-// -> false (general 'allow' applies, but 'deny' condition *does* match)
-
-// Check edit permission (requires context and instance properties)
-const canEditOwn = await guantr.can('edit', ['article', activeArticle]);
-// -> true (condition ownerId === $ctx.userId matches)
-
-const canEditElse = await guantr.can('edit', ['article', someoneElsesArticle]);
-// -> false (condition ownerId === $ctx.userId does not match)
+await guantr.can('read', ['article', activeArticle]); // true
+await guantr.can('read', ['article', archivedArticle]); // false (deny matches)
+await guantr.can('edit', ['article', activeArticle]); // true (owner)
+await guantr.can('edit', ['article', { id: 3, ownerId: 'other', status: 'published' }]);
+// false (allow condition does not match)
 ```
+
+### Unconditional deny
+
+An unconditional deny rule guarantees `false` regardless of any allow rules:
+
+```ts
+await guantr.setRules((allow, deny) => {
+  allow('read', 'post');
+  deny('read', 'post'); // unconditional deny — matchCondition omitted
+});
+
+await guantr.can('read', ['post', { id: 1 }]); // false
+```
+
+### No rules defined
+
+```ts
+await guantr.can('read', ['post', { id: 1 }]); // false
+```
+
+### With null matchCondition
+
+```ts
+await guantr.setRules([
+  { effect: 'allow', action: 'read', resource: 'post', matchCondition: null },
+]);
+
+await guantr.can('read', ['post', { id: 1 }]); // true (treated as unconditional)
+```
+
+## Error handling
+
+- `GuantrCircuitBreakerError` — Thrown when the number of rules evaluated exceeds `maxRuleIterations`.
+- `GuantrInvalidConditionKeyError` — Thrown when a condition references a field that does not exist on the resource instance (unless a `null`/`undefined` literal opt-out is used).
+
+```ts
+try {
+  await guantr.can('read', ['post', { id: 1 }]);
+} catch (e) {
+  if (e instanceof GuantrCircuitBreakerError) {
+    console.log(`Circuit breaker: ${e.action}, ${e.resource}, limit: ${e.limit}`);
+  }
+}
+```
+
+## See also
+
+- [`cannot()`](./cannot) — Logical negation of `can`.
+- [`can.abstract`](./can.abstract) — Abstract check (ignores conditions and deny rules).
+- [`can.all`](./can.all) — Batch check: all must pass.
+- [`can.any`](./can.any) — Batch check: any must pass.
+- [Error Classes](../error-classes) — `GuantrCircuitBreakerError`, `GuantrInvalidConditionKeyError`.

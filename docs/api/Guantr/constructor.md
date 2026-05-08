@@ -1,6 +1,6 @@
 # API: `Guantr` Constructor
 
-The `Guantr` class can be instantiated directly using the `new` keyword as an alternative to the `createGuantr()` factory function. This provides the same underlying instance but requires calling `setRules()` separately if you have initial rules.
+The `Guantr` class can be instantiated directly with `new` as an alternative to `createGuantr()`. The constructor accepts options (storage, context, circuit breaker) but does not accept initial rules — you must call `setRules()` separately after construction.
 
 ## Importing
 
@@ -12,95 +12,89 @@ import type { GuantrMeta, GuantrOptions } from 'guantr';
 ## Constructor Signature
 
 ```ts
-class Guantr<
-  Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
-  Context extends Record<string, unknown> = Record<string, unknown>,
-> {
-  constructor(options?: GuantrOptions<Context>);
+class Guantr<Meta> {
+  constructor(options?: GuantrOptions<GuantrContextFromMeta<Meta>>);
 }
 ```
 
 ## Generics
 
-- `Meta`: (Optional) Extends `GuantrMeta`. Provides strong typing for resources, actions, models, and context.
-- `Context`: (Optional) Extends `Record<string, unknown>`. Defines the shape of the context object returned by `getContext`. Defaults to `Record<string, unknown>`.
+- **`Meta`**: (Optional) The same `GuantrMeta<ResourceMap, Context>` type passed to all Guantr APIs. When omitted, untyped mode is used.
 
 ## Parameters
 
-- `options`: (Optional) A `GuantrOptions` object containing:
-  - `storage`: An instance implementing the `Storage` interface. Defaults to `InMemoryStorage`.
-  - `getContext`: An asynchronous function `() => Context | PromiseLike<Context>` that returns the context object. Defaults to a function returning an empty object.
-  - `maxRuleIterations`: Maximum number of rule iterations before the circuit breaker trips. Defaults to `1000`.
-  - `strict`: Enable strict validation mode. Defaults to `false`. See [Strict Mode](/advanced-usage/strict-mode).
+- **`options`**: (Optional) A `GuantrOptions` object.
+
+| Property            | Type                                                 | Default           | Description                                                                                                              |
+| ------------------- | ---------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `context`           | `Context \| (() => Context \| PromiseLike<Context>)` | `{}`              | Evaluation context (static object) or a function that resolves it on each check.                                         |
+| `storage`           | `Storage`                                            | `InMemoryStorage` | Custom storage adapter.                                                                                                  |
+| `maxRuleIterations` | `number`                                             | `1000`            | Maximum rule evaluations per check. Must be a positive integer; a `TypeError` is thrown at construction time if invalid. |
 
 ## Returns
 
-- A `Guantr<Meta, Context>` instance.
+- `Guantr<Meta>` — A new instance with the configured storage, context provider, and circuit breaker limit. The instance `can` and `cannot` callables are immediately usable (though no rules are set yet).
 
-## Comparison with `createGuantr()`
+## Comparison with `createGuantr`
 
-| Feature               | `new Guantr(options)`           | `createGuantr(options)`             |
-| --------------------- | ------------------------------- | ----------------------------------- |
-| Initial rules         | ❌ Must call `setRules()` after | ✅ Can pass rules as first argument |
-| Rules callback syntax | ❌ Not supported directly       | ✅ Supported                        |
-| Storage & context     | ✅ Via `options`                | ✅ Via `options`                    |
-| Type inference        | ✅ Full generic support         | ✅ Full generic support             |
+| Feature              | `new Guantr(options)`                   | `createGuantr(options)`          |
+| -------------------- | --------------------------------------- | -------------------------------- |
+| Initial rules        | Must call `setRules()` separately       | Can pass rules as first argument |
+| Rule callback syntax | Not directly — use `setRules(callback)` | Supported as first argument      |
+| Rule array syntax    | Not directly — use `setRules(array)`    | Supported as first argument      |
+| Storage & context    | Via `options`                           | Via `options`                    |
+| Type inference       | Full generic support                    | Full generic support             |
+| Return               | Synchronous                             | `Promise<Guantr<Meta>>`          |
 
-**When to use `new Guantr()`:**
-
-- You need to defer rule setting until later, or set rules conditionally.
-- You're building a custom abstraction that wraps the `Guantr` class.
-- You prefer explicit constructor-based instantiation.
-
-**When to use `createGuantr()`:**
-
-- You want to set initial rules in a single call (most common case).
-- You prefer the callback-based rule definition syntax.
-- You want the simplest, most concise setup.
+The `createGuantr` factory is equivalent to `new Guantr(options)` followed by `setRules(rules)` when rules are provided. Use `new Guantr()` when you always intend to call `setRules()` later and don't need the convenience of inline rule definition.
 
 ## Examples
 
-**Basic instantiation (no rules, no context):**
+### Basic instantiation
 
 ```ts
 import { Guantr } from 'guantr';
 
 const guantr = new Guantr();
 
-// Set rules later
 await guantr.setRules((allow, deny) => {
   allow('read', 'article');
 });
 ```
 
-**With custom storage and context:**
+### With custom storage and context
 
 ```ts
-import { Guantr } from 'guantr';
-import { MyCustomStorage } from './my-storage-adapter';
-
-type MyContext = { userId: string | null };
-
-const guantr = new Guantr<MyMeta, MyContext>({
+const guantr = new Guantr<MyMeta>({
   storage: new MyCustomStorage(),
-  getContext: async () => {
+  context: async () => {
     const user = await getCurrentUser();
     return { userId: user?.id ?? null };
   },
 });
+
+await guantr.setRules([{ effect: 'allow', action: 'read', resource: 'post' }]);
 ```
 
-**With strict mode and custom maxRuleIterations:**
+### With custom circuit breaker limit
 
 ```ts
 const guantr = new Guantr({
-  strict: true,
   maxRuleIterations: 500,
 });
 ```
 
-## See Also
+### Invalid maxRuleIterations
 
-- [`createGuantr()`](/api/createGuantr) — The recommended factory function for most use cases.
-- [`.setRules()`](/api/Guantr/setRules) — Method to set rules after instantiation.
-- [Strict Mode](/advanced-usage/strict-mode) — Details on strict validation.
+```ts
+// Throws TypeError: "maxRuleIterations must be a positive integer"
+new Guantr({ maxRuleIterations: 0 });
+new Guantr({ maxRuleIterations: -1 });
+new Guantr({ maxRuleIterations: 1.5 });
+```
+
+## See also
+
+- [`createGuantr()`](../createGuantr) — Recommended factory function with rule initialization support.
+- [`setRules()`](./setRules) — Set rules after construction.
+- [`can()`](./can) — Permission checking.
