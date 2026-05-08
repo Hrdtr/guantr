@@ -47,7 +47,7 @@ When the storage adapter provides a `cache`, results are cached with the key pat
 can/${action}:${resourceKey}:${stableStringify(resourceInstance)}:${stableStringify(context)}
 ```
 
-The serializer used is [`stableStringify`](#), not `JSON.stringify`. Unlike `JSON.stringify`, `stableStringify`:
+The serializer used is `stableStringify`, not `JSON.stringify`. Unlike `JSON.stringify`, `stableStringify`:
 
 - **Sorts object keys** for consistent output regardless of insertion order.
 - **Converts `Date`** to ISO strings.

@@ -201,11 +201,11 @@ When each user has a different set of permissions, rules are **assigned** to use
 
 ```sql
 CREATE TABLE rules (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  action     TEXT NOT NULL,
-  resource   TEXT NOT NULL,
-  effect     TEXT NOT NULL CHECK (effect IN ('allow', 'deny')),
-  condition  JSONB
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  action          TEXT NOT NULL,
+  resource        TEXT NOT NULL,
+  effect          TEXT NOT NULL CHECK (effect IN ('allow', 'deny')),
+  matchCondition  JSONB
 );
 
 CREATE TABLE users ( id UUID PRIMARY KEY DEFAULT gen_random_uuid() );
@@ -248,7 +248,7 @@ class ScopedStorage implements Storage {
   async queryRules(action: string, resource: string): Promise<GuantrRule[]> {
     const userId = this.getCurrentUserId();
     const rows = await this.db.sql`
-      SELECT DISTINCT r.action, r.resource, r.effect, r.condition
+      SELECT DISTINCT r.action, r.resource, r.effect, r.matchCondition
       FROM rules r
       WHERE r.action = ${action} AND r.resource = ${resource}
         AND (
@@ -264,12 +264,28 @@ class ScopedStorage implements Storage {
       action: r.action,
       resource: r.resource,
       effect: r.effect,
-      matchCondition: r.condition as GuantrRule['matchCondition'],
+      matchCondition: r.matchCondition as GuantrRule['matchCondition'],
     }));
   }
 
   async getRules(): Promise<GuantrRule[]> {
-    /* same join, no action/resource filter */
+    const userId = this.getCurrentUserId();
+    const rows = await this.db.sql`
+      SELECT DISTINCT r.action, r.resource, r.effect, r.condition
+      FROM rules r
+      WHERE r.id IN (SELECT rule_id FROM user_rules WHERE user_id = ${userId})
+         OR r.id IN (
+           SELECT rr.rule_id FROM role_rules rr
+           JOIN user_roles ur ON ur.role_id = rr.role_id
+           WHERE ur.user_id = ${userId}
+         )
+    `;
+    return rows.map((r) => ({
+      action: r.action,
+      resource: r.resource,
+      effect: r.effect,
+      matchCondition: r.condition as GuantrRule['matchCondition'],
+    }));
   }
 
   async setRules(_rules: GuantrRule[]): Promise<void> {
