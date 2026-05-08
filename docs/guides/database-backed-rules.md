@@ -271,7 +271,7 @@ class ScopedStorage implements Storage {
   async getRules(): Promise<GuantrRule[]> {
     const userId = this.getCurrentUserId();
     const rows = await this.db.sql`
-      SELECT DISTINCT r.action, r.resource, r.effect, r.condition
+      SELECT DISTINCT r.action, r.resource, r.effect, r.matchCondition
       FROM rules r
       WHERE r.id IN (SELECT rule_id FROM user_rules WHERE user_id = ${userId})
          OR r.id IN (
@@ -284,7 +284,7 @@ class ScopedStorage implements Storage {
       action: r.action,
       resource: r.resource,
       effect: r.effect,
-      matchCondition: r.condition as GuantrRule['matchCondition'],
+      matchCondition: r.matchCondition as GuantrRule['matchCondition'],
     }));
   }
 
