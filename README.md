@@ -154,8 +154,8 @@ All conditions are serialized to a JSON-compatible AST at definition time, makin
 
 ```ts
 await createGuantr<Meta>({
-  storage: new MyCustomStorage(), // default: InMemoryStorage
   context: () => ({ userId: 1 }), // default: {}
+  storage: new MyCustomStorage(), // default: InMemoryStorage
   maxRuleIterations: 500, // default: 1000
 });
 ```

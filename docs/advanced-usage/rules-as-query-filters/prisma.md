@@ -260,7 +260,7 @@ const toPrismaWhereClause = (
 
 ## Complete Rule-to-Prisma Filter
 
-````ts
+```ts
 const SENTINEL_FALSE: Record<string, unknown> = { __guantr_no_match: true };
 
 const rulesToPrismaWhere = (
@@ -273,9 +273,7 @@ const rulesToPrismaWhere = (
     return SENTINEL_FALSE;
   }
 
-  const hasUnconditionalAllow = rules.some(
-    (r) => r.matchCondition == null && r.effect === 'allow',
-  );
+  const hasUnconditionalAllow = rules.some((r) => r.matchCondition == null && r.effect === 'allow');
 
   type Clause = Record<string, unknown>;
   const OR: Clause[] = [];
@@ -308,6 +306,7 @@ const rulesToPrismaWhere = (
   if (AND.length > 0) result.AND = AND;
   return result;
 };
+```
 
 ## Example Usage
 
@@ -323,20 +322,18 @@ const guantr = await createGuantr({
 
 await guantr.setRules((allow, deny) => {
   // Allow reading published, non-archived posts
-  allow('read', ['post', ({ and, eq, resource, literal }) =>
-    and(
-      eq(resource('status'), literal('published')),
-      eq(resource('deleted'), literal(false)),
-    ),
+  allow('read', [
+    'post',
+    ({ and, eq, resource, literal }) =>
+      and(eq(resource('status'), literal('published')), eq(resource('deleted'), literal(false))),
   ]);
   // Allow reading own posts regardless
-  allow('read', ['post', ({ eq, resource, context }) =>
-    eq(resource('authorId'), context('userId')),
+  allow('read', [
+    'post',
+    ({ eq, resource, context }) => eq(resource('authorId'), context('userId')),
   ]);
   // Deny reading restricted posts
-  deny('read', ['post', ({ eq, resource, literal }) =>
-    eq(resource('restricted'), literal(true)),
-  ]);
+  deny('read', ['post', ({ eq, resource, literal }) => eq(resource('restricted'), literal(true))]);
 });
 
 // 2. In a route handler — build the auth filter
@@ -372,7 +369,7 @@ async function listPosts(userId: string) {
   //   },
   // });
 }
-````
+```
 
 ## Semantic Behavior Matrix
 
