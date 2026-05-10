@@ -1,3 +1,7 @@
+---
+description: 'Reference for the can method — checks whether a specific action is permitted on a given resource instance by evaluating both allow and deny rules with conditions.'
+---
+
 # API: `Guantr.prototype.can`
 
 The `can` method checks whether a specific action is permitted on a given resource instance. It evaluates both `allow` and `deny` rules, including any applicable `matchCondition` against the resource instance and the evaluation context.

@@ -1,3 +1,7 @@
+---
+description: "Reference for getRules — returns all permission rules currently stored in the Guantr instance's storage adapter, with caching support."
+---
+
 # API: `Guantr.prototype.getRules`
 
 The `getRules` method returns all permission rules currently stored in the Guantr instance's storage adapter. Results are cached via the storage adapter's cache layer when available.

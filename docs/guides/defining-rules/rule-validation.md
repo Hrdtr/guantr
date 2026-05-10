@@ -1,3 +1,7 @@
+---
+description: 'Documentation of runtime validation in Guantr v2 — covers compile-time safety via the type-safe builder DSL and runtime validation checks that catch errors.'
+---
+
 # Rule Validation
 
 Guantr v2 uses a **type-safe builder DSL** for conditions, which catches most errors at **compile time**. This page documents the remaining validation that occurs at runtime.

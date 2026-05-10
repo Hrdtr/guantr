@@ -1,3 +1,7 @@
+---
+description: 'Learn how to use context effectively in Guantr — dynamic context resolution, sharing context across batch checks, and patterns for user, role, and environment data.'
+---
+
 # Using Context Effectively in Guantr
 
 Authorization decisions often depend on **who** is making the request, **when**, and other environmental factors. Guantr provides this dynamic information through **Context**.

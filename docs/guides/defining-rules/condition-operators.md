@@ -1,3 +1,7 @@
+---
+description: "Complete reference for every condition operator in Guantr's MatchConditionBuilder DSL — value source factories, comparison, string, array, and logical operators."
+---
+
 # Condition Operators — Complete Reference
 
 Every `matchCondition` function receives a builder object (`MatchConditionBuilder`) with methods for constructing value references and composing them with operators. This page is the exhaustive reference for every method on that builder.

@@ -1,3 +1,7 @@
+---
+description: 'Reference for the cannot method — the logical negation of can(). Returns true if the action is denied by evaluating rules against a resource instance.'
+---
+
 # API: `Guantr.prototype.cannot`
 
 The `cannot` method is the logical negation of [`can()`](./can). It evaluates rules against a resource instance and returns `true` if the action is denied.

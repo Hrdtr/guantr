@@ -1,3 +1,7 @@
+---
+description: 'Reference for can.abstract — performs an abstract permission check that returns true if any allow rule exists, without evaluating conditions or deny rules. Used for UI decisions.'
+---
+
 # API: `Guantr.prototype.can.abstract`
 
 The `can.abstract` sub-method performs an **abstract permission check** — it returns `true` if any `allow` rule exists for the given action and resource key, **without evaluating conditions or considering deny rules**.

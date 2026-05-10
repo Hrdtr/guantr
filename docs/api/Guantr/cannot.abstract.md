@@ -1,3 +1,7 @@
+---
+description: 'Reference for cannot.abstract — the logical negation of can.abstract. Returns true if no allow rule exists for the given action and resource key.'
+---
+
 # API: `Guantr.prototype.cannot.abstract`
 
 The `cannot.abstract` sub-method is the logical negation of [`can.abstract`](./can.abstract). It returns `true` if **no** `allow` rule exists for the given action and resource key.

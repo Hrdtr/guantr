@@ -1,3 +1,7 @@
+---
+description: 'Reference for setRules — replaces all previously stored rules with a new rule set. Supports both direct array and callback styles for defining rules.'
+---
+
 # API: `Guantr.prototype.setRules`
 
 The `setRules` method **replaces all previously stored rules** with a new rule set. It supports two call styles: a direct array of `GuantrRule` objects, or a callback function that receives `allow`/`deny` helper functions for defining rules programmatically.

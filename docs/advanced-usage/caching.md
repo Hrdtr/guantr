@@ -1,3 +1,7 @@
+---
+description: "Learn about Guantr's optional caching layer — how caching works, cache key patterns, invalidation strategies, custom cache implementations (Redis, LRU, TTL), and performance considerations."
+---
+
 # Advanced Usage: Caching
 
 Guantr includes an optional caching layer to reduce redundant computations during permission checks. Understanding the cache mechanism helps you decide whether to use it, customize it, or disable it for your workload.

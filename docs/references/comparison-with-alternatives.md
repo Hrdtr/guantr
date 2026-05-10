@@ -1,3 +1,7 @@
+---
+description: 'Compare Guantr with other popular authorization libraries and systems — explores design philosophies, features, and tradeoffs to help you choose the right solution.'
+---
+
 # Comparison with Alternatives
 
 Choosing an authorization solution involves considering various factors like your application architecture, team's familiarity with tools, required level of flexibility, and performance needs. This page provides a brief comparison between Guantr and other popular authorization libraries/systems to help you understand Guantr's positioning.

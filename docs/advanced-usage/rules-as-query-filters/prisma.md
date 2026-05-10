@@ -1,3 +1,7 @@
+---
+description: 'Convert Guantr v2 rule conditions into Prisma-compatible WHERE clauses for row-level security — includes AST transpiler, operator mappings, and semantic behavior matrix.'
+---
+
 # Using Rules as Prisma Query Filters
 
 This guide demonstrates how to convert Guantr v2 rule conditions into Prisma-compatible `where` clauses. This enables row-level security — fetching only the rows a user is allowed to see — using the same rules already defined for access control.

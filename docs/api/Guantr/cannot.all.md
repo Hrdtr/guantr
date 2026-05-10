@@ -1,3 +1,7 @@
+---
+description: 'Reference for cannot.all — batch permission check that returns true only if every check in the array is denied. Logical negation of can.any.'
+---
+
 # API: `Guantr.prototype.cannot.all`
 
 The `cannot.all` sub-method performs a **batch permission check** — it returns `true` only if **every** check in the array is denied. It is the logical negation of [`can.any`](./can.any).

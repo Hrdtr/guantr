@@ -1,3 +1,7 @@
+---
+description: "Reference for Guantr's utility functions and types — createMatchConditionBuilder, evaluateCondition, serializeRules, deserializeRules, and all condition type definitions."
+---
+
 # API: Utilities
 
 Guantr exports utility functions and types for building and evaluating conditions outside the core `can`/`cannot` workflow.

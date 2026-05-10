@@ -1,3 +1,7 @@
+---
+description: "Reference for Guantr's error classes — GuantrCircuitBreakerError and GuantrInvalidConditionKeyError, their constructors, properties, and usage."
+---
+
 # API: Error Classes
 
 Guantr exports two error classes that extend the built-in `Error` class and carry extra metadata for programmatic inspection and error handling.

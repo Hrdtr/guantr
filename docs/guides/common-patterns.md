@@ -1,3 +1,7 @@
+---
+description: 'Collection of common authorization patterns implemented with Guantr v2.0 — ownership, role-based access, multi-tenant, ABAC, and more with typed resource maps and builder DSL.'
+---
+
 # Common Patterns
 
 This page collects authorization patterns implemented with Guantr v2.0. Each pattern includes a complete code example using typed resource maps and the builder DSL.

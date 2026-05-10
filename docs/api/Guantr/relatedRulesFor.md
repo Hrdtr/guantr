@@ -1,3 +1,7 @@
+---
+description: 'Reference for relatedRulesFor — retrieves stored permission rules matching a specific action and resource key. A low-level query against the storage adapter.'
+---
+
 # API: `Guantr.prototype.relatedRulesFor`
 
 The `relatedRulesFor` method retrieves all stored permission rules matching a specific action and resource key. This is a low-level, direct query against the storage adapter — conditions are **not evaluated** and results are **not cached**.

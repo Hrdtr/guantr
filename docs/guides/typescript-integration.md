@@ -1,3 +1,7 @@
+---
+description: 'TypeScript integration guide — use GuantrMeta to anchor the type system with compile-time validation of actions, resource keys, model properties, and context fields.'
+---
+
 # TypeScript Integration with `GuantrMeta`
 
 Guantr is built TypeScript-first. The `GuantrMeta` type anchors the entire type system, providing compile-time validation of every action name, resource key, model property path, and context field across the full API surface — rule definition, builder DSL, and permission checks.

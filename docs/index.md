@@ -1,5 +1,6 @@
 ---
 # https://vitepress.dev/reference/default-theme-home-page
+description: 'Home page for Guantr — a flexible, type-safe JavaScript authorization library for efficient permission checking'
 layout: home
 
 hero:

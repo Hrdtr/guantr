@@ -1,3 +1,7 @@
+---
+description: 'Performance considerations for Guantr — factors affecting permission check performance, optimization strategies, benchmarking tips, and caching best practices.'
+---
+
 # Performance Considerations
 
 Guantr is designed to be flexible and powerful, but like any system component, its performance can be influenced by various factors, especially under load. Understanding these factors can help you optimize your Guantr setup for demanding applications.

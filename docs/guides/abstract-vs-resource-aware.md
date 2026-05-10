@@ -1,3 +1,7 @@
+---
+description: 'Understand the difference between abstract and resource-aware permission checks in Guantr — when to use can.abstract vs can() for correct and performant authorization.'
+---
+
 # Abstract vs Resource-Aware Checks
 
 Guantr provides two distinct families of permission-check methods. Understanding the difference is essential for building correct and performant authorization.

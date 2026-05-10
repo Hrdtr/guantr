@@ -1,3 +1,7 @@
+---
+description: 'Manage Guantr permission rules in a database instead of in-memory — persistence, dynamic rule updates, multi-tenant support, and seeding strategies.'
+---
+
 # Database-Backed Rule Management
 
 ## Why Database-Backed Rules?

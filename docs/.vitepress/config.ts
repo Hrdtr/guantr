@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress';
+import llmstxt, { copyOrDownloadAsMarkdownButtons } from 'vitepress-plugin-llms';
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -128,5 +129,13 @@ export default defineConfig({
       { icon: 'github', link: 'https://github.com/Hrdtr/guantr' },
       { icon: 'npm', link: 'https://www.npmjs.com/package/guantr' },
     ],
+  },
+  vite: {
+    plugins: [llmstxt({ domain: 'https://guantr.hrdtr.dev' })],
+  },
+  markdown: {
+    config(md) {
+      md.use(copyOrDownloadAsMarkdownButtons);
+    },
   },
 });

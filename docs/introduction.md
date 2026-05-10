@@ -1,3 +1,7 @@
+---
+description: 'Comprehensive introduction to Guantr — a type-safe, runtime-agnostic authorization library for JavaScript. Covers key features, how it works, and why to choose it.'
+---
+
 # Guantr: Type-Safe Authorization for JavaScript
 
 Guantr is a flexible, type-safe authorization library that defines and evaluates permission rules against resource instances with dynamic context. It is runtime-agnostic, framework-agnostic, and storage-agnostic — works in Node.js, Deno, Bun, edge functions, and the browser, at any scale.

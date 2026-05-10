@@ -1,3 +1,7 @@
+---
+description: 'Reference for createGuantr — the primary factory function for creating Guantr instances. Covers all four overloads, options, generics, and examples.'
+---
+
 # API: `createGuantr`
 
 The `createGuantr` function is the primary factory for creating `Guantr` instances. It is asynchronous and supports four overloads for maximum flexibility: you can initialize with options only, with a rule array, with a rule-defining callback, or with no arguments at all.

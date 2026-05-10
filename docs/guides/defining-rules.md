@@ -1,3 +1,7 @@
+---
+description: 'Learn how to define permission rules in Guantr — rule structure, the condition builder DSL, rule precedence, and how allow/deny evaluation works.'
+---
+
 # Defining Rules in Guantr
 
 Rules are the core of Guantr's authorization engine. They express what actions are permitted or forbidden on which resources, optionally gated by runtime conditions.

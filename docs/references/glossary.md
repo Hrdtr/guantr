@@ -1,3 +1,7 @@
+---
+description: 'Glossary of key terms used in the Guantr documentation — ABAC, RBAC, conditions, rules, storage adapters, and other authorization concepts.'
+---
+
 # Glossary of Terms
 
 This glossary defines key terms used in the Guantr documentation to help ensure a common understanding.

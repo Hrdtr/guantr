@@ -1,3 +1,7 @@
+---
+description: 'Reference for the Guantr constructor — direct instantiation with new Guantr() as an alternative to createGuantr(). Accepts options but requires a separate setRules() call.'
+---
+
 # API: `Guantr` Constructor
 
 The `Guantr` class can be instantiated directly with `new` as an alternative to `createGuantr()`. The constructor accepts options (storage, context, circuit breaker) but does not accept initial rules — you must call `setRules()` separately after construction.

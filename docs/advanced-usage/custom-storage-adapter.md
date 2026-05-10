@@ -1,3 +1,7 @@
+---
+description: 'Implement a custom storage adapter for Guantr — covers the Storage interface contract, condition serialization, and example implementations for SQLite, Prisma, and Drizzle ORM.'
+---
+
 # Advanced Usage: Custom Storage Adapter
 
 By default, Guantr uses `InMemoryStorage` to store permission rules. For persistent rules or sharing rules across multiple application instances, implement a custom storage adapter.

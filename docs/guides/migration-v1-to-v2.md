@@ -1,3 +1,7 @@
+---
+description: 'Migration guide from Guantr v1.x to v2.0 — covers breaking changes including the new type-safe builder DSL, renamed condition fields, and serialized condition AST format.'
+---
+
 # Migration Guide: v1.x to v2.0
 
 Guantr v2.0 introduces a redesigned condition system built around a **type-safe builder DSL** and replaces the legacy tuple-based condition expressions. This guide walks through every breaking change.

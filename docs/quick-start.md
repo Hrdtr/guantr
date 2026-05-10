@@ -1,3 +1,7 @@
+---
+description: 'Quick start guide for Guantr — install the library, define permission rules, and perform authorization checks with code examples.'
+---
+
 # Quick Start
 
 This guide walks through installing Guantr, defining your first permission rules, and performing authorization checks.

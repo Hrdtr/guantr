@@ -1,3 +1,7 @@
+---
+description: 'Reference for can.all — batch permission check that returns true only if every check in the array is granted. Context is resolved once and shared across all checks.'
+---
+
 # API: `Guantr.prototype.can.all`
 
 The `can.all` sub-method performs a **batch permission check** — it returns `true` only if **every** check in the array is granted. It resolves the evaluation context once and shares it across all checks, and short-circuits on the first `false` result.
