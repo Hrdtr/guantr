@@ -55,7 +55,7 @@
     "lint-staged": "^17.0.3",
     "oxfmt": "^0.48.0",
     "oxlint": "^1.63.0",
-    "typescript": "^5.9.2",
+    "typescript": "^6.0.0",
     "unbuild": "^3.6.1",
     "vitepress": "^1.6.4",
     "vitepress-plugin-llms": "^1.12.2",
