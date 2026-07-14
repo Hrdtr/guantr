@@ -67,11 +67,8 @@ export type GuantrContextFromMeta<Meta extends GuantrMeta<GuantrResourceMap> | u
  */
 export type GuantrRule<
   Meta extends GuantrMeta<GuantrResourceMap> | undefined = undefined,
-  ResourceKey extends Meta extends GuantrMeta<infer U> ? keyof U : string = Meta extends GuantrMeta<
-    infer U
-  >
-    ? keyof U
-    : string,
+  ResourceKey extends (Meta extends GuantrMeta<infer U> ? keyof U : string) =
+    Meta extends GuantrMeta<infer U> ? keyof U : string,
 > =
   Meta extends GuantrMeta<infer ResourceMap>
     ? {
